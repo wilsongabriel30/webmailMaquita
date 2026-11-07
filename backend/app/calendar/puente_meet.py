@@ -4,13 +4,17 @@ Puente calendario del correo → Maquita Meet (T-30). Módulo aparte del router/
 - Evento creado con `meet: true` (la app o cualquier cliente de la API): crea la reunión en el servicio de reuniones
   (misma cuenta = moderador, asistentes = participantes → aviso T-03 + recordatorio), deja en el evento el enlace,
   «Entrar con tu usuario» y la marca X-MAQUITA-REUNION:<id>, y vincula la reunión con el evento.
-- Evento editado con marca → actualiza la reunión (hora, asistentes, asunto).  Evento borrado con marca → cancela la reunión.
-El webmail (React) hace lo mismo desde el navegador; aquí se cubre la API. Nunca rompe la operación del calendario.
+- Evento editado o movido (arrastrar) con marca → actualiza la reunión (hora, asistentes, asunto).
+  Evento borrado con marca → cancela la reunión.
+El webmail (React) solo crea la reunión al guardar un evento nuevo; editar, mover y borrar los sincroniza
+este módulo (una sola vez, sin avisos repetidos). Nunca rompe la operación del calendario.
 """
 
 import logging
+import math
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import httpx
 
@@ -30,10 +34,25 @@ def _token(request):
 
 
 def _horas(ev):
+    """Horas enteras de la reunión, redondeadas hacia arriba (igual que el webmail: 90 min → 2 h)."""
     try:
-        return max(1, int(round((ev.dtend - ev.dtstart).total_seconds() / 3600)))
+        return max(1, math.ceil((ev.dtend - ev.dtstart).total_seconds() / 3600))
     except Exception:
         return 1
+
+
+def _inicio_local(ev):
+    """Hora de inicio en la zona del evento, sin zona: el servicio de reuniones guarda hora local.
+    La BD devuelve `dtstart` en UTC; enviarlo tal cual dejaba la reunión 5 horas corrida.
+    """
+    inicio = ev.dtstart
+    if inicio.tzinfo is not None:
+        try:
+            zona = ZoneInfo(getattr(ev, "timezone", None) or "America/Guayaquil")
+        except Exception:
+            zona = ZoneInfo("America/Guayaquil")
+        inicio = inicio.astimezone(zona)
+    return inicio.strftime("%Y-%m-%dT%H:%M")
 
 
 def _asistentes(data_or_ev):
@@ -59,7 +78,7 @@ async def tras_crear(db, user, ev, data, request):
                 f"{CHAT}/api/chat/reuniones",
                 json={
                     "asunto": ev.summary,
-                    "inicio": ev.dtstart.strftime("%Y-%m-%dT%H:%M"),
+                    "inicio": _inicio_local(ev),
                     "duracion_horas": _horas(ev),
                     "participantes": _asistentes(data),
                     "calendario": False,
@@ -112,7 +131,7 @@ async def tras_actualizar(ev, request):
                 f"{CHAT}/api/chat/reuniones/{m.group(1)}",
                 json={
                     "asunto": ev.summary,
-                    "inicio": ev.dtstart.strftime("%Y-%m-%dT%H:%M"),
+                    "inicio": _inicio_local(ev),
                     "duracion_horas": _horas(ev),
                     "participantes": _asistentes(ev),
                     "sin_calendario": True,

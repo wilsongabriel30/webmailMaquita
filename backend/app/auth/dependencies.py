@@ -61,6 +61,7 @@ async def get_current_user(request: Request) -> str:
             },
         )
     request.state.sid = sid
+    request.state.username = username
     request.state.session_kind = payload.get("kind", "normal")
 
     # Keep-alive solo en sesiones normales: la impersonación (y las federadas) vencen

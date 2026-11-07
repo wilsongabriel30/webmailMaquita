@@ -10,6 +10,22 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.tasks import (
+    acceso,
+    adjuntos,
+    correo_marcado,
+    repeticion,
+    seguimiento_en_lista,
+    tiempo_real,
+    vistas,
+)
+from app.tasks.rutas_compartir import router as f4_router
+from app.tasks.rutas_desde_correo import router as desde_correo_router
+from app.tasks.rutas_f5 import router as f5_router
+from app.tasks.rutas_f6 import router as f6_router
+from app.tasks.rutas_listas import router as listas_router
+from app.tasks.rutas_tareas import router as f3_router
+from app.tasks.rutas_vistas import router as vistas_router
 from app.tasks.schemas import (
     ActivityOut,
     BoardCreate,
@@ -26,8 +42,6 @@ from app.tasks.schemas import (
     ListOut,
     MemberAdd,
     MemberOut,
-    TaskListCreate,
-    TaskListUpdate,
 )
 from app.tasks.service import task_service
 from app.tasks.task_calendar_sync import (
@@ -38,7 +52,16 @@ from app.tasks.task_calendar_sync import (
 
 _sync_logger = logging.getLogger("task_sync")
 
-router = APIRouter()
+# Tiempo real: tras cada cambio, avisa a las demás personas de las listas compartidas que toca (tiempo_real.py).
+router = APIRouter(dependencies=[Depends(tiempo_real.avisar_cambios)])
+router.include_router(listas_router)  # listas propias, grupos y orden
+router.include_router(vistas_router)  # listas inteligentes, «Mi día» y conteos
+router.include_router(f3_router)  # buscar, mover a otra lista y adjuntos
+router.include_router(f4_router)  # compartir, asignar, actividad y avisos
+router.include_router(f5_router)  # duplicar listas
+router.include_router(f6_router)  # configuración y sugerencias
+# Tareas al soltar correos en el ícono Tareas.
+router.include_router(desde_correo_router)
 
 
 def _db(request: Request):
@@ -53,55 +76,10 @@ def _redis(request: Request):
 #  Microsoft To Do style endpoints
 # ════════════════════════════════════════════════
 
-# ── Lists ──
-
-
-@router.get("/lists", response_model=list[ListOut])
-async def todo_list_lists(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.list_user_lists(_db(request), user)
-
-
-@router.post("/lists", response_model=ListOut, status_code=201)
-async def todo_create_list(
-    data: TaskListCreate, request: Request, user: str = Depends(get_current_user)
-):
-    return await task_service.create_user_list(_db(request), user, data)
-
-
-@router.patch("/lists/{list_id}", response_model=ListOut)
-async def todo_rename_list(
-    list_id: uuid.UUID,
-    data: TaskListUpdate,
-    request: Request,
-    user: str = Depends(get_current_user),
-):
-    try:
-        return await task_service.rename_user_list(_db(request), user, list_id, data)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-
-
-@router.delete("/lists/{list_id}", status_code=204)
-async def todo_delete_list(
-    list_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
-):
-    try:
-        await task_service.delete_user_list(_db(request), user, list_id)
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+# Listas propias, grupos y orden: rutas_listas.py.
 
 
 # ── Tasks in lists ──
-
-
-@router.get("/lists/{list_id}/tasks", response_model=list[CardOut])
-async def todo_list_tasks(
-    list_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
-):
-    try:
-        return await task_service.list_cards(_db(request), user, list_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
 
 
 @router.post("/lists/{list_id}/tasks", response_model=CardOut, status_code=201)
@@ -147,81 +125,25 @@ async def todo_create_task_default(
     return result
 
 
-# ── Smart Views ──
-
-
-@router.get("/views/my-day", response_model=list[CardOut])
-async def todo_view_my_day(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.get_smart_view(_db(request), user, "my_day")
-
-
-@router.get("/views/important", response_model=list[CardOut])
-async def todo_view_important(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.get_smart_view(_db(request), user, "important")
-
-
-@router.get("/views/planned", response_model=list[CardOut])
-async def todo_view_planned(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.get_smart_view(_db(request), user, "planned")
-
-
-@router.get("/views/assigned", response_model=list[CardOut])
-async def todo_view_assigned(request: Request, user: str = Depends(get_current_user)):
-    return await task_service.get_smart_view(_db(request), user, "assigned")
-
-
-@router.get("/views/flagged")
-async def todo_view_flagged(request: Request, user: str = Depends(get_current_user)):
-    """Correo electrónico marcado — obtiene emails con bandera desde IMAP."""
-    try:
-        from app.core.session import get_imap_login_user, get_user_password
-        from app.mail.clients.imap_client import get_imap_connection
-        from app.mail.services.message_service import list_messages
-
-        password = await get_user_password(request, user)
-        login_user = await get_imap_login_user(request, user)
-        imap = await get_imap_connection(login_user, password)
-        try:
-            result = await list_messages(imap, "INBOX", 1, 50, "is:flagged")
-            if result and "messages" in result:
-                flagged = []
-                for msg in result["messages"]:
-                    flagged.append(
-                        {
-                            "id": f"mail-{msg.get('uid', 0)}",
-                            "list_id": "00000000-0000-0000-0000-000000000000",
-                            "title": msg.get("subject", "(sin asunto)"),
-                            "description": f"De: {msg.get('from', '')}",
-                            "due_date": None,
-                            "priority": "medium",
-                            "labels": [],
-                            "completed": False,
-                            "position": 0,
-                            "assigned_to": None,
-                            "created_by": msg.get("from", ""),
-                            "completed_by": None,
-                            "completed_at": None,
-                            "important": True,
-                            "my_day": False,
-                            "reminder": None,
-                            "note": "",
-                            "recurrence": None,
-                            "created_at": msg.get("date", ""),
-                            "updated_at": msg.get("date", ""),
-                        }
-                    )
-                return flagged
-        finally:
-            try:
-                await imap.logout()
-            except Exception:
-                pass
-    except Exception:
-        pass
-    return []
-
-
 # ── Task operations ──
+
+
+async def _por_seguimiento(request, user: str, card_id, completada: bool) -> CardOut:
+    try:
+        return await seguimiento_en_lista.marcar(
+            _db(request), _redis(request), user, card_id, completada
+        )
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    except LookupError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+async def _por_seguimiento_tarjeta(request, user: str, card_id) -> CardOut:
+    tarjeta = await vistas.una(_db(request), user, card_id)
+    if tarjeta is None:
+        raise HTTPException(status_code=404, detail="Tarea no encontrada")
+    return tarjeta
 
 
 @router.patch("/tasks/{card_id}", response_model=CardOut)
@@ -231,8 +153,27 @@ async def todo_update_task(
     request: Request,
     user: str = Depends(get_current_user),
 ):
+    if data.completed is not None and await seguimiento_en_lista.es_seguimiento(
+        _db(request), card_id
+    ):
+        # Con seguimiento, completar o reabrir va por Seguimiento; lo demás, por la lista (fase 3, 05/11/2026).
+        hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
+        if bool(hecha) != data.completed:
+            await _por_seguimiento(request, user, card_id, data.completed)
+        data = CardUpdate(**data.model_dump(exclude_unset=True, exclude={"completed"}))
+        if not data.model_fields_set:
+            return await _por_seguimiento_tarjeta(request, user, card_id)
     try:
         result = await task_service.update_card(_db(request), user, card_id, data)
+        if result.completed and data.completed:
+            await repeticion.tras_completar(_db(request), user, card_id)
+        if data.completed is not None:
+            enlace = await correo_marcado.vinculo(_db(request), card_id, user)
+            await correo_marcado.poner_bandera(
+                request, user, enlace, not result.completed
+            )
         rd = result.model_dump()
         try:
             # Si se cambio fecha o asignado, sincronizar calendario
@@ -260,8 +201,17 @@ async def todo_update_task(
 async def todo_toggle_task(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
+    if await seguimiento_en_lista.es_seguimiento(_db(request), card_id):
+        hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
+        return await _por_seguimiento(request, user, card_id, not hecha)
     try:
         result = await task_service.toggle_card(_db(request), user, card_id)
+        if result.completed:
+            await repeticion.tras_completar(_db(request), user, card_id)
+        enlace = await correo_marcado.vinculo(_db(request), card_id, user)
+        await correo_marcado.poner_bandera(request, user, enlace, not result.completed)
         # Si se completo, eliminar del calendario; si se reabrio, re-sincronizar
         try:
             rd = result.model_dump()
@@ -290,25 +240,23 @@ async def todo_toggle_important(
         raise HTTPException(status_code=404, detail=str(e))
 
 
-@router.patch("/tasks/{card_id}/my-day", response_model=CardOut)
-async def todo_toggle_my_day(
-    card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
-):
-    try:
-        return await task_service.toggle_my_day(_db(request), user, card_id)
-    except ValueError as e:
-        raise HTTPException(status_code=404, detail=str(e))
-
-
 @router.delete("/tasks/{card_id}", status_code=204)
 async def todo_delete_task(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
     try:
+        await seguimiento_en_lista.puede_eliminar(_db(request), user, card_id)
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
+    try:
         # Leer tarea antes de eliminar para poder limpiar calendario
         db = _db(request)
         task_row = await db.fetchrow("SELECT * FROM task_cards WHERE id = $1", card_id)
+        enlace = await correo_marcado.vinculo(db, card_id, user)
+        carpetas = await adjuntos.con_adjuntos(db, card_id=card_id)
         await task_service.delete_card(db, user, card_id)
+        await adjuntos.borrar_carpetas(carpetas)
+        await correo_marcado.poner_bandera(request, user, enlace, False)
         # Limpiar calendario
         if task_row and task_row.get("due_date"):
             try:
@@ -509,6 +457,11 @@ async def move_card(
 async def toggle_card(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
+    if await seguimiento_en_lista.es_seguimiento(_db(request), card_id):
+        hecha = await _db(request).fetchval(
+            "SELECT completed FROM task_cards WHERE id = $1", card_id
+        )
+        return await _por_seguimiento(request, user, card_id, not hecha)
     try:
         return await task_service.toggle_card(_db(request), user, card_id)
     except ValueError as e:
@@ -520,7 +473,10 @@ async def delete_card(
     card_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
 ):
     try:
+        await seguimiento_en_lista.puede_eliminar(_db(request), user, card_id)
         await task_service.delete_card(_db(request), user, card_id)
+    except seguimiento_en_lista.NoParticipa as e:
+        raise HTTPException(status_code=403, detail=str(e))
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
 
@@ -589,28 +545,17 @@ StepOut.model_rebuild()
 
 
 async def _verify_card_access(db, card_id, user: str):
-    """Verify user has access to the card via board ownership or membership."""
-    row = await db.fetchrow(
-        """SELECT tb.id FROM task_cards tc
-           JOIN task_lists tl ON tl.id = tc.list_id
-           JOIN task_boards tb ON tb.id = tl.board_id
-           WHERE tc.id = $1 AND tb."user" = $2""",
-        card_id,
-        user,
-    )
-    if not row:
-        row = await db.fetchval(
-            """SELECT 1 FROM task_cards tc
-               JOIN task_lists tl ON tl.id = tc.list_id
-               JOIN task_board_members tbm ON tbm.board_id = tl.board_id
-               WHERE tc.id = $1 AND tbm.user_email = $2""",
-            card_id,
-            user,
-        )
-        if not row:
-            from fastapi import HTTPException
+    """La persona ve la lista de la tarea (propia o compartida)."""
+    if not await acceso.puede_ver_tarea(db, card_id, user):
+        raise HTTPException(403, "No tiene acceso a esta tarea")
 
-            raise HTTPException(403, "No tiene acceso a esta tarea")
+
+async def _verify_step_access(db, step_id, user: str):
+    """Antes no se comprobaba: con el id de un paso se podía editar o borrar el de otra persona."""
+    card_id = await db.fetchval("SELECT card_id FROM task_steps WHERE id = $1", step_id)
+    if card_id is None:
+        raise HTTPException(404, "Paso no encontrado")
+    await _verify_card_access(db, card_id, user)
 
 
 _steps_table_ready = False
@@ -687,6 +632,7 @@ async def update_step(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
+    await _verify_step_access(db, step_id, user)
     sets, vals, idx = [], [], 1
     if data.title is not None:
         sets.append(f"title = ${idx}")
@@ -717,6 +663,7 @@ async def delete_step(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
+    await _verify_step_access(db, step_id, user)
     result = await db.execute("DELETE FROM task_steps WHERE id = $1", step_id)
     if result == "DELETE 0":
         raise HTTPException(404, "Paso no encontrado")

@@ -14,6 +14,7 @@ import asyncio
 import json
 import logging
 from typing import Dict, Set
+from urllib.parse import quote
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect, status
 
@@ -22,6 +23,12 @@ from app.auth.sesiones import (
     CANAL_REVOCACION,
     credencial_de_alguna_sesion,
     sesion_valida,
+)
+from app.websocket import sondeo_unico
+from app.websocket.resumen_correo_nuevo import (  # 06/11/2026
+    resumen_correo,
+    textos_aviso,
+    textos_aviso_cuenta,
 )
 
 logger = logging.getLogger("websocket")
@@ -90,7 +97,13 @@ async def _ultimo_sin_leer(imap) -> int | None:
 
 
 async def aviso_correo_al_canal(
-    username: str, nuevos: int, sin_leer: int, uid: int | None = None, db=None
+    username: str,
+    nuevos: int,
+    sin_leer: int,
+    uid: int | None = None,
+    db=None,
+    resumen: dict | None = None,
+    cuenta: str | None = None,
 ) -> None:
     """Avisa al canal de notificaciones (lo que ve la app de escritorio) que llegó
     correo. tipo='correo' y url del webmail; nunca interrumpe la operación."""
@@ -100,13 +113,15 @@ async def aviso_correo_al_canal(
         secreto = os.getenv("NOTIF_SECRET", "")
         if not secreto or not username:
             return
-        texto = (
-            "Tienes 1 correo nuevo"
-            if nuevos == 1
-            else "Tienes %d correos nuevos" % nuevos
-        )
-        if sin_leer and sin_leer != nuevos:
-            texto += " (%d sin leer)" % sin_leer
+        # 06/11/2026: remitente y asunto (resumen_correo_nuevo.py), no solo cuántos.
+        # `cuenta`: correo de una cuenta delegada (06/11/2026): el texto dice a cuál llegó y el
+        # enlace abre el webmail ya en esa cuenta (?cuenta=…), como el push web.
+        if cuenta:
+            titulo, texto = textos_aviso_cuenta(nuevos, resumen, cuenta)
+        else:
+            titulo, texto = textos_aviso(nuevos, resumen)
+            if not (resumen or {}).get("de") and sin_leer and sin_leer != nuevos:
+                texto += " (%d sin leer)" % sin_leer
         import httpx
 
         from app import organizacion
@@ -123,12 +138,14 @@ async def aviso_correo_al_canal(
                 json={
                     "correos": [username],
                     "tipo": "correo",
-                    "titulo": "Correo nuevo",
+                    "titulo": titulo,
                     "texto": texto,
                     "url": (
-                        suya + "/webmail/?folder=INBOX&uid=%d" % uid
-                        if uid
-                        else suya + "/webmail/"
+                        suya
+                        + "/webmail/?"
+                        + ("cuenta=%s&" % quote(cuenta) if cuenta else "")
+                        + "folder=INBOX"
+                        + ("&uid=%d" % uid if uid else "")
                     ),
                     "origen": "correo",
                 },
@@ -216,6 +233,10 @@ async def _poll_user_inbox(username: str, app_state):
             # Check user still has active connections on this worker
             if username not in _connections or not _connections[username]:
                 break
+            # Un solo worker sondea a cada persona (05/11/2026): si otro tiene el candado,
+            # esta vuelta se salta; el aviso que publique ese worker llega igual por Redis.
+            if not await sondeo_unico.tomar(app_state.redis, username):
+                continue
             # Multicuenta (fase 5): las cuentas asignadas se revisan en cada ciclo, antes y
             # aparte de la propia (no dependen de la credencial de la persona).
             try:
@@ -271,9 +292,13 @@ async def _poll_user_inbox(username: str, app_state):
                         if m_total:
                             total = int(m_total.group(1))
 
-                prev = _last_unseen.get(username, -1)
+                # Conteo anterior compartido entre workers: el relevo no avisa en falso.
+                prev = await sondeo_unico.leer_estado(redis, username)
                 if prev != -1 and unseen > prev:
-                    # New mail arrived
+                    # New mail arrived. 06/11/2026: primero se mira cuál es y de quién (remitente y
+                    # asunto, sin marcarlo leído) para que los tres avisos digan algo útil.
+                    _uid_nuevo = await _ultimo_sin_leer(imap)
+                    _resumen = await resumen_correo(imap, _uid_nuevo)
                     await redis.publish(
                         f"ws:user:{username}",
                         json.dumps(
@@ -283,31 +308,34 @@ async def _poll_user_inbox(username: str, app_state):
                                 "unseen": unseen,
                                 "total": total,
                                 "delta": unseen - prev,
+                                "uid": _uid_nuevo,
+                                "de": _resumen.get("de", ""),
+                                "asunto": _resumen.get("asunto", ""),
                             }
                         ),
                     )
                     # Aviso al canal del cliente Windows (tipo «correo»)
-                    _uid_nuevo = await _ultimo_sin_leer(imap)
                     await aviso_correo_al_canal(
-                        username, unseen - prev, unseen, _uid_nuevo, app_state.db_pool
+                        username,
+                        unseen - prev,
+                        unseen,
+                        _uid_nuevo,
+                        app_state.db_pool,
+                        resumen=_resumen,
                     )
                     # Web push (#17): notifica al navegador aunque la PWA este cerrada.
                     try:
                         from app.push import service as _push
 
                         _n = unseen - prev
-                        _txt = (
-                            "Tienes 1 correo nuevo"
-                            if _n == 1
-                            else "Tienes %d correos nuevos" % _n
-                        )
+                        _tit, _txt = textos_aviso(_n, _resumen)  # 06/11/2026
                         _url = (
                             ("/webmail/?folder=INBOX&uid=%d" % _uid_nuevo)
                             if _uid_nuevo
                             else "/webmail/"
                         )
                         await _push.enviar_a_usuario(
-                            app_state.db_pool, username, "Correo nuevo", _txt, _url
+                            app_state.db_pool, username, _tit, _txt, _url
                         )
                     except Exception:
                         pass
@@ -326,6 +354,7 @@ async def _poll_user_inbox(username: str, app_state):
                     )
 
                 _last_unseen[username] = unseen
+                await sondeo_unico.guardar_estado(redis, username, unseen, total)
 
             finally:
                 if imap:
@@ -343,6 +372,10 @@ async def _poll_user_inbox(username: str, app_state):
     # Cleanup
     _poll_tasks.pop(username, None)
     _last_unseen.pop(username, None)
+    try:
+        await sondeo_unico.soltar(app_state.redis, username)
+    except Exception as exc:  # noqa: BLE001
+        logger.debug(f"no se pudo soltar el candado de sondeo de {username}: {exc}")
 
 
 def _start_poll_task(username: str, app_state):

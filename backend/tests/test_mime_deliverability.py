@@ -19,6 +19,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from app.mail.clients.smtp_client import (
     _FORBIDDEN_HEADERS,
+    _VALORES_IMPORTANCIA,
     OutgoingEmail,
     _assert_no_forbidden_headers,
     _html_to_text,
@@ -262,7 +263,57 @@ check(
     "_wrap_html no duplica DOCTYPE",
     _wrap_html("<!DOCTYPE html><html>x</html>").count("<!DOCTYPE") == 1,
 )
-check("_FORBIDDEN_HEADERS tiene X-Priority", "X-Priority" in _FORBIDDEN_HEADERS)
+check("_FORBIDDEN_HEADERS tiene X-MSMail-Priority", "X-MSMail-Priority" in _FORBIDDEN_HEADERS)
+
+# ═══════════════════════════════════════════════════════════════
+# REGLA 3 bis (28/10/2026): importancia SOLO si la persona elige Alta o Baja
+# ═══════════════════════════════════════════════════════════════
+print("\n\033[1m=== REGLA 3 bis: Importancia elegida ===\033[0m")
+
+for imp, esperado_imp, esperado_prio in (
+    ("high", "high", "1 (Highest)"),
+    ("low", "low", "5 (Lowest)"),
+):
+    m = build_mime_message(
+        OutgoingEmail(
+            from_addr="test@example.org",
+            to=["x@x.com"],
+            subject="Reunión de mañana",
+            html_body="<p>Test</p>",
+            importance=imp,
+        )
+    )
+    check(f"{imp}: Importance: {esperado_imp}", m.get_all("Importance") == [esperado_imp])
+    check(f"{imp}: X-Priority: {esperado_prio}", m.get_all("X-Priority") == [esperado_prio])
+    check(f"{imp}: sin X-MSMail-Priority", m.get("X-MSMail-Priority") is None)
+    try:
+        _assert_no_forbidden_headers(m)
+        check(f"{imp}: el guard lo acepta", True)
+    except ValueError as e:
+        check(f"{imp}: el guard lo acepta", False, str(e))
+
+m_normal = build_mime_message(
+    OutgoingEmail(
+        from_addr="test@example.org",
+        to=["x@x.com"],
+        subject="T",
+        html_body="<p>Test</p>",
+        importance="normal",
+    )
+)
+raw_normal = m_normal.as_string()
+check("normal: sin Importance", "\nImportance:" not in raw_normal)
+check("normal: sin X-Priority", "X-Priority" not in raw_normal)
+
+for nombre, valor in (("X-Priority", "3"), ("X-Priority", "1"), ("Importance", "normal")):
+    malo = MIMEMultipart()
+    malo[nombre] = valor
+    try:
+        _assert_no_forbidden_headers(malo)
+        check(f"Guard rechaza {nombre}: {valor}", False, "no lanzó excepción")
+    except ValueError as e:
+        check(f"Guard rechaza {nombre}: {valor}", "PROHIBIDO" in str(e))
+check("Valores permitidos acotados", set(_VALORES_IMPORTANCIA) == {"Importance", "X-Priority"})
 
 # ═══════════════════════════════════════════════════════════════
 # RESULTADO

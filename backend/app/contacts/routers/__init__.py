@@ -37,6 +37,7 @@ from .custom_fields import router as custom_fields_router
 from .directory import router as directory_router
 from .duplicates import router as duplicates_router
 from .favorites import router as favorites_router
+from .fotos import router as fotos_router  # 05/11/2026: foto de perfil del directorio
 from .from_email import router as from_email_router
 from .gravatar import router as gravatar_router
 from .import_export import router as import_export_router
@@ -56,6 +57,7 @@ router = APIRouter()
 
 # Orden importa: rutas específicas antes de rutas con parámetros
 router.include_router(avatars_router)
+router.include_router(fotos_router)  # /foto, /foto/{email}
 router.include_router(search_router)
 router.include_router(bulk_router)  # /bulk/* antes de /{contact_id}
 router.include_router(categories_router)  # /categories antes de /{contact_id}

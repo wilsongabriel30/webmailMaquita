@@ -2,7 +2,7 @@
 
 import re
 from datetime import datetime, timezone
-from typing import Optional, Union
+from typing import Literal, Optional, Union
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -74,6 +74,8 @@ class ComposeRequest(BaseModel):
     # Etiqueta de sensibilidad (Publica/Interna/Confidencial/Restringida). Faltaba aquí y, con
     # extra="forbid", todo envío con etiqueta respondía 400 «Solicitud inválida» (27/10/2026).
     sensitivity: str = Field(default="", max_length=20)
+    # Importancia elegida en la cinta: solo «high» y «low» marcan el correo (28/10/2026).
+    importance: Literal["normal", "high", "low"] = "normal"
 
     @field_validator("to", mode="before")
     @classmethod
@@ -122,6 +124,7 @@ class ScheduleRequest(BaseModel):
     scheduled_at: str
     request_read_receipt: bool = False
     request_delivery_receipt: bool = False
+    importance: Literal["normal", "high", "low"] = "normal"
     identity_id: int | None = None
     reply_to: str | None = None
 

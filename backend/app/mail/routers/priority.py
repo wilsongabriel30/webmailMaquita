@@ -211,6 +211,17 @@ async def get_priority_inbox(
     return {"high": high, "normal": normal, "low": low}
 
 
+@router.get("/priority/dominios")
+async def dominios_prioritarios(user: str = Depends(get_current_user)):
+    """Dominios de la casa: su correo va siempre a «Prioritarios» (06/11/2026, pestanaPrioritarios.ts)."""
+    return {
+        "dominios": sorted(
+            organizacion.dominios("ORG_DOMINIOS_PRIORIDAD")
+            | organizacion.dominios_propios()
+        )
+    }
+
+
 @router.post("/priority/reclassify")
 async def reclassify_message(
     request: Request,

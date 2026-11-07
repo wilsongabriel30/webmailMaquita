@@ -5,8 +5,10 @@ from __future__ import annotations
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user, require_admin
+from app.tareas import archivo, desde_tarea
 from app.tareas.esquemas import (
     CambioEstado,
     ComentarioNuevo,
@@ -41,16 +43,22 @@ def _http(e):
 
 @router.get("/mis", response_model=list[TareaOut])
 async def mis(
-    request: Request, completadas: bool = False, user: str = Depends(get_current_user)
+    request: Request,
+    completadas: bool = False,
+    archivadas: bool = False,
+    user: str = Depends(get_current_user),
 ):
-    return await svc.mis(_db(request), user, completadas)
+    return await svc.mis(_db(request), user, completadas, archivadas)
 
 
 @router.get("/asignadas-por-mi", response_model=list[TareaOut])
 async def asignadas_por_mi(
-    request: Request, completadas: bool = False, user: str = Depends(get_current_user)
+    request: Request,
+    completadas: bool = False,
+    archivadas: bool = False,
+    user: str = Depends(get_current_user),
 ):
-    return await svc.asignadas_por_mi(_db(request), user, completadas)
+    return await svc.asignadas_por_mi(_db(request), user, completadas, archivadas)
 
 
 @router.get("/mi-dia", response_model=list[TareaOut])
@@ -91,6 +99,46 @@ async def asignar(
     try:
         return await svc.asignar(_db(request), _redis(request), user, d)
     except Exception as e:
+        raise _http(e)
+
+
+@router.post("/desde-tarea/{card_id}", response_model=TareaOut)
+async def asignar_desde_tarea(
+    card_id: uuid.UUID,
+    d: TareaAsignar,
+    request: Request,
+    user: str = Depends(get_current_user),
+):
+    """«Asignar tarea a:» de una tarea de lista: la misma tarea pasa a tener seguimiento (fase 2, 05/11/2026)."""
+    try:
+        row = await desde_tarea.convertir(
+            svc, _db(request), _redis(request), user, card_id, d
+        )
+        return a_salida(row)
+    except Exception as e:
+        raise _http(e)
+
+
+class Archivar(BaseModel):
+    ids: list[uuid.UUID] = Field(min_length=1, max_length=archivo.MAX_IDS)
+
+
+@router.post("/archivar")
+async def archivar(
+    d: Archivar, request: Request, user: str = Depends(get_current_user)
+):
+    """Quita del tablero de quien lo pide las completadas indicadas (no las borra)."""
+    return {"archivadas": await archivo.archivar(_db(request), user, d.ids)}
+
+
+@router.post("/{tarea_id}/restaurar", status_code=204)
+async def restaurar(
+    tarea_id: uuid.UUID, request: Request, user: str = Depends(get_current_user)
+):
+    """Devuelve una tarea archivada al tablero de quien lo pide."""
+    try:
+        await archivo.restaurar(_db(request), user, tarea_id)
+    except LookupError as e:
         raise _http(e)
 
 

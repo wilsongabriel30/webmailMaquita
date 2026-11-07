@@ -483,6 +483,8 @@ async def report_spam(
     # Mover a Junk
     password = await get_user_password(request, user)
     moved = 0
+    bloqueados: list[str] = []
+    _crudos: list[bytes] = []
     if password:
         from app.mail.clients.imap_client import get_imap_connection, uid_bulk_action
 
@@ -508,10 +510,17 @@ async def report_spam(
                     if _crudo:
                         if isinstance(_crudo, str):
                             _crudo = _crudo.encode("utf-8", errors="ignore")
+                        _crudos.append(_crudo)
                         await aprender_spam(_crudo)
             except Exception:
                 # El aprendizaje es secundario: si falla, se sigue moviendo a Junk.
                 pass
+            # La decisión se queda: el remitente pasa a sus bloqueados y sus próximos correos van a
+            # No deseado aunque el filtro los deje pasar (05/11/2026; ver services/bloqueo_spam.py).
+            if _crudos:
+                from app.mail.services.bloqueo_spam import bloquear_remitentes
+
+                bloqueados = await bloquear_remitentes(user, password, _crudos)
 
             ok = await uid_bulk_action(imap, folder, uids, "move", "Junk")
             if ok:
@@ -524,7 +533,7 @@ async def report_spam(
             except:
                 pass
 
-    return {"status": "reported", "moved": moved}
+    return {"status": "reported", "moved": moved, "bloqueados": bloqueados}
 
 
 @router.post("/spam/not-spam")
@@ -585,6 +594,11 @@ async def mark_not_spam(
                         await aprender_no_spam(_crudo)
                 except Exception:
                     pass  # el aprendizaje es secundario; mover es lo importante
+            # Si lo había bloqueado al marcarlo como spam, deja de estarlo (05/11/2026).
+            if _crudos:
+                from app.mail.services.bloqueo_spam import desbloquear_remitentes
+
+                await desbloquear_remitentes(user, password, _crudos)
             # La decisión de la persona se queda: el remitente pasa a su lista de confianza y sus
             # próximos correos llegan a la Bandeja aunque algún filtro los marque (05/10/2026).
             try:

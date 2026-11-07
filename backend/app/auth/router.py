@@ -88,7 +88,9 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 class LoginRequest(BaseModel):
     username: str
     password: str
-    totp_code: str | None = None  # ignorado desde M-01: el código va a /login/2fa
+    totp_code: str | None = (
+        None  # M-01: el código va a /login/2fa; aquí solo por compatibilidad (T-80)
+    )
 
 
 class UserInfo(BaseModel):
@@ -165,9 +167,16 @@ async def login(body: LoginRequest, request: Request, response: Response):
         from app.auth import dispositivos_confianza
 
         if not await dispositivos_confianza.confiado(db, request, username):
-            return await _emitir_vale_2fa(
-                redis, username, body.password if ok else None
-            )
+            # T-80 (05/11/2026): compatibilidad con Teams Maquita hasta la 0.7.4, que manda el
+            # código junto a la contraseña en vez de canjear el vale en /login/2fa (quedaba en
+            # bucle). Solo abre sesión si contraseña Y código son correctos; en cualquier otro
+            # caso la respuesta es el vale de siempre, así que no revela nada nuevo (M-01).
+            codigo = (body.totp_code or "").strip()
+            if not (ok and codigo and await validate_totp_code(db, username, codigo)):
+                return await _emitir_vale_2fa(
+                    redis, username, body.password if ok else None
+                )
+            await dispositivos_confianza.recordar(db, request, response, username)
 
     # Clear rate limit on success
     await _clear_login_rate_limit(request, username, redis)

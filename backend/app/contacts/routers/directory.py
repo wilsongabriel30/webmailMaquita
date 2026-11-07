@@ -11,6 +11,14 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 
+from .directorio_buzones import dominios_visibles  # 05/11/2026
+from .directorio_buzones import (
+    buzon_por_id,
+    departamentos_buzones,
+    entradas_buzones,
+    ubicaciones_buzones,
+)
+
 router = APIRouter(prefix="/api/contacts", tags=["contacts"])
 
 
@@ -111,7 +119,19 @@ async def list_directory(
     query += " ORDER BY display_name ASC"
 
     rows = await db.fetch(query, *params)
-    return [dict(r) for r in rows]
+    manuales = [dict(r) | {"source": "directory", "is_active": True} for r in rows]
+    # 05/11/2026: + todos los buzones activos de los dominios institucionales (capa genérica):
+    # nombre, cargo, área y foto desde user_profiles (nómina, foto propia o panel de admin).
+    buzones = await entradas_buzones(
+        db,
+        dominios_visibles(user),
+        search,
+        department,
+        excluir={(m.get("email") or "").lower() for m in manuales},
+    )
+    return sorted(
+        manuales + buzones, key=lambda c: (c.get("display_name") or "").lower()
+    )
 
 
 @router.get("/directory/departments")
@@ -124,7 +144,18 @@ async def list_departments(request: Request, username: str = Depends(get_current
         "SELECT DISTINCT department FROM org_contacts WHERE domain = $1 AND department != '' ORDER BY department",
         domain,
     )
-    return [r["department"] for r in rows]
+    deps = {r["department"] for r in rows} | set(
+        await departamentos_buzones(db, dominios_visibles(user))
+    )
+    return sorted(deps)
+
+
+@router.get("/directory/locations")
+async def list_locations(request: Request, username: str = Depends(get_current_user)):
+    """Ubicaciones (área/sede) de los buzones; el frontend ya las pedía (05/11/2026)."""
+    return await ubicaciones_buzones(
+        request.app.state.db_pool, dominios_visibles(username)
+    )
 
 
 @router.get("/directory/{contact_id}")
@@ -135,6 +166,11 @@ async def get_directory_contact(
     user = username
     domain = _get_domain(user)
 
+    if contact_id < 0:  # buzón (id negativo)
+        b = await buzon_por_id(db, dominios_visibles(user), contact_id)
+        if not b:
+            raise HTTPException(404, "Contacto no encontrado en directorio")
+        return b
     row = await db.fetchrow(
         "SELECT * FROM org_contacts WHERE id = $1 AND domain = $2",
         contact_id,
@@ -279,11 +315,14 @@ async def copy_to_personal(
     user = username
     domain = _get_domain(user)
 
-    org = await db.fetchrow(
-        "SELECT * FROM org_contacts WHERE id = $1 AND domain = $2",
-        contact_id,
-        domain,
-    )
+    if contact_id < 0:  # buzón (id negativo)
+        org = await buzon_por_id(db, dominios_visibles(user), contact_id)
+    else:
+        org = await db.fetchrow(
+            "SELECT * FROM org_contacts WHERE id = $1 AND domain = $2",
+            contact_id,
+            domain,
+        )
     if not org:
         raise HTTPException(404, "Contacto no encontrado en directorio")
 

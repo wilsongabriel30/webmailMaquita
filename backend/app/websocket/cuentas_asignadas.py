@@ -14,6 +14,10 @@ import re
 
 from app.config import get_settings
 from app.mail.services.cuentas_delegadas import credenciales_maestras, cuentas_de
+from app.websocket.resumen_correo_nuevo import (  # 06/11/2026
+    resumen_correo,
+    textos_aviso_cuenta,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +71,8 @@ async def sondear(username: str, app_state, ultimo_sin_leer) -> None:
             if prev != -1 and unseen > prev:
                 delta = unseen - prev
                 uid = await ultimo_sin_leer(imap)
+                # 06/11/2026: remitente y asunto (sin marcarlo leído) para que el aviso diga algo útil.
+                resumen = await resumen_correo(imap, uid)
                 await app_state.redis.publish(
                     f"ws:user:{username}",
                     json.dumps(
@@ -79,25 +85,30 @@ async def sondear(username: str, app_state, ultimo_sin_leer) -> None:
                             "total": total,
                             "delta": delta,
                             "uid": uid,
+                            "de": resumen.get("de", ""),
+                            "asunto": resumen.get("asunto", ""),
                         }
                     ),
                 )
                 try:
                     from app.push import service as _push
 
-                    texto = (
-                        f"Tienes 1 correo nuevo en {cuenta}"
-                        if delta == 1
-                        else f"Tienes {delta} correos nuevos en {cuenta}"
-                    )
+                    titulo, texto = textos_aviso_cuenta(delta, resumen, cuenta)
                     url = f"/webmail/?cuenta={cuenta}&folder=INBOX" + (
                         f"&uid={uid}" if uid else ""
                     )
-                    await _push.enviar_a_usuario(
-                        db, username, "Correo nuevo", texto, url
-                    )
+                    await _push.enviar_a_usuario(db, username, titulo, texto, url)
                 except Exception:
                     pass
+                # 06/11/2026: también a la app de Windows (canal de notificaciones), como el correo propio.
+                try:
+                    from app.websocket.router import aviso_correo_al_canal
+
+                    await aviso_correo_al_canal(
+                        username, delta, unseen, uid, db, resumen=resumen, cuenta=cuenta
+                    )
+                except Exception as exc:
+                    logger.debug("aviso a la app de %s (%s): %s", username, cuenta, exc)
             _ultimo[clave] = unseen
         except asyncio.CancelledError:
             raise

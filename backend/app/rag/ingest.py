@@ -1,4 +1,7 @@
-"""Ingesta incremental de la bandeja de un usuario al índice RAG.
+"""Ingesta incremental del buzón de un usuario al índice RAG (todas las carpetas).
+
+04/11/2026: ya no es solo la Bandeja de entrada: se indexan todas las carpetas salvo
+Papelera, Spam y Borradores (app.rag.indexador / carpetas), con el inicio del cuerpo.
 
 19/10/2026: antes se pedían los 3000 correos en un solo UID FETCH y Dovecot no contestaba a
 tiempo (aioimaplib CommandTimeout) → el botón «Sincronizar mi bandeja» devolvía 500 sin aviso.
@@ -15,8 +18,7 @@ import time
 
 from app.config import get_settings
 from app.rag import config as rag_config
-from app.rag import store
-from app.rag.embeddings import embed
+from app.rag import indexador, plan, store
 
 logger = logging.getLogger(__name__)
 
@@ -62,17 +64,21 @@ async def progreso_compartido(username: str, redis=None) -> dict | None:
     return progreso(username)
 
 
-async def ingest_user(db, username, limit=None, redis=None):
-    """Indexa la bandeja. Devuelve {indexed, total, leidos, errores, ...}."""
+async def ingest_user(db, username, limit=None, redis=None, presupuesto=None):
+    """Indexa todas las carpetas del buzón (ver indexador). Devuelve {indexed, total, ...}.
+
+    `limit`: correos como máximo en esta ejecución para este buzón (RAG_INGEST_LIMIT, 3000 por
+    omisión: el botón «Sincronizar» avanza a tandas y la tarea nocturna continúa). 0 = sin
+    límite. `presupuesto`: límite global de la ejecución nocturna (plan.Presupuesto).
+    """
     if limit is None:
         limit = int(os.getenv("RAG_INGEST_LIMIT", "3000"))
-    por_tanda = max(20, int(os.getenv("RAG_INGEST_PAGE", "150")))
+    if presupuesto is None:
+        presupuesto = plan.Presupuesto()
     if not await rag_config.domain_enabled(db, username):
         return {"username": username, "skipped": "dominio no habilitado", "indexed": 0}
-    await store.ensure_schema(db)
     s = get_settings()
     from app.mail.clients.imap_client import get_imap_connection
-    from app.mail.services.message_service import list_messages
 
     estado = {
         "estado": "en_curso",
@@ -81,88 +87,54 @@ async def ingest_user(db, username, limit=None, redis=None):
         "indexed": 0,
         "errores": 0,
         "mensaje": "",
+        "carpeta": "",
+        "carpetas_hechas": 0,
+        "carpetas_total": 0,
+        "pendientes": 0,
     }
     _PROGRESO[username] = estado
     await _publicar(redis, username, estado)
 
-    try:
-        imap = await get_imap_connection(f"{username}*admin", s.master_password)
-    except Exception as e:
-        estado.update(estado="error", mensaje=f"No se pudo abrir el buzón (IMAP): {e}")
+    async def conectar():
+        return await get_imap_connection(f"{username}*admin", s.master_password)
+
+    async def publicar():
         await _publicar(redis, username, estado)
-        return {"username": username, "error": estado["mensaje"], "indexed": 0}
 
-    have = await store.existing_uids(db, username)
-    msgs: list[dict] = []
+    resultado = {"completo": False}
     try:
-        pagina = 1
-        while len(msgs) < limit:
-            try:
-                res = await list_messages(imap, "INBOX", pagina, por_tanda, "")
-            except (
-                Exception
-            ) as e:  # CommandTimeout u otro fallo de una tanda: se anota y se sigue
-                estado["errores"] += 1
-                logger.warning("RAG %s: tanda %s falló: %s", username, pagina, e)
-                if estado["errores"] >= 3:
-                    break
-                pagina += 1
-                continue
-            tanda = (res or {}).get("messages", []) if res else []
-            if not tanda:
-                break
-            msgs.extend(tanda)
-            estado["leidos"] = len(msgs)
-            await _publicar(redis, username, estado)
-            if len(tanda) < por_tanda:
-                break
-            pagina += 1
-    finally:
-        try:
-            await imap.logout()
-        except Exception:
-            pass
-
-    indexed = 0
-    for m in msgs[:limit]:
-        uid = str(m.get("uid", ""))
-        if not uid or uid in have:
-            continue
-        content = f"De: {m.get('from','')} | Asunto: {m.get('subject','')} | {m.get('snippet','')}"
-        emb = await embed(content)
-        if not emb:
-            estado["errores"] += 1
-            continue
-        await store.upsert(
-            db,
-            username,
-            "INBOX",
-            uid,
-            m.get("subject", ""),
-            m.get("from", ""),
-            content,
-            emb,
+        resultado = await indexador.indexar_buzon(
+            db, username, conectar, estado, publicar, limit, presupuesto
         )
-        indexed += 1
-        estado["indexed"] = indexed
-        if indexed % 25 == 0:
-            await _publicar(redis, username, estado)
-    total = await store.count(db, username)
-    if not msgs and estado["errores"]:
+    except indexador.EmbeddingsCaidos:
         estado.update(
             estado="error",
-            mensaje="El buzón no respondió a tiempo al leer los correos. Vuelve a intentarlo en unos minutos.",
+            mensaje="El servicio de IA que prepara los correos no responde. Vuelve a intentarlo más tarde.",
         )
-    else:
-        estado.update(estado="listo", mensaje="")
+    except Exception as e:
+        logger.warning("RAG %s: no se pudo indexar: %s", username, e)
+        estado.update(estado="error", mensaje=f"No se pudo abrir el buzón (IMAP): {e}")
+    total = await store.count(db, username)
+    if estado["estado"] != "error":
+        if not estado["indexed"] and not estado["leidos"] and estado["errores"]:
+            estado.update(
+                estado="error",
+                mensaje="El buzón no respondió a tiempo al leer los correos. Vuelve a intentarlo en unos minutos.",
+            )
+        else:
+            estado.update(estado="listo", mensaje="")
     estado["total"] = total
+    estado["carpeta"] = ""
     await _publicar(redis, username, estado)
     return {
         "username": username,
-        "indexed": indexed,
-        "leidos": len(msgs),
+        "indexed": estado["indexed"],
+        "leidos": estado["leidos"],
         "errores": estado["errores"],
         "total": total,
+        "pendientes": estado.get("pendientes", 0),
+        "incompleto": not resultado.get("completo"),
+        "embeddings_caidos": estado["mensaje"].startswith("El servicio de IA"),
         "error": estado["mensaje"] or None,
     }
 

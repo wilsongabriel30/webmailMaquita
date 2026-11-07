@@ -10,7 +10,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 
 from app.core.sanitize import sanitize_html, strip_html
-from app.tareas import avisos
+from app.tareas import archivo, avisos
 from app.tareas.esquemas import (
     ESTADOS,
     PRIORIDADES,
@@ -81,10 +81,12 @@ def a_salida(row) -> TareaOut:
         descripcion=row["description"],
         asignados=list(row["asignados"] or []),
         asignado_por=row["created_by"],
+        creada_por=_creada_por(row),
         plazo=row["due_date"],
         prioridad=row["priority"],
         etiquetas=_lista(row["etiquetas"]) or _lista(row["labels"]),
         estado=estado,
+        estado_guardado=row["estado"] or "",
         semaforo=_semaforo(row),
         aceptacion=row["aceptacion"],
         motivo_rechazo=row["motivo_rechazo"],
@@ -105,6 +107,34 @@ def a_salida(row) -> TareaOut:
     )
 
 
+async def _aceptar_sin_pedirlo(db, row, user: str) -> None:
+    """Aceptación implícita (fase 4, 05/11/2026): si quien la recibió la pone «En curso» o la completa, la aceptó.
+
+    No se manda aviso aparte: ya sale el del cambio de estado. Una rechazada que se empieza queda aceptada.
+    """
+    if row["aceptacion"] != "aceptada" and user in (row["asignados"] or []):
+        await db.execute(
+            "UPDATE task_cards SET aceptacion = 'aceptada', motivo_rechazo = '' WHERE id = $1",
+            row["id"],
+        )
+
+
+def _creada_por(row) -> str | None:
+    """Quién creó la tarea, solo si no es quien la asignó (tarea de lista asignada después, fase 2)."""
+    c = row.get("creada_por")
+    return c if c and c != row["created_by"] else None
+
+
+def _filtro_tablero(incluir_completadas: bool, archivadas: bool) -> tuple[str, str]:
+    """Qué tareas ve la persona ($1): las activas, las completadas que siguen en su tablero o las archivadas."""
+    if archivadas:
+        return " AND " + archivo.archivada(), "c.completed_at DESC NULLS LAST"
+    orden = "c.completed, c.due_date NULLS LAST, c.created_at DESC"
+    if incluir_completadas:
+        return " AND NOT " + archivo.archivada(), orden
+    return " AND NOT c.completed", orden
+
+
 class ServicioTareas:
     # ---------- lectura ----------
     async def obtener(self, db, tarea_id, user):
@@ -118,22 +148,23 @@ class ServicioTareas:
             raise PermissionError("No participas en esta tarea")
         return row
 
-    async def mis(self, db, user, incluir_completadas=False):
-        cond = "" if incluir_completadas else " AND NOT c.completed"
+    async def mis(self, db, user, incluir_completadas=False, archivadas=False):
+        cond, orden = _filtro_tablero(incluir_completadas, archivadas)
         rows = await db.fetch(
             SELECT
             + f""" WHERE c.asignada AND $1 = ANY(COALESCE(a.asignados, '{{}}')) {cond}
-                              ORDER BY c.completed, c.due_date NULLS LAST, c.created_at DESC""",
+                              ORDER BY {orden}""",
             user,
         )
         return [a_salida(r) for r in rows]
 
-    async def asignadas_por_mi(self, db, user, incluir_completadas=False):
-        cond = "" if incluir_completadas else " AND NOT c.completed"
+    async def asignadas_por_mi(
+        self, db, user, incluir_completadas=False, archivadas=False
+    ):
+        cond, orden = _filtro_tablero(incluir_completadas, archivadas)
         rows = await db.fetch(
-            SELECT
-            + f""" WHERE c.asignada AND c.created_by = $1 {cond}
-                              ORDER BY c.completed, c.due_date NULLS LAST, c.created_at DESC""",
+            SELECT + f""" WHERE c.asignada AND c.created_by = $1 {cond}
+                              ORDER BY {orden}""",
             user,
         )
         return [a_salida(r) for r in rows]
@@ -199,24 +230,28 @@ class ServicioTareas:
             )
         row = await self.obtener(db, card.id, user)
         if estado != "espera":
-            await self._calendario(db, redis, row, user)
-            plazo = (
-                f" · vence {row['due_date'].astimezone(EC):%d/%m %H:%M}"
-                if row["due_date"]
-                else ""
-            )
-            await avisos.emitir(
-                asignados,
-                f"Nueva tarea de {avisos.nombre(user)}",
-                f'{row["title"]}{plazo}',
-                avisos.url_tarea(card.id),
-                user,
-                {"tarea_id": str(card.id), "accion": "asignada"},
-                db,
-                card.id,
-                "asignada",
-            )
+            await self.anunciar(db, redis, user, row, asignados)
         return a_salida(row)
+
+    async def anunciar(self, db, redis, user, row, asignados):
+        """Tarea recién asignada: al calendario de cada asignado y aviso (app, correo y campanita)."""
+        await self._calendario(db, redis, row, user)
+        plazo = (
+            f" · vence {row['due_date'].astimezone(EC):%d/%m %H:%M}"
+            if row["due_date"]
+            else ""
+        )
+        await avisos.emitir(
+            asignados,
+            f"Nueva tarea de {avisos.nombre(user)}",
+            f'{row["title"]}{plazo}',
+            avisos.url_tarea(row["id"]),
+            user,
+            {"tarea_id": str(row["id"]), "accion": "asignada"},
+            db,
+            row["id"],
+            "asignada",
+        )
 
     async def _calendario(self, db, redis, row, user):
         for a in row["asignados"] or []:
@@ -334,6 +369,8 @@ class ServicioTareas:
         row = await self.obtener(db, tarea_id, user)
         if estado == "completada":
             return await self.completar(db, redis, user, tarea_id)
+        if estado == "en_curso":
+            await _aceptar_sin_pedirlo(db, row, user)
         completada_antes = row["completed"]
         await db.execute(
             "UPDATE task_cards SET estado = $2, completed = FALSE, completed_by = NULL, completed_at = NULL, updated_at = NOW() WHERE id = $1",
@@ -342,6 +379,7 @@ class ServicioTareas:
         )
         row = await self.obtener(db, tarea_id, user)
         if completada_antes:
+            await archivo.olvidar(db, tarea_id)  # reabierta: vuelve al tablero de todos
             await self._calendario(db, redis, row, user)
         destino = (
             [row["created_by"]]
@@ -414,6 +452,7 @@ class ServicioTareas:
     # ---------- completar → recurrencia + cadena ----------
     async def completar(self, db, redis, user, tarea_id):
         row = await self.obtener(db, tarea_id, user)
+        await _aceptar_sin_pedirlo(db, row, user)
         await db.execute(
             """UPDATE task_cards SET completed = TRUE, estado = 'completada', completed_by = $2, completed_at = NOW(),
                             updated_at = NOW() WHERE id = $1""",
@@ -584,10 +623,13 @@ class ServicioTareas:
         """Directorio para «Asignar a»: consulta NÓMINA EN VIVO (Raíces, VM 132): solo trabajadores con estado Activo y correo
         institucional; quien ingresa a nómina aparece al instante. Caché de 60 s por proceso; si nómina no responde, se usa
         la copia sincronizada (task_personas). Busca por nombre, correo, cargo o departamento, sin importar tildes.
+        Se le suman los buzones activos del correo y solo quedan los dominios de la casa (ver directorio.py).
         """
         import time
 
         import asyncpg
+
+        from app.tareas import directorio
 
         ahora = time.time()
         if not hasattr(self, "_nom_cache") or ahora - self._nom_cache[0] > 60:
@@ -602,7 +644,12 @@ class ServicioTareas:
                         ORDER BY nombre""")
                 finally:
                     await con.close()
-                self._nom_cache = (ahora, [dict(f) for f in filas])
+                self._nom_cache = (
+                    ahora,
+                    directorio.unir(
+                        [dict(f) for f in filas], await directorio.buzones(db)
+                    ),
+                )
             except Exception as e:
                 import logging
 
@@ -614,7 +661,9 @@ class ServicioTareas:
                 )
                 self._nom_cache = (
                     ahora - 50,
-                    [dict(f) for f in filas],
+                    directorio.unir(
+                        [dict(f) for f in filas], await directorio.buzones(db)
+                    ),
                 )  # reintenta pronto
         import unicodedata
 

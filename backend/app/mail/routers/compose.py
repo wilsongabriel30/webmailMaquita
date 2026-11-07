@@ -26,6 +26,7 @@ from app.mail.services.large_attachments import (
     format_link_html,
     upload_and_share,
 )
+from app.mail.services.nombre_remitente import nombre_para_envio  # 06/11/2026
 from app.mail.services.send_service import send_and_save
 from app.security.account_protection import check_send_anomaly
 
@@ -60,6 +61,21 @@ async def _save_sent_recipients(db, sender: str, recipients: list[str]):
             )
         except Exception:
             pass
+
+
+async def _devolver_cupo_envio(request, username: str) -> None:
+    """Resta 1 a los contadores del límite cuando el envío no se concretó (05/11/2026)."""
+    try:
+        redis = request.app.state.redis
+        for k in (
+            f"send_rl:min:{username}",
+            f"send_rl:hour:{username}",
+            f"send_rl:day:{username}",
+        ):
+            if int(await redis.get(k) or 0) > 0:
+                await redis.decr(k)
+    except Exception:  # noqa: BLE001
+        pass
 
 
 async def _check_send_rate(request, username: str):
@@ -235,14 +251,9 @@ async def send(
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
-        # Get display name from user preferences
+        # Nombre del remitente: el de sus preferencias o, si no lo puso, el de su buzón (06/11/2026)
         db = request.app.state.db_pool
-        display_name = ""
-        row = await db.fetchrow(
-            "SELECT display_name FROM user_preferences WHERE username = $1", username
-        )
-        if row and row["display_name"]:
-            display_name = row["display_name"]
+        display_name = await nombre_para_envio(db, username)
 
         # Remitente elegido (cuenta delegada, alias o identidad): validado aquí igual que
         # lo hará Postfix. Si es una cuenta delegada, la copia va a SU Enviados.
@@ -452,6 +463,7 @@ async def send(
                 attachments=attachments,
                 request_read_receipt=body.request_read_receipt,
                 request_delivery_receipt=body.request_delivery_receipt,
+                importance=body.importance,
             )
         except Exception as smtp_err:
             import logging
@@ -459,11 +471,28 @@ async def send(
             logging.getLogger("compose").error(
                 f"Send failed for {username}: {smtp_err}"
             )
+            # Un envío fallido no consume cupo del límite (05/11/2026): antes cada reintento contaba.
+            await _devolver_cupo_envio(request, username)
             if "authentication" in str(smtp_err).lower():
                 raise HTTPException(
                     status_code=401,
                     detail="Sesión SMTP expirada. Cierra sesión y vuelve a iniciar.",
                 )
+            from app.mail.services import envio_tardio
+
+            if envio_tardio.es_tiempo_agotado(smtp_err):
+                # El correo casi seguro ya está en cola de Postfix (05/11/2026): avisar, no «error» a secas.
+                raise HTTPException(
+                    status_code=envio_tardio.CODIGO, detail=envio_tardio.MENSAJE
+                )
+            from app.mail.services import rechazo_smtp
+
+            # Rechazo DEFINITIVO del servidor de correo (5xx: política de datos, destinatario inválido…):
+            # 422, no 500, para que la cola de salida no lo reintente cada minuto (05/11/2026, caso Jessica
+            # Aroca: 48 reintentos de un correo bloqueado por DLP agotaron el límite y llenaron Borradores).
+            definitivo = rechazo_smtp.mensaje_definitivo(smtp_err)
+            if definitivo:
+                raise HTTPException(status_code=422, detail=definitivo)
             raise HTTPException(
                 status_code=500, detail=f"Error al enviar: {str(smtp_err)[:200]}"
             )
@@ -520,12 +549,7 @@ async def send_multipart(
     imap = await get_imap_connection(login_user, password)
     try:
         db = request.app.state.db_pool
-        display_name = ""
-        row = await db.fetchrow(
-            "SELECT display_name FROM user_preferences WHERE username = $1", username
-        )
-        if row and row["display_name"]:
-            display_name = row["display_name"]
+        display_name = await nombre_para_envio(db, username)  # 06/11/2026
 
         attachments = []
         html_body, _inline_firma, _ = await asyncio.to_thread(
@@ -668,8 +692,8 @@ async def schedule_send(
         INSERT INTO scheduled_emails
             (username, to_list, cc_list, bcc_list, subject, html_body, text_body,
              in_reply_to, "references", scheduled_at, status,
-             request_read_receipt, request_delivery_receipt)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, 'pending', $11, $12)
+             request_read_receipt, request_delivery_receipt, importance)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::timestamptz, 'pending', $11, $12, $13)
         RETURNING id, scheduled_at
     """,
         username,
@@ -684,6 +708,7 @@ async def schedule_send(
         sched_dt,
         body.request_read_receipt,
         body.request_delivery_receipt,
+        body.importance,
     )
 
     return {

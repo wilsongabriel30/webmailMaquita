@@ -7,14 +7,16 @@ Best-effort: si la IA no responde, el incidente sigue con la decisión del playb
 import json
 import logging
 
+from app.ai import estilo_institucional as estilo
+
 logger = logging.getLogger("air.triage")
 
 _SYSTEM = (
     "Eres un analista SOC. Recibes señales de seguridad de un buzón de correo. "
     'Responde SOLO un JSON: {"resumen":"...","recomendacion":"lock|review|monitor",'
     "\"confianza\":0-100}. Sé conciso y prudente: 'lock' solo ante evidencia clara "
-    "de cuenta comprometida (login de riesgo alto + envío anómalo/DLP)."
-)
+    "de cuenta comprometida (login de riesgo alto + envío anómalo/DLP). "
+) + estilo.instrucciones("analisis")
 
 
 async def assess(username: str, signals: dict, playbook: dict) -> dict:
@@ -33,7 +35,9 @@ async def assess(username: str, signals: dict, playbook: dict) -> dict:
         if i >= 0 and j > i:
             data = json.loads(raw[i : j + 1])
             return {
-                "resumen": str(data.get("resumen", ""))[:500],
+                "resumen": estilo.institucionalizar(
+                    str(data.get("resumen", ""))[:500], prompt, modo="analisis"
+                ),
                 "recomendacion": data.get("recomendacion", ""),
                 "confianza": int(data.get("confianza", 0) or 0),
             }

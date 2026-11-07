@@ -45,6 +45,7 @@ router = APIRouter(prefix="/api/sieve", tags=["sieve"])
 
 SIEVE_HOST = "127.0.0.1"
 SIEVE_PORT = 4190
+from app.sieve import bloqueados_bloque, zimbra_bloque
 from app.sieve.confianza_bloque import aplicar, extraer
 
 SCRIPT_NAME = "webmail"
@@ -285,8 +286,7 @@ def _build_requires(
             reqs.add("fileinto")
         elif f.action.type == "flag":
             reqs.update({"imap4flags"})
-        elif f.action.type == "forward":
-            reqs.add("redirect")  # redirect is implicit, but include for clarity
+        # «redirect» no se declara: es del núcleo de Sieve y Pigeonhole rechaza el script si va en el require.
     return sorted(reqs)
 
 
@@ -517,9 +517,16 @@ async def _save_script(username: str, password: str, script: str) -> None:
     """
     reader, writer = await sieve_connect(username, password)
     try:
-        confiables = extraer(await sieve_getscript(reader, writer, SCRIPT_NAME))
+        anterior = await sieve_getscript(reader, writer, SCRIPT_NAME)
+        confiables = extraer(anterior)
         if confiables:
             script = aplicar(script, confiables)
+        # Las reglas compuestas traídas de Zimbra (04/11/2026) viajan en su propio bloque.
+        script = zimbra_bloque.aplicar(script, zimbra_bloque.extraer(anterior))
+        # Y los remitentes bloqueados con «Marcar como spam» (05/11/2026).
+        bloqueados = bloqueados_bloque.extraer(anterior)
+        if bloqueados:
+            script = bloqueados_bloque.aplicar(script, bloqueados)
         await sieve_putscript(reader, writer, SCRIPT_NAME, script)
         await sieve_setactive(reader, writer, SCRIPT_NAME)
     finally:

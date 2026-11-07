@@ -71,10 +71,13 @@ class OfficePreviewRequest(BaseModel):
     filename: str
 
 
-def _convert_to_pdf(convert_payload: dict) -> bytes:
-    """Blocking call to OnlyOffice ConvertService — runs in thread pool."""
+def _convert_to_pdf(convert_payload: dict, oo_url: str = "") -> bytes:
+    """Blocking call to OnlyOffice ConvertService — runs in thread pool.
+    `oo_url` viene del panel (office_config); antes se usaba siempre el valor del .env
+    (`http://onlyoffice:8080`, que no resuelve) y Word/Excel no se abrían en línea (05/11/2026).
+    """
     req = urllib.request.Request(
-        f"{_OO_URL}/ConvertService.ashx",
+        f"{(oo_url or _OO_URL).rstrip('/')}/ConvertService.ashx",
         data=json.dumps(convert_payload).encode(),
         headers={"Content-Type": "application/json"},
     )
@@ -103,6 +106,16 @@ async def office_preview(
     username: str = Depends(get_current_user),
 ):
     """Convert an Office attachment to PDF via OnlyOffice and return the PDF."""
+    # Desactivado el 05/11/2026: los documentos de Office se abren con el visor de OnlyOffice
+    # (solo lectura, con descarga) desde /office-editor-config. Convertir a PDF alteraba los
+    # archivos y los usuarios creian que llegaban danados; no volver a activarlo.
+    logger.warning(
+        "office_preview (conversion a PDF) desactivado: %s %s", username, body.filename
+    )
+    raise HTTPException(
+        status_code=410,
+        detail="La conversion a PDF esta desactivada. Abre el documento con el visor en linea o descargalo.",
+    )
     logger.info("office_preview called: %s %s", username, body.filename)
 
     ext = body.filename.rsplit(".", 1)[-1].lower() if "." in body.filename else ""
@@ -143,12 +156,15 @@ async def office_preview(
         "outputtype": "pdf",
         "url": download_url,
     }
-    convert_token = jwt.encode(convert_payload, _OO_SECRET, algorithm="HS256")
+    _oo_url, _oo_secret = await _oo_cfg(request)  # URL y secreto del panel, no del .env
+    convert_token = jwt.encode(convert_payload, _oo_secret, algorithm="HS256")
     convert_payload["token"] = convert_token
 
     try:
         loop = asyncio.get_event_loop()
-        pdf_data = await loop.run_in_executor(None, _convert_to_pdf, convert_payload)
+        pdf_data = await loop.run_in_executor(
+            None, _convert_to_pdf, convert_payload, _oo_url
+        )
     except Exception as e:
         logger.error("Conversion failed: %s: %s", type(e).__name__, e)
         raise HTTPException(status_code=502, detail=f"Conversion failed: {e}")
@@ -162,6 +178,75 @@ async def office_preview(
             ),
             "Cache-Control": "private, max-age=300",
         },
+    )
+
+
+@router.post("/office-print")
+async def office_print(
+    body: OfficePreviewRequest,
+    request: Request,
+    username: str = Depends(get_current_user),
+):
+    """PDF de impresión de un adjunto de Office (06/11/2026).
+
+    Es lo mismo que hace el propio OnlyOffice al pulsar Imprimir en su visor: pide al servidor
+    de documentos una salida PDF paginada. El PDF NO se guarda ni se ofrece como archivo: el
+    navegador lo carga en un marco oculto y abre el diálogo de impresión. La descarga sigue
+    entregando el archivo original; la ruta /office-preview (vista previa convertida) sigue
+    desactivada.
+    """
+    ext = body.filename.rsplit(".", 1)[-1].lower() if "." in body.filename else ""
+    if ext not in _OFFICE_EXT:
+        raise HTTPException(status_code=400, detail=f"Extension '{ext}' not supported")
+    dl_token = jwt.encode(
+        {
+            "sub": username,
+            "folder": body.folder,
+            "uid": body.uid,
+            "part": body.part_number,
+            "filename": body.filename,
+            "sid": getattr(request.state, "sid", None),
+            "cuenta_activa": getattr(request.state, "cuenta_activa", None),
+            "exp": int(time.time()) + 3600,
+        },
+        _DOWNLOAD_SECRET,
+        algorithm="HS256",
+    )
+    download_url = (
+        f"{settings.public_base_url.rstrip('/')}/api/mail/oo-download?token={dl_token}"
+    )
+    key_hash = hashlib.md5(
+        f"{username}_{body.folder}_{body.uid}_{body.part_number}".encode(),
+        usedforsecurity=False,
+    ).hexdigest()[:16]
+    convert_payload = {
+        "async": False,
+        "filetype": ext,
+        "key": f"pr_{key_hash}_{int(time.time())}",
+        "outputtype": "pdf",
+        "url": download_url,
+    }
+    _oo_url, _oo_secret = await _oo_cfg(request)
+    convert_payload["token"] = jwt.encode(
+        convert_payload, _oo_secret, algorithm="HS256"
+    )
+    try:
+        loop = asyncio.get_event_loop()
+        pdf_data = await loop.run_in_executor(
+            None, _convert_to_pdf, convert_payload, _oo_url
+        )
+    except Exception as e:
+        logger.error(
+            "office_print: conversion fallida %s %s: %s", username, body.filename, e
+        )
+        raise HTTPException(
+            status_code=502, detail="No se pudo preparar el documento para imprimir"
+        )
+    logger.info("office_print %s %s %d bytes", username, body.filename, len(pdf_data))
+    return Response(
+        content=pdf_data,
+        media_type="application/pdf",
+        headers={"Content-Disposition": "inline", "Cache-Control": "no-store"},
     )
 
 

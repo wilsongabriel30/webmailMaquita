@@ -38,6 +38,11 @@ class Settings(BaseSettings):
     cookie_domain: str = "mail.example.com"
     cors_origins: str = "https://mail.example.com"
     access_token_expire_minutes: int = 480
+    # Bienvenida tras una migración de correo (03/11/2026): dominios separados por coma (vacío = apagada),
+    # desde cuándo (ISO 8601 con zona) y cuántos días se muestra, contados desde el primer ingreso de cada persona.
+    bienvenida_dominios: str = ""
+    bienvenida_desde: str = ""
+    bienvenida_dias: int = 3
     refresh_token_expire_days: int = 7
     # Sesiones de la app de escritorio (Teams Maquita): duran hasta que la persona cierra
     # sesión. Ver app/auth/sesion_app.py.
@@ -75,6 +80,11 @@ class Settings(BaseSettings):
     ia_base_url: str = ""  # vacio -> usa ollama_url
     ia_model: str = ""  # sin hardcode; definir en .env o panel
     ia_timeout: int = 60
+    # Modelo de «calidad» (redactar, resumir, Conversa con tu correo); vacío = desactivado.
+    # Ver app/ai/llm_calidad.py. IA_GPU_CALIDAD: GPU por nombre en la pasarela.
+    ia_model_calidad: str = ""
+    ia_gpu_calidad: str = "P40"
+    ia_timeout_calidad: int = 95  # el 14B en frío tarda hasta ~90 s
     ia_embed_model: str = "nomic-embed-text"
     ia_embed_url: str = ""  # endpoint de embeddings; vacio -> usa ia_base_url
     ollama_url: str = "http://127.0.0.1:11434"

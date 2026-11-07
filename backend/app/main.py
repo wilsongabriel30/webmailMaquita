@@ -60,18 +60,29 @@ from app.import_export.router import router as import_router
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.programados import procesar_programados
 from app.mail.routers.adjunto_correo import router as adjunto_correo_router
+from app.mail.routers.archivo_en_correo_adjunto import (
+    router as archivo_en_correo_adjunto_router,  # 06/11/2026
+)
 from app.mail.routers.attachments import router as attachments_router
+from app.mail.routers.bloqueados import router as bloqueados_router
 from app.mail.routers.borrados import router as borrados_router
 from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
 from app.mail.routers.confianza import router as confianza_router
 from app.mail.routers.cuentas import router as cuentas_router
+from app.mail.routers.cuentas_ultimo import (
+    router as cuentas_ultimo_router,  # 06/11/2026
+)
+from app.mail.routers.envio_segundo_plano import (
+    router as envio_segundo_plano_router,  # envío inmediato 06/11/2026
+)
 from app.mail.routers.export import router as export_router
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.grandes import router as grandes_router
 from app.mail.routers.labels import router as labels_router
+from app.mail.routers.labels_mensajes import router as labels_mensajes_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.onlyoffice import router as onlyoffice_router
 from app.mail.routers.priority import router as priority_router
@@ -84,6 +95,9 @@ from app.mail.routers.spam_guard import router as spam_router
 from app.mail.routers.stats import router as stats_router
 from app.mail.routers.threads import router as threads_router
 from app.mail.routers.transcribe import router as transcribe_router
+from app.mail.routers.vista_previa_local import (
+    router as vista_previa_local_router,  # 06/11/2026
+)
 from app.meetings.router import router as meetings_router
 from app.mobile.router import router as mobile_router
 from app.onboarding.router import router as onboarding_router
@@ -563,6 +577,11 @@ async def credencial_caducada_handler(request, exc):
         request.method,
         request.url.path,
     )
+    # La contraseña del buzón cambió fuera del webmail: esa sesión se cierra para que
+    # la interfaz vuelva al inicio de sesión (05/11/2026). Otros «NO» no cierran nada.
+    from app.auth.sesion_credencial_rechazada import cerrar_si_credencial_rechazada
+
+    await cerrar_si_credencial_rechazada(request, exc)
     return JSONResponse(
         status_code=401,
         content={
@@ -634,6 +653,7 @@ app.include_router(onboarding_router)
 app.include_router(folders_router)
 app.include_router(messages_router)
 app.include_router(compose_router)
+app.include_router(cuentas_ultimo_router)  # antes que cuentas_router: ruta más concreta
 app.include_router(cuentas_router)
 app.include_router(dlp_router)
 app.include_router(secure_auth_router)
@@ -644,10 +664,18 @@ app.include_router(hold_ack_router)
 app.include_router(attachments_router)
 app.include_router(threads_router)
 app.include_router(onlyoffice_router)
+app.include_router(vista_previa_local_router)  # adjuntos: vista previa antes de enviar
 app.include_router(adjunto_correo_router)
+app.include_router(
+    archivo_en_correo_adjunto_router
+)  # bajar archivos de un .eml adjunto
+app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
 app.include_router(stats_router)
 app.include_router(labels_router)
+app.include_router(
+    labels_mensajes_router
+)  # listado por etiqueta con resúmenes (05/11/2026)
 app.include_router(snooze_router)
 app.include_router(priority_router)
 app.include_router(transcribe_router)
@@ -657,6 +685,7 @@ app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
 app.include_router(confianza_router)  # remitentes de confianza
+app.include_router(bloqueados_router)  # remitentes bloqueados (05/11/2026)
 app.include_router(busqueda_capacidades_router)  # ¿hay índice de texto?
 app.include_router(identities_router)
 app.include_router(firmas_router)
@@ -669,6 +698,12 @@ app.include_router(remitente_router)  # banner remitente externo
 app.include_router(totp_router)
 app.include_router(totp_policy_router)
 app.include_router(calendar_router)
+from app.interno.reuniones_router import (  # noqa: E402
+    router as interno_reuniones_router,
+)
+
+# Raíces → evento de la reunión en el calendario del correo (token de servicio, 04/11/2026)
+app.include_router(interno_reuniones_router)
 app.include_router(shared_mail_router)
 app.include_router(webhooks_router)
 app.include_router(apikeys_router)
@@ -718,6 +753,11 @@ from app.security.csp_informes import router as csp_router  # noqa: E402
 
 app.include_router(csp_router)
 app.include_router(salud_router)  # /api/salud y /api/listo para balanceadores
+
+from app.bienvenida.router import router as bienvenida_router  # noqa: E402
+
+# Ventana de bienvenida tras una migración de correo
+app.include_router(bienvenida_router)
 
 
 @app.get("/api/health")

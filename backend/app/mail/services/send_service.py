@@ -62,6 +62,7 @@ async def send_and_save(
     db=None,
     request_read_receipt: bool = False,
     request_delivery_receipt: bool = False,
+    importance: str = "normal",
 ) -> dict:
     """Send email via SMTP and save copy to Sent folder."""
     # Format From with display name if available
@@ -117,6 +118,7 @@ async def send_and_save(
         attachments=email_attachments,
         request_read_receipt=request_read_receipt,
         request_delivery_receipt=request_delivery_receipt,
+        importance=importance,
     )
 
     # Send

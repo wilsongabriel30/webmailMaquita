@@ -23,7 +23,7 @@ async def procesar_programados(db_pool, redis):
                 rows = await db_pool.fetch("""
                     SELECT id, username, to_list, cc_list, bcc_list, subject,
                            html_body, text_body, in_reply_to, "references",
-                           request_read_receipt, request_delivery_receipt
+                           request_read_receipt, request_delivery_receipt, importance
                     FROM scheduled_emails
                     WHERE status = 'pending' AND scheduled_at <= NOW()
                     ORDER BY scheduled_at ASC
@@ -110,6 +110,7 @@ async def procesar_programados(db_pool, redis):
                             display_name=display_name,
                             request_read_receipt=row["request_read_receipt"],
                             request_delivery_receipt=row["request_delivery_receipt"],
+                            importance=row["importance"],
                         )
 
                         await db_pool.execute(

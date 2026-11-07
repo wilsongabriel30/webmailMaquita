@@ -12,7 +12,8 @@ Supports text+HTML multipart, file attachments, inline CID images.
 ║  Reglas que NO se deben romper:                                      ║
 ║    1. Siempre generar text/plain real (nunca vacío)                  ║
 ║    2. Siempre envolver HTML en DOCTYPE + <html> + <body>             ║
-║    3. NUNCA agregar X-Priority, X-MSMail-Priority, Importance        ║
+║    3. NUNCA X-MSMail-Priority. Importance y X-Priority SOLO si       ║
+║       la persona elige Alta o Baja (28/10/2026)                      ║
 ║    4. Content-Type DEBE ser multipart/alternative o multipart/mixed  ║
 ║    5. Charset DEBE ser utf-8                                         ║
 ║                                                                      ║
@@ -23,6 +24,7 @@ Supports text+HTML multipart, file attachments, inline CID images.
 """
 
 import hmac
+import os as _os
 import re as _re
 from dataclasses import dataclass, field
 from email import encoders
@@ -35,21 +37,40 @@ from email.utils import formataddr, formatdate, parseaddr
 
 import aiosmtplib
 
+# Tiempo máximo de la sesión SMTP (05/11/2026): aiosmtplib cortaba a los 60 s por defecto mientras los
+# milters aún analizaban adjuntos y el usuario veía «error» con el correo ya encolado.
+SMTP_ENVIO_TIMEOUT_S = int(_os.getenv("SMTP_ENVIO_TIMEOUT_S", "180"))
+
 from app.branding.service import app_name_cacheado, org_name_cacheado
 from app.config import get_settings
+from app.mail.clients.parte_correo_adjunto import (
+    construir_parte_correo,
+    es_correo_adjunto,
+)
 from app.mail.msgid import msgid_del_remitente
 
 # ─── Headers que NUNCA deben estar en un correo saliente ───
 # Agregar cualquiera de estos sube el score de SpamAssassin y envía a spam.
 _FORBIDDEN_HEADERS = frozenset(
     {
-        "X-Priority",
         "X-MSMail-Priority",
-        "Importance",
         "X-MimeOLE",
         "X-Mailer-Version",
     }
 )
+
+# Importancia elegida por la persona al redactar (28/10/2026). Solo se marca cuando elige Alta o
+# Baja, como hace Outlook; en Normal no se agrega nada. Lo que llevaba los correos a spam en abril
+# era poner estas cabeceras en TODOS los correos. X-MSMail-Priority sigue prohibida (dispara
+# MISSING_MIMEOLE en SpamAssassin).
+_CABECERAS_IMPORTANCIA = {
+    "high": (("Importance", "high"), ("X-Priority", "1 (Highest)")),
+    "low": (("Importance", "low"), ("X-Priority", "5 (Lowest)")),
+}
+_VALORES_IMPORTANCIA = {
+    "Importance": frozenset({"high", "low"}),
+    "X-Priority": frozenset({"1 (Highest)", "5 (Lowest)"}),
+}
 
 
 def _html_to_text(html: str) -> str:
@@ -114,6 +135,7 @@ class OutgoingEmail:
     attachments: list[EmailAttachment] = field(default_factory=list)
     request_read_receipt: bool = False
     request_delivery_receipt: bool = False
+    importance: str = "normal"  # normal | high | low
 
 
 def _cabecera_direcciones(valores: list[str] | str) -> str:
@@ -128,12 +150,32 @@ def _cabecera_direcciones(valores: list[str] | str) -> str:
     partes = []
     for v in valores:
         nombre, direccion = parseaddr(v)
-        if not direccion:
-            continue
+        if not direccion or "@" not in direccion:
+            continue  # texto a medio escribir («Rosa»), no es una dirección
         if nombre and not nombre.isascii():
             nombre = str(Header(nombre, "utf-8"))
+        if not direccion.isascii():
+            direccion = _direccion_ascii(direccion)
+            if not direccion:
+                continue
         partes.append(formataddr((nombre, direccion)))
     return ", ".join(partes)
+
+
+def _direccion_ascii(direccion: str) -> str:
+    """Deja la dirección en ASCII: dominio en IDNA. Si no hay «@» o la parte local tiene
+    caracteres no ASCII (p. ej. «Ramírez», un nombre a medio escribir que el autoguardado del
+    borrador manda como destinatario) devuelve «» y se omite: antes `formataddr` lanzaba
+    UnicodeEncodeError y el envío o el borrador fallaban con 500 (05/11/2026)."""
+    if "@" not in direccion:
+        return ""
+    local, _, dominio = direccion.rpartition("@")
+    if not local.isascii():
+        return ""
+    try:
+        return local + "@" + dominio.encode("idna").decode("ascii")
+    except Exception:
+        return ""
 
 
 def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
@@ -174,6 +216,8 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
         msg["Disposition-Notification-To"] = email_data.from_addr
     if email_data.request_delivery_receipt:
         msg["Return-Receipt-To"] = email_data.from_addr
+    for nombre, valor in _CABECERAS_IMPORTANCIA.get(email_data.importance, ()):
+        msg[nombre] = valor
 
     body_part = MIMEMultipart("alternative") if has_attachments else msg
 
@@ -235,6 +279,13 @@ def _assert_no_forbidden_headers(msg: MIMEMultipart) -> None:
     Si alguien agrega un header prohibido por error, este check lo detecta
     ANTES de que el correo salga. Falla ruidosamente para que se note.
     """
+    for nombre, permitidos in _VALORES_IMPORTANCIA.items():
+        valores = msg.get_all(nombre) or []
+        if len(valores) > 1 or any(v not in permitidos for v in valores):
+            raise ValueError(
+                f"HEADER PROHIBIDO detectado: '{nombre}: {valores}'. Solo se permite con la "
+                "importancia elegida al redactar (Alta o Baja) y con sus valores exactos."
+            )
     for header_name in _FORBIDDEN_HEADERS:
         if msg.get(header_name):
             raise ValueError(
@@ -250,6 +301,11 @@ def _build_attachment_part(att: EmailAttachment) -> MIMEBase:
         if "/" in att.content_type
         else ("application", "octet-stream")
     )
+    if es_correo_adjunto(att.content_type):
+        # Correo reenviado como adjunto (.eml): anidado, nunca en base64 (RFC 2046).
+        parte_correo = construir_parte_correo(att.content)
+        if parte_correo is not None:
+            return parte_correo
     if maintype == "image":
         part = MIMEImage(att.content, _subtype=subtype)
     else:
@@ -289,6 +345,7 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         start_tls=True,
         tls_context=tls_context,
         recipients=all_recipients,
+        timeout=SMTP_ENVIO_TIMEOUT_S,
     )
 
     return {

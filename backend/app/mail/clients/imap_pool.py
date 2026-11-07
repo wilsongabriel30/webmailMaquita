@@ -50,7 +50,7 @@ async def _create_connection(username: str, password: str) -> aioimaplib.IMAP4:
             resp = await imap.login(base_user, password)
             if resp.result == "OK":
                 return imap
-        raise CredencialIMAPInvalida(f"IMAP login failed for {username}")
+        raise CredencialIMAPInvalida.desde_respuesta(resp, username)
     return imap
 
 

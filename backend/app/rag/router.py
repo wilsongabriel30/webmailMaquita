@@ -4,9 +4,11 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.rag import almacen
 from app.rag import config as rag_config
 from app.rag import ingest, store
 from app.rag.ask import ask as rag_ask
+from app.rag.carpetas import etiqueta
 
 router = APIRouter(prefix="/api/rag", tags=["rag"])
 
@@ -32,13 +34,19 @@ async def status(request: Request):
         "indexed": await store.count(db, user),
         # Progreso de la sincronización en segundo plano (ver ingest.lanzar_en_segundo_plano)
         "sync": await ingest.progreso_compartido(user, _redis(request)),
+        # Avance de la indexación de todas las carpetas: {en_buzon, carpetas, carpetas_completas}
+        # (vacío hasta la primera pasada con el código de 04/11/2026)
+        "buzon": await almacen.resumen(db, user),
     }
 
 
 @router.post("/ask")
 async def ask_ep(request: Request, body: AskReq):
     user = await get_current_user(request)
-    return await rag_ask(_db(request), user, (body.question or "").strip()[:500])
+    res = await rag_ask(_db(request), user, (body.question or "").strip()[:500])
+    for f in res.get("sources") or []:  # nombre legible: «Bandeja de entrada / SRI»
+        f["carpeta"] = etiqueta(f.get("folder") or "INBOX")
+    return res
 
 
 @router.post("/sync")

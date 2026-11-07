@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from typing import Optional
+from typing import Literal, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.tasks.mi_dia import en_guayaquil as _en_guayaquil
+from app.tasks.repeticion import normalizar as _regla_repeticion
 
 
 # Board (kept for backward compat)
@@ -68,17 +71,6 @@ class ListOut(BaseModel):
     task_count: int = 0
 
 
-# New: TaskList for To Do style
-class TaskListCreate(BaseModel):
-    name: str
-    icon: str = ""
-
-
-class TaskListUpdate(BaseModel):
-    name: Optional[str] = None
-    icon: Optional[str] = None
-
-
 # Card
 class CardCreate(BaseModel):
     title: str
@@ -92,6 +84,10 @@ class CardCreate(BaseModel):
     reminder: Optional[datetime] = None
     note: str = ""
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
+
+    _repeticion = field_validator("recurrence")(_regla_repeticion)
+    # «AAAA-MM-DD» sin hora = ese día en Guayaquil, sea cual sea la zona del proceso (ver mi_dia.en_guayaquil).
+    _zona = field_validator("due_date", "reminder")(_en_guayaquil)
 
 
 class CardUpdate(BaseModel):
@@ -107,12 +103,28 @@ class CardUpdate(BaseModel):
     my_day: Optional[bool] = None
     reminder: Optional[datetime] = None
     note: Optional[str] = None
-    recurrence: Optional[str] = None
+    recurrence: Optional[str] = None  # ver app/tasks/repeticion.py
+
+    _repeticion = field_validator("recurrence")(_regla_repeticion)
+    _zona = field_validator("due_date", "reminder")(_en_guayaquil)
 
 
 class CardMove(BaseModel):
     list_id: uuid.UUID
     position: int
+
+
+class CorreoRef(BaseModel):
+    """Correo del que salió la tarea (para abrirlo desde Tareas).
+
+    origen: «marcado» (lista Correo marcado, sigue la bandera) o «soltado» (se soltó en el ícono Tareas).
+    """
+
+    carpeta: str
+    uid: int
+    asunto: str = ""
+    remitente: str = ""
+    origen: Literal["marcado", "soltado"] = "marcado"
 
 
 class CardOut(BaseModel):
@@ -136,6 +148,16 @@ class CardOut(BaseModel):
     recurrence: Optional[str] = None  # daily, weekdays, weekly, monthly, yearly
     created_at: datetime
     updated_at: datetime
+    # Lo agregan las listas inteligentes (vistas.py): nombre de la lista, asignados y correo de origen.
+    list_name: Optional[str] = None
+    asignados: list[str] = Field(default_factory=list)
+    correo: Optional[CorreoRef] = None
+    # Pasos (hechos y en total) y adjuntos, para mostrarlos en la fila como To Do (F3).
+    pasos: int = 0
+    pasos_hechos: int = 0
+    adjuntos: int = 0
+    # Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
+    seguimiento: bool = False
 
 
 # Label

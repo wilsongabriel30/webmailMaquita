@@ -10,6 +10,7 @@ from typing import Optional
 import asyncpg
 
 from app.core.sanitize import sanitize_html, strip_html
+from app.tasks import acceso, mi_dia
 from app.tasks.schemas import (
     ActivityOut,
     BoardCreate,
@@ -28,8 +29,6 @@ from app.tasks.schemas import (
     ListUpdate,
     MemberAdd,
     MemberOut,
-    TaskListCreate,
-    TaskListUpdate,
 )
 
 
@@ -116,6 +115,12 @@ def _row_to_activity(row):
     )
 
 
+# El tablero de la persona (el más antiguo) y su lista «Tareas»; list_id es NULL si falta la lista.
+_TABLERO_CON_LISTA = """SELECT b.id,
+       (SELECT l.id FROM task_lists l WHERE l.board_id = b.id AND l.list_type = 'default' LIMIT 1) AS list_id
+  FROM task_boards b WHERE b."user" = $1 ORDER BY b.created_at, b.id LIMIT 1"""
+
+
 class TaskService:
 
     async def _user_has_access(self, db, board_id, user):
@@ -132,21 +137,10 @@ class TaskService:
         return val is not None
 
     async def _list_belongs_to_user(self, db, list_id, user):
-        row = await db.fetchrow(
-            "SELECT board_id FROM task_lists WHERE id = $1", list_id
-        )
-        if not row:
-            return False
-        return await self._user_has_access(db, row["board_id"], user)
+        return await acceso.puede_ver_lista(db, list_id, user)
 
     async def _card_belongs_to_user(self, db, card_id, user):
-        row = await db.fetchrow(
-            "SELECT tl.board_id FROM task_cards tc JOIN task_lists tl ON tl.id = tc.list_id WHERE tc.id = $1",
-            card_id,
-        )
-        if not row:
-            return False
-        return await self._user_has_access(db, row["board_id"], user)
+        return await acceso.puede_ver_tarea(db, card_id, user)
 
     async def _get_board_id_for_card(self, db, card_id):
         return await db.fetchval(
@@ -173,9 +167,30 @@ class TaskService:
 
     async def ensure_default_board(self, db, user):
         """Auto-create implicit board + default 'Tareas' list for a user if none exists.
-        Returns the board_id."""
+        Returns the board_id.
+
+        Al abrir Tareas la pantalla pide listas, conteos, grupos y ajustes a la vez, y cada petición pasa
+        por aquí: sin el candado por persona, todas veían «no hay tablero» y cada una creaba el suyo
+        (13 personas quedaron con dos tableros y dos listas «Tareas», 29/10/2026)."""
+        row = await db.fetchrow(_TABLERO_CON_LISTA, user)
+        if row and row["list_id"]:
+            return row["id"]
+        if hasattr(db, "acquire"):
+            async with db.acquire() as con:
+                return await self._crear_tablero(con, user)
+        return await self._crear_tablero(db, user)
+
+    async def _crear_tablero(self, con, user):
+        # Dentro de una transacción (o de un punto de guardado si ya hay una): el candado dura hasta el final.
+        async with con.transaction():
+            await con.execute(
+                "SELECT pg_advisory_xact_lock(hashtext($1))", "tareas-tablero:" + user
+            )
+            return await self._crear_tablero_sin_candado(con, user)
+
+    async def _crear_tablero_sin_candado(self, db, user):
         row = await db.fetchrow(
-            'SELECT id FROM task_boards WHERE "user" = $1 ORDER BY created_at LIMIT 1',
+            'SELECT id FROM task_boards WHERE "user" = $1 ORDER BY created_at, id LIMIT 1',
             user,
         )
         if row:
@@ -199,145 +214,27 @@ class TaskService:
             board_id,
         )
         if not default_list:
-            await db.execute(
-                "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, 'Tareas', 0, '#e0e0e0', 'default', '', $2)",
+            list_id = await db.fetchval(
+                "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, 'Tareas', 0, '#e0e0e0', 'default', '', $2) RETURNING id",
                 board_id,
                 user,
             )
+            await acceso.registrar_propietaria(db, list_id, user)
         return board_id
 
     async def _get_default_list_id(self, db, user):
         """Get the default 'Tareas' list for the user, ensuring it exists."""
         board_id = await self.ensure_default_board(db, user)
         list_id = await db.fetchval(
-            "SELECT id FROM task_lists WHERE board_id = $1 AND list_type = 'default' LIMIT 1",
+            "SELECT id FROM task_lists WHERE board_id = $1 AND list_type = 'default' ORDER BY position, id LIMIT 1",
             board_id,
         )
         return list_id
 
     # ── To Do style: Lists ──
 
-    async def list_user_lists(self, db, user):
-        """Return all lists for the user with task counts."""
-        board_id = await self.ensure_default_board(db, user)
-        rows = await db.fetch(
-            """SELECT tl.*, COALESCE(cnt.c, 0) as task_count
-               FROM task_lists tl
-               LEFT JOIN (SELECT list_id, COUNT(*) as c FROM task_cards WHERE completed = FALSE GROUP BY list_id) cnt
-               ON cnt.list_id = tl.id
-               WHERE tl.board_id = $1
-               ORDER BY tl.list_type DESC, tl.position, tl.name""",
-            board_id,
-        )
-        return [_row_to_list(r, task_count=r["task_count"]) for r in rows]
-
-    async def create_user_list(self, db, user, data: TaskListCreate):
-        """Create a custom list for the user."""
-        board_id = await self.ensure_default_board(db, user)
-        max_pos = await db.fetchval(
-            "SELECT COALESCE(MAX(position), -1) FROM task_lists WHERE board_id = $1",
-            board_id,
-        )
-        row = await db.fetchrow(
-            "INSERT INTO task_lists (board_id, name, position, color, list_type, icon, owner) VALUES ($1, $2, $3, '#e0e0e0', 'custom', $4, $5) RETURNING *",
-            board_id,
-            data.name,
-            max_pos + 1,
-            data.icon,
-            user,
-        )
-        # get task_count (0 for new list)
-        await self._log_activity(
-            db, board_id, user, "list_created", f"Lista '{data.name}' creada"
-        )
-        return _row_to_list(row, task_count=0)
-
-    async def rename_user_list(self, db, user, list_id, data: TaskListUpdate):
-        """Rename/update a user list."""
-        if not await self._list_belongs_to_user(db, list_id, user):
-            raise ValueError("List not found")
-        # Don't allow renaming default list
-        row = await db.fetchrow(
-            "SELECT list_type FROM task_lists WHERE id = $1", list_id
-        )
-        if row and row["list_type"] == "default":
-            raise ValueError("Cannot rename default list")
-        sets, params, idx = [], [], 1
-        if data.name is not None:
-            idx += 1
-            sets.append(f"name = ${idx}")
-            params.append(data.name)
-        if data.icon is not None:
-            idx += 1
-            sets.append(f"icon = ${idx}")
-            params.append(data.icon)
-        if not sets:
-            raise ValueError("Nothing to update")
-        sql = f"UPDATE task_lists SET {', '.join(sets)} WHERE id = $1 RETURNING *"
-        row = await db.fetchrow(sql, list_id, *params)
-        cnt = await db.fetchval(
-            "SELECT COUNT(*) FROM task_cards WHERE list_id = $1 AND completed = FALSE",
-            list_id,
-        )
-        return _row_to_list(row, task_count=cnt or 0)
-
-    async def delete_user_list(self, db, user, list_id):
-        """Delete a custom list (not the default one)."""
-        if not await self._list_belongs_to_user(db, list_id, user):
-            raise ValueError("List not found")
-        row = await db.fetchrow(
-            "SELECT list_type, name FROM task_lists WHERE id = $1", list_id
-        )
-        if row and row["list_type"] == "default":
-            raise ValueError("Cannot delete default list")
-        board_id = await self._get_board_id_for_list(db, list_id)
-        await db.execute("DELETE FROM task_lists WHERE id = $1", list_id)
-        if board_id:
-            await self._log_activity(
-                db, board_id, user, "list_deleted", f"Lista '{row['name']}' eliminada"
-            )
-
-    # ── To Do style: Smart Views ──
-
-    async def get_smart_view(self, db, user, view):
-        """Return tasks filtered by smart view type."""
-        board_id = await self.ensure_default_board(db, user)
-        if view == "my_day":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.my_day = TRUE
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-            )
-        elif view == "important":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.important = TRUE
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-            )
-        elif view == "planned":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.due_date IS NOT NULL
-                   ORDER BY tc.completed, tc.due_date, tc.position""",
-                board_id,
-            )
-        elif view == "assigned":
-            rows = await db.fetch(
-                """SELECT tc.* FROM task_cards tc
-                   JOIN task_lists tl ON tl.id = tc.list_id
-                   WHERE tl.board_id = $1 AND tc.assigned_to = $2
-                   ORDER BY tc.completed, tc.position""",
-                board_id,
-                user,
-            )
-        else:
-            raise ValueError(f"Unknown view: {view}")
-        return [_row_to_card(r) for r in rows]
+    # Listas propias y grupos: listas.py.
+    # Las listas inteligentes están en vistas.py.
 
     # ── To Do style: Tasks ──
 
@@ -370,6 +267,8 @@ class TaskService:
             sanitize_html(data.note or ""),
             getattr(data, "recurrence", None),
         )
+        if data.my_day:
+            await mi_dia.poner(db, user, row["id"], True)
         board_id = await self._get_board_id_for_list(db, list_id)
         if board_id:
             await self._log_activity(
@@ -388,16 +287,6 @@ class TaskService:
             raise ValueError("Card not found")
         row = await db.fetchrow(
             "UPDATE task_cards SET important = NOT important, updated_at = NOW() WHERE id = $1 RETURNING *",
-            card_id,
-        )
-        return _row_to_card(row)
-
-    async def toggle_my_day(self, db, user, card_id):
-        """Toggle my_day flag on a task."""
-        if not await self._card_belongs_to_user(db, card_id, user):
-            raise ValueError("Card not found")
-        row = await db.fetchrow(
-            "UPDATE task_cards SET my_day = NOT my_day, updated_at = NOW() WHERE id = $1 RETURNING *",
             card_id,
         )
         return _row_to_card(row)
@@ -469,6 +358,17 @@ class TaskService:
         )
         if not val:
             raise ValueError("Board not found or not owner")
+        from app.tasks import rescate_seguimiento  # evita el import circular
+
+        await rescate_seguimiento.rescatar(
+            db,
+            [
+                r["id"]
+                for r in await db.fetch(
+                    "SELECT id FROM task_lists WHERE board_id = $1", board_id
+                )
+            ],
+        )
         await db.execute("DELETE FROM task_boards WHERE id = $1", board_id)
 
     # Members
@@ -582,6 +482,9 @@ class TaskService:
     async def delete_list(self, db, user, list_id):
         if not await self._list_belongs_to_user(db, list_id, user):
             raise ValueError("List not found")
+        from app.tasks import rescate_seguimiento  # evita el import circular
+
+        await rescate_seguimiento.rescatar(db, [list_id])
         await db.execute("DELETE FROM task_lists WHERE id = $1", list_id)
 
     # Cards (legacy + updated with new fields)
@@ -685,9 +588,7 @@ class TaskService:
             sets.append(f"important = ${idx}")
             params.append(data.important)
         if data.my_day is not None:
-            idx += 1
-            sets.append(f"my_day = ${idx}")
-            params.append(data.my_day)
+            await mi_dia.poner(db, user, card_id, data.my_day)
         if "recurrence" in data.model_fields_set:
             idx += 1
             sets.append(f"recurrence = ${idx}")
@@ -697,7 +598,7 @@ class TaskService:
             sets.append(f"reminder = ${idx}")
             params.append(data.reminder)
             sets.append("reminder_sent = FALSE")
-        if not sets:
+        if not sets and data.my_day is None:
             raise ValueError("Nothing to update")
         sets.append("updated_at = NOW()")
         sql = f"UPDATE task_cards SET {', '.join(sets)} WHERE id = $1 RETURNING *"
@@ -719,10 +620,6 @@ class TaskService:
                 "important"
             ):
                 changes.append("importante" if data.important else "no importante")
-            if data.my_day is not None and data.my_day != old_row.get("my_day"):
-                changes.append(
-                    "agregada a Mi Dia" if data.my_day else "removida de Mi Dia"
-                )
             if changes:
                 await self._log_activity(
                     db,
@@ -794,7 +691,8 @@ class TaskService:
         return _row_to_card(row)
 
     async def delete_card(self, db, user, card_id):
-        if not await self._card_belongs_to_user(db, card_id, user):
+        # Borrar exige ver la lista (las de Seguimiento, además, ser quien la asignó: ver tasks/router.py).
+        if not await acceso.tarea_en_sus_listas(db, card_id, user):
             raise ValueError("Card not found")
         old_row = await db.fetchrow(
             "SELECT title FROM task_cards WHERE id = $1", card_id

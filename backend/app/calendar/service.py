@@ -38,6 +38,11 @@ from typing import Optional
 import asyncpg
 from dateutil.rrule import rrulestr
 
+from app.calendar import (  # calendarios compartidos (05/11/2026)
+    cascada,
+    compartidos,
+    respuestas,
+)
 from app.calendar.ical_utils import build_vcalendar, generate_uid
 from app.calendar.radicale_client import radicale_client
 from app.calendar.schemas import (
@@ -299,7 +304,7 @@ class CalendarService:
     ) -> EventOut:
         # Verify calendar ownership
         cal = await db.fetchrow(
-            "SELECT * FROM calendars WHERE id = $1 AND owner_email = $2",
+            "SELECT c.* FROM calendars c WHERE c.id = $1 AND " + compartidos.EDITABLE_2,
             data.calendar_id,
             user,
         )
@@ -327,7 +332,9 @@ class CalendarService:
         vcal_str = build_vcalendar(event_dict)
 
         # Write to Radicale
-        await radicale_client.put_event(user, cal["radicale_path"], uid, vcal_str)
+        await radicale_client.put_event(
+            cal["owner_email"], cal["radicale_path"], uid, vcal_str
+        )
 
         # Insert into PostgreSQL
         row = await db.fetchrow(
@@ -357,7 +364,9 @@ class CalendarService:
         merged_att = _merge_attendees(data)
         if merged_att:
             try:
-                await self._auto_invite_attendees(db, user, row, merged_att)
+                await self._auto_invite_attendees(
+                    db, cal["owner_email"], row, merged_att
+                )
             except Exception as e:
                 logger.warning("Auto-invite failed: %s", e)
 
@@ -434,7 +443,7 @@ class CalendarService:
             """SELECT e.*, c.color, c.name AS calendar_name
                FROM events e
                JOIN calendars c ON c.id = e.calendar_id
-               WHERE e.id = $1 AND c.owner_email = $2""",
+               WHERE e.id = $1 AND """ + compartidos.VISIBLE_2,
             event_id,
             user,
         )
@@ -450,7 +459,7 @@ class CalendarService:
             """SELECT e.*, c.radicale_path, c.color, c.name AS calendar_name
                FROM events e
                JOIN calendars c ON c.id = e.calendar_id
-               WHERE e.id = $1 AND c.owner_email = $2""",
+               WHERE e.id = $1 AND """ + compartidos.EDITABLE_2,
             event_id,
             user,
         )
@@ -505,7 +514,7 @@ class CalendarService:
 
         query = f"""UPDATE events SET {', '.join(set_clauses)}
                     WHERE id = $1 AND calendar_id IN (
-                        SELECT id FROM calendars WHERE owner_email = $2
+                        SELECT c.id FROM calendars c WHERE {compartidos.EDITABLE_2}
                     )
                     RETURNING *"""
         row = await db.fetchrow(query, event_id, user, *params)
@@ -541,14 +550,14 @@ class CalendarService:
         }
         vcal_str = build_vcalendar(event_dict)
         await radicale_client.put_event(
-            user, cal["radicale_path"], row["uid"], vcal_str
+            cal["owner_email"], cal["radicale_path"], row["uid"], vcal_str
         )
 
         # Auto-invite attendees on update
         if event_dict["attendees"]:
             try:
                 await self._auto_invite_attendees(
-                    db, user, row, event_dict["attendees"]
+                    db, cal["owner_email"], row, event_dict["attendees"]
                 )
             except Exception as e:
                 logger.warning("Auto-invite on update failed: %s", e)
@@ -583,10 +592,10 @@ class CalendarService:
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID
     ) -> bool:
         row = await db.fetchrow(
-            """SELECT e.uid, c.radicale_path
+            """SELECT e.uid, e.attendees, c.radicale_path, c.owner_email
                FROM events e
                JOIN calendars c ON c.id = e.calendar_id
-               WHERE e.id = $1 AND c.owner_email = $2""",
+               WHERE e.id = $1 AND """ + compartidos.EDITABLE_2,
             event_id,
             user,
         )
@@ -594,10 +603,16 @@ class CalendarService:
             raise ValueError("Event not found")
 
         # Delete from Radicale
-        await radicale_client.delete_event(user, row["radicale_path"], row["uid"])
+        await radicale_client.delete_event(
+            row["owner_email"], row["radicale_path"], row["uid"]
+        )
 
         # Delete from PostgreSQL
         await db.execute("DELETE FROM events WHERE id = $1", event_id)
+        # Si borra el organizador, se van también las copias de los asistentes.
+        await cascada.borrar_copias(
+            db, row["uid"], row["owner_email"], row["attendees"], event_id
+        )
         return True
 
     async def export_calendar(
@@ -959,8 +974,10 @@ class CalendarService:
 
     async def send_invitations(
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID, smtp_config: dict
-    ) -> int:
-        """Enviar emails de invitación a los asistentes de un evento."""
+    ) -> list[dict]:
+        """Enviar emails de invitación a los asistentes de un evento.
+
+        Devuelve el resultado por asistente (ver `estado_invitaciones`)."""
         row = await db.fetchrow(
             """SELECT e.*, c.name AS calendar_name, c.owner_email
                FROM events e
@@ -977,7 +994,7 @@ class CalendarService:
 
             attendees_raw = _json.loads(attendees_raw)
         if not attendees_raw:
-            return 0
+            return []
         import html as _html
         import re as _re
         import smtplib
@@ -985,7 +1002,9 @@ class CalendarService:
         from email.mime.text import MIMEText
         from email.utils import formatdate
 
-        sent = 0
+        from app.calendar import estado_invitaciones
+
+        resultados = []
 
         from zoneinfo import ZoneInfo
 
@@ -1129,6 +1148,7 @@ class CalendarService:
                 msg["From"] = user
                 msg["To"] = email
                 msg["Date"] = formatdate(localtime=True)
+                msg["Message-ID"] = estado_invitaciones.nuevo_message_id(user)
                 body = _cuerpo_html(_cab, es_organizador=not _con_ics)
                 msg.attach(MIMEText(body, "html"))
 
@@ -1184,10 +1204,25 @@ class CalendarService:
                         except smtplib.SMTPNotSupportedError:
                             pass
                     s.sendmail(user, [email], msg.as_string())
-                sent += 1
+                if _con_ics:
+                    resultados.append(
+                        {
+                            "email": email,
+                            "estado": "aceptado",
+                            "message_id": msg["Message-ID"],
+                        }
+                    )
             except Exception as e:
                 logger.warning("No se pudo enviar invitación a %s: %s", email, e)
-        return sent
+                if _con_ics:
+                    resultados.append(
+                        {
+                            "email": email,
+                            "estado": "fallido",
+                            "detalle": estado_invitaciones.explicar_error_envio(e),
+                        }
+                    )
+        return resultados
 
     async def respond_invitation(
         self, db: asyncpg.Pool, user: str, event_id: uuid.UUID, status: str
@@ -1221,6 +1256,8 @@ class CalendarService:
             user,
             status,
         )
+        # Que el organizador (y las demás copias) vean la respuesta.
+        await respuestas.propagar(db, event_row["uid"], user, status)
         return {"event_id": str(event_id), "status": status, "user": user}
 
     # Ã¢ÂÂÃ¢ÂÂ Free/Busy Ã¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂÃ¢ÂÂ
