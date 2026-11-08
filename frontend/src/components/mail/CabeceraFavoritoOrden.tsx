@@ -1,7 +1,8 @@
 /**
  * ⭐ «Agregar a Favoritos» y ↑↓ «Ordenar» de la cabecera de la lista (07/11/2026, como Outlook).
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMenuTeclado } from '../../lib/menuTeclado';
 import { alternarFavorita, useCarpetasFavoritas } from '../../lib/carpetasFavoritas';
 import { NOMBRES_ORDEN, fijarOrden, textoOrden, useOrdenLista, type CampoOrden } from '../../lib/ordenLista';
 import { showToast } from '../common/Toast';
@@ -34,6 +35,9 @@ export function BotonOrdenLista({ carpeta }: { carpeta: string }) {
   const orden = useOrdenLista(carpeta);
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const cerrarMenu = useCallback(() => setAbierto(false), []);
+  useMenuTeclado(abierto, cerrarMenu, menuRef, caja);
   useEffect(() => {
     if (!abierto) return;
     const fuera = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setAbierto(false); };
@@ -59,14 +63,14 @@ export function BotonOrdenLista({ carpeta }: { carpeta: string }) {
         <span aria-hidden="true" style={{ fontSize: 9 }}>▾</span>
       </button>
       {abierto && (
-        <div role="menu" className="absolute right-0 top-full mt-1 z-50 bg-white border border-[#e1dfdd] rounded-md py-1 min-w-[210px]"
+        <div ref={menuRef} role="menu" aria-label="Ordenar la lista" className="absolute right-0 top-full mt-1 z-50 bg-white border border-[#e1dfdd] rounded-md py-1 min-w-[210px]"
           style={{ boxShadow: '0 6px 20px rgba(0,0,0,0.14)' }}>
           <div className="text-[#605e5c]" style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 600 }}>Ordenar por</div>
           {CAMPOS.map(c => (
             <button key={c} type="button" role="menuitemradio" aria-checked={orden.campo === c} className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion}
               onClick={() => { fijarOrden(carpeta, { campo: c, inverso: false }); setAbierto(false); }}>{marca(orden.campo === c)}{NOMBRES_ORDEN[c]}</button>
           ))}
-          <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
+          <div className="border-t border-[#edebe9]" style={{ margin: '4px 0' }} />
           {[false, true].map(inv => (
             <button key={String(inv)} type="button" role="menuitemradio" aria-checked={orden.inverso === inv} className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion}
               onClick={() => { fijarOrden(carpeta, { campo: orden.campo, inverso: inv }); setAbierto(false); }}>{marca(orden.inverso === inv)}{textoDir[inv ? 1 : 0]}</button>
