@@ -48,7 +48,7 @@ export default function ListaAdjuntos({ folder, uid, attachments, onAbrir, compa
   return (
     <div>
       {/* Como Outlook (07/11/2026): «N archivos adjuntos (tamaño)» y «Descargar todo» arriba de las tarjetas */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: fs, color: '#605e5c', marginBottom: 6 }}>
+      <div className="text-[#605e5c]" style={{ display: 'flex', alignItems: 'center', gap: 10, fontSize: fs, marginBottom: 6 }}>
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
           <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" style={{ flexShrink: 0 }} aria-hidden="true"><path d="M13.5 7.5l-5 5a3 3 0 01-4.2-4.2l5.6-5.6a2 2 0 012.8 2.8l-5.6 5.6a1 1 0 01-1.4-1.4l5-5" /></svg>
           {visibles === 1 ? '1 archivo adjunto' : `${visibles} archivos adjuntos`} ({formatSize(total)})

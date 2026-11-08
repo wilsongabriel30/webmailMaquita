@@ -174,6 +174,8 @@ async def get_messages(
             username=username,
             buscar_en_contenido=buscar_en_contenido,
             direcciones_nombre=direcciones,
+            # Solo para la caché de adjuntos (07/11/2026); la lista de UIDs sigue sin caché aquí.
+            redis_adjuntos=getattr(request.app.state, "redis", None),
         )
         if result is None:
             from fastapi import HTTPException

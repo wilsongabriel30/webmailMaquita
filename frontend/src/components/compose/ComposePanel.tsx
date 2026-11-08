@@ -53,6 +53,7 @@ import { FormatoParrafo } from './formatoParrafo';
 
 import { useMailStore, type DraftWindow } from '../../store/mailStore';
 import { api } from '../../api/client';
+import type { AttachmentInfo } from '../../types';
 import { showToast, updateToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
@@ -448,7 +449,8 @@ export function ComposePanel({ win }: Props) {
   }, [saveDraft]);
   // Close with save confirmation
   const handleClose = useCallback(async () => {
-    const hasContent = !!(to || subject || (editor && editor.getText().trim()));
+    // Un correo con solo adjuntos también se guarda (revisión 07/11/2026).
+    const hasContent = !!(to || subject || (editor && editor.getText().trim()) || attachments.length);
     const cerrar = () => {
       // Destruir editor antes de cerrar para evitar HTML residual
       if (editor && !editor.isDestroyed) editor.commands.clearContent();
@@ -467,19 +469,56 @@ export function ComposePanel({ win }: Props) {
       showToast('Borrador guardado en «Borradores»');
     }
     cerrar();
-  }, [to, subject, editor, saveDraft, win.id, closeCompose]);
+  }, [to, subject, editor, attachments.length, saveDraft, win.id, closeCompose]);
 
-  // Papelera «Descartar» (07/11/2026): cierra SIN guardar y borra el borrador si ya existía.
+  // Papelera «Descartar» (07/11/2026): cierra SIN guardar y borra el borrador.
+  // Revisión 07/11/2026: en vez de un cuadro de confirmación, aviso con «Deshacer» durante 5 s;
+  // el borrador se conserva ese tiempo y, si no se deshace, se borra. Si el borrado falla, se avisa.
   const handleDescartar = useCallback(async () => {
     const hayAlgo = !!(to || subject || (editor && editor.getText().trim()) || attachments.length);
-    if (hayAlgo && !window.confirm('¿Descartar este mensaje?\n\nNo se guardará en Borradores.')) return;
     if (autosaveTimer.current) clearInterval(autosaveTimer.current);
+    const borrar = async () => {
+      try {
+        await descartarBorrador();
+        window.dispatchEvent(new CustomEvent('refresh-messages'));
+      } catch {
+        showToast('No se pudo borrar el borrador del servidor: sigue en Borradores.');
+      }
+    };
+    if (!hayAlgo) {
+      closeCompose(win.id);
+      await borrar();
+      return;
+    }
+    const lista = (s: string) => s.split(/[,;]/).map(x => x.trim()).filter(Boolean);
+    const foto = {
+      to: lista(to), cc: lista(cc), bcc: lista(bcc), subject,
+      html: (editor && !editor.isDestroyed ? editor.getHTML() : cuerpoRef.current) + (quotedHtml || ''),
+    };
+    const guardado = await saveDraft();
+    const uid = useMailStore.getState().composeWindows.find(w => w.id === win.id)?.draftUid ?? win.draftUid;
     if (editor && !editor.isDestroyed) editor.commands.clearContent();
     closeCompose(win.id);
-    try { await descartarBorrador(); } catch { /* si falla, el borrador queda en Borradores y se puede borrar allí */ }
-    window.dispatchEvent(new CustomEvent('refresh-messages'));
-    showToast('Mensaje descartado');
-  }, [to, subject, editor, attachments.length, closeCompose, win.id, descartarBorrador]);
+    let deshecho = false;
+    const temporizador = setTimeout(() => { if (!deshecho) void borrar(); }, 5500);
+    showToast('Mensaje descartado', {
+      label: 'Deshacer',
+      onClick: async () => {
+        deshecho = true;
+        clearTimeout(temporizador);
+        let adjuntos: AttachmentInfo[] = [];
+        if (guardado && uid) {
+          try { adjuntos = ((await api.get<{ attachments?: AttachmentInfo[] }>(`/mail/message/Drafts/${uid}`)).attachments) || []; }
+          catch { /* se reabre sin adjuntos */ }
+        }
+        useMailStore.getState().openCompose('new', {
+          to: foto.to, cc: foto.cc, bcc: foto.bcc, subject: foto.subject, text_body: '', html_body: foto.html || '<p></p>',
+          in_reply_to: win.data.in_reply_to, references: win.data.references,
+          draft_uid: guardado && uid ? uid : null, adjuntos_borrador: adjuntos,
+        });
+      },
+    });
+  }, [to, cc, bcc, subject, quotedHtml, editor, attachments.length, closeCompose, win.id, win.draftUid, win.data.in_reply_to, win.data.references, descartarBorrador, saveDraft, cuerpoRef]);
 
   // Convertir File a base64 para enviar adjuntos al backend
 

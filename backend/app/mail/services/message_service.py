@@ -25,6 +25,7 @@ async def list_messages(
     username: str = "",
     buscar_en_contenido: bool = False,
     direcciones_nombre: tuple | list = (),
+    redis_adjuntos=None,
 ) -> dict:
     """List messages with snippets, newest first."""
     uid_result = await list_message_uids(
@@ -53,7 +54,9 @@ async def list_messages(
 
     raw_headers = await fetch_message_headers(imap, uid_result["uids"])
     # Adjuntos de cada correo (clip y nombres en la fila, como Outlook; 07/11/2026)
-    adjuntos = await adjuntos_por_uid(imap, uid_result["uids"])
+    adjuntos = await adjuntos_por_uid(
+        imap, uid_result["uids"], redis=redis_adjuntos, username=username, folder=folder
+    )
 
     messages = []
     for raw in raw_headers:

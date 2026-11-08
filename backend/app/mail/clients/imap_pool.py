@@ -129,12 +129,17 @@ class PooledIMAP:
         self._returned = True
         self._semaforo.release()
 
-        if exc_type is not None:
-            # Error — don't return to pool
+        if exc_type is not None or getattr(self.imap, "conexion_sucia", False):
+            # Error o conexión con un comando a medias (p. ej. BODYSTRUCTURE cortado por
+            # tiempo, 07/11/2026): no vuelve al pool. El logout puede colgarse detrás de ese
+            # comando, así que tiene tope y, si no, se cierra el transporte a la fuerza.
             try:
-                await self.imap.logout()
+                await asyncio.wait_for(self.imap.logout(), 3)
             except Exception:
-                pass
+                try:
+                    self.imap.protocol.transport.close()
+                except Exception:
+                    pass
             return
 
         pool = await _get_user_pool(self.username)

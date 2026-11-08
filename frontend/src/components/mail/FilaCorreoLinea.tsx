@@ -1,3 +1,4 @@
+import { PuntoLeido } from './PuntoLeido';
 import { memo } from 'react';
 import type { MessageSummary } from '../../types';
 
@@ -106,8 +107,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
     >
       {/* Punto de no leído / aviso de spam */}
       <div className="w-[4px] shrink-0 flex items-center">
-        <div className={`w-[6px] h-[6px] rounded-full ${p.esSpam ? 'bg-[#ca5010]' : noLeido ? 'bg-[#0078d4]' : ''}`}
-          title={p.motivoSpam || ''} />
+        <PuntoLeido noLeido={noLeido} esSpam={p.esSpam} motivoSpam={p.motivoSpam} onAlternar={p.onLeido} />
       </div>
 
       {/* Casilla pequeña: avatar con iniciales que al pasar el ratón se vuelve casilla */}

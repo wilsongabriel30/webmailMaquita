@@ -1,8 +1,9 @@
 /**
- * Orden de la lista de correos (botón ↑↓ de la cabecera, 07/11/2026, como Outlook).
+ * Orden de la lista de correos (botón «Por fecha ▾» de la cabecera, 07/11/2026, como Outlook).
  * Ordena los correos ya cargados; por defecto, por fecha con los más recientes arriba.
+ * Se recuerda POR CARPETA en este navegador (revisión 07/11/2026).
  */
-import { useEffect, useState } from 'react';
+import { useMemo, useSyncExternalStore } from 'react';
 import type { MessageSummary } from '../types';
 import { fechaParaOrdenar } from './fechaCorreo';
 
@@ -13,22 +14,47 @@ export const NOMBRES_ORDEN: Record<CampoOrden, string> = {
   fecha: 'Fecha', remitente: 'De', asunto: 'Asunto', tamano: 'Tamaño',
 };
 
+const CLAVE = 'webmail.ordenLista';
 const EVENTO = 'orden-lista';
-let ordenActual: Orden = ORDEN_POR_DEFECTO;
 
-export function fijarOrden(o: Orden): void {
-  ordenActual = o;
+function leerTodos(): Record<string, Orden> {
+  try {
+    const v = JSON.parse(localStorage.getItem(CLAVE) || '{}');
+    return v && typeof v === 'object' ? v : {};
+  } catch { return {}; }
+}
+
+export function leerOrden(carpeta: string): Orden {
+  const o = leerTodos()[carpeta];
+  if (!o || !(o.campo in NOMBRES_ORDEN)) return ORDEN_POR_DEFECTO;
+  return { campo: o.campo, inverso: !!o.inverso };
+}
+
+export function fijarOrden(carpeta: string, o: Orden): void {
+  const todos = leerTodos();
+  if (o.campo === ORDEN_POR_DEFECTO.campo && !o.inverso) delete todos[carpeta];
+  else todos[carpeta] = o;
+  try { localStorage.setItem(CLAVE, JSON.stringify(todos)); } catch { /* sin almacenamiento: no se recuerda */ }
   window.dispatchEvent(new CustomEvent(EVENTO));
 }
 
-export function useOrdenLista(): Orden {
-  const [o, setO] = useState<Orden>(ordenActual);
-  useEffect(() => {
-    const al = () => setO(ordenActual);
-    window.addEventListener(EVENTO, al);
-    return () => window.removeEventListener(EVENTO, al);
-  }, []);
-  return o;
+function suscribir(cb: () => void) {
+  window.addEventListener(EVENTO, cb);
+  return () => window.removeEventListener(EVENTO, cb);
+}
+function instantanea(): string {
+  try { return localStorage.getItem(CLAVE) || ''; } catch { return ''; }
+}
+
+export function useOrdenLista(carpeta: string): Orden {
+  const crudo = useSyncExternalStore(suscribir, instantanea, () => '');
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  return useMemo(() => leerOrden(carpeta), [carpeta, crudo]);
+}
+
+/** Texto del botón de la cabecera: «Por fecha», «Por asunto»… */
+export function textoOrden(o: Orden): string {
+  return `Por ${NOMBRES_ORDEN[o.campo].toLowerCase()}`;
 }
 
 function nombreDe(from: string): string {
