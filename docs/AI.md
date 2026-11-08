@@ -297,3 +297,41 @@ GPU_REMOTA = "http://IP_SEGUNDA_GPU:11434"  # GPU 2
 ---
 
 *Fundacion Maquita — Tecnología al servicio de todos, no solo de quienes pueden pagarla.*
+
+## Pregúntale a tu correo (RAG) — qué se indexa y cuándo
+
+El panel «Asistente» responde preguntas sobre el buzón de la persona con sus propios correos como contexto
+(RAG). Los correos nunca salen del servidor: los embeddings (`IA_EMBED_MODEL`, por defecto `nomic-embed-text`)
+se guardan en PostgreSQL con pgvector (`rag_chunks`) y la respuesta la redacta el modelo normal (`IA_MODEL`).
+
+**Habilitar por dominio** (sin filas, el panel dice que no está habilitado):
+
+```sql
+INSERT INTO rag_domains (domain, enabled) VALUES ('example.org', true);
+```
+
+**Dos pasadas automáticas** (unidades en `deploy/systemd/`; las instala `deploy/ajustes/56-asistente-rag-temporizadores.sh`,
+que el actualizador aplica solo):
+
+| Unidad | Cuándo | Qué hace |
+|---|---|---|
+| `rag-indexacion.timer` | 21:00 (hasta 9 h 30 min) | Todas las carpetas de todos los buzones habilitados, incremental y reanudable; quita del índice lo borrado desde cualquier cliente. |
+| `rag-recientes.timer` | cada 15 min, 06:45–20:45 | Solo lo nuevo de Bandeja de entrada y Enviados, para que lo recibido en el día se pueda preguntar enseguida. |
+
+Registros: `/var/log/rag-indexacion.log` y `/var/log/rag-recientes.log`. Pasada a mano: `systemctl start rag-recientes.service`.
+
+**Qué NO se indexa:** Papelera, No deseado y Borradores; y, por cabeceras, el spam marcado por el servidor
+(`X-Spam-Flag: YES`), rebotes y avisos automáticos (MAILER-DAEMON, `Auto-Submitted`) y publicidad masiva
+(`List-Unsubscribe` + `Precedence: bulk`). Los remitentes de los dominios habilitados nunca se omiten. Lo omitido se
+anota en `rag_omitidos`. Eliminar, mover, archivar o informar como no deseado desde el webmail quita el correo del
+índice al instante.
+
+**Variables** (`backend/.env`):
+
+| Variable | Por defecto | Para qué |
+|---|---|---|
+| `RAG_CALIDAD` | `0` | `1` = responder con `IA_MODEL_CALIDAD` (más lento: 20–35 s con un 14B en una GPU modesta). |
+| `RAG_INGEST_PAGE` / `RAG_CUERPO_CHARS` | `100` / `1500` | Correos por tanda y caracteres del cuerpo que se indexan. |
+| `RAG_LIMITE_RONDA` / `RAG_MAX_MINUTOS` | `5000` / `570` | Pasada nocturna: correos por buzón y ronda, y hora tope. |
+| `RAG_RECIENTES_MAX_BUZON` / `RAG_RECIENTES_MINUTOS` | `300` / `12` | Pasada de recientes: tope por buzón y por pasada. |
+| `RAG_BUSQUEDA_EXACTA` | `5000` | Hasta tantos correos por buzón la búsqueda es exacta; por encima usa el índice HNSW. |
