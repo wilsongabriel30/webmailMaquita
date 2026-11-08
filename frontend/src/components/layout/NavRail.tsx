@@ -241,6 +241,8 @@ export function NavRail() {
           </div>
         </button>
       )}
+      {/* Hueco para el botón del chat, que va fijo abajo en esta barra (ChatFlotante, 07/11/2026) */}
+      <div className="h-[52px] shrink-0 max-md:hidden" aria-hidden="true" />
     </div>
   );
 }
