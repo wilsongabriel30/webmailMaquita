@@ -198,19 +198,11 @@ export function ChatFlotante() {
           50%     { box-shadow: 0 0 0 6px rgba(0,120,212,.25), 0 4px 22px rgba(0,120,212,.85); }
         }
         .chat-fab-glow { animation: chatGlow 1.1s ease-in-out infinite; }
-        /* 07/11/2026: en escritorio el botón va abajo en la barra lateral izquierda (como Teams),
-           así no tapa «Resumir», «Ortografía» ni nada de la esquina derecha. En celular, a la derecha. */
-        .chat-fab   { position: fixed; bottom: 20px; right: 20px; width: 52px; height: 52px; font-size: 22px; }
-        .chat-panel { position: fixed; bottom: 84px; right: 20px; }
-        @media (min-width: 768px) {
-          .chat-fab   { left: 4px; right: auto; bottom: 10px; width: 40px; height: 40px; font-size: 18px; }
-          .chat-panel { left: 56px; right: auto; bottom: 12px; }
-        }
       `}</style>
 
       {/* Panel (el iframe se monta SIEMPRE y oculto, para estar conectado). */}
-      <div className="chat-panel" style={{
-        width: 440, height: 640,
+      <div style={{
+        position: "fixed", bottom: 84, right: 20, width: 440, height: 640,
         maxWidth: "calc(100vw - 40px)", maxHeight: "calc(100vh - 120px)",
         borderRadius: 12, boxShadow: "0 8px 32px rgba(0,0,0,.28)",
         overflow: "hidden", zIndex: 9998, background: "#fff",
@@ -222,11 +214,12 @@ export function ChatFlotante() {
 
       {/* Boton flotante */}
       <button onClick={toggle}
-        className={`chat-fab${brilla ? " chat-fab-glow" : ""}`}
+        className={brilla ? "chat-fab-glow" : undefined}
         title={abierto ? "Cerrar el chat" : (noLeidos > 0 ? `Tienes ${noLeidos} mensaje(s) nuevo(s)` : "Chat institucional")}
         style={{
+          position: "fixed", bottom: 20, right: 20, width: 52, height: 52,
           borderRadius: "50%", border: 0, cursor: "pointer", zIndex: 9999,
-          background: brilla ? "#0091ff" : "#0078d4", color: "#fff",
+          background: brilla ? "#0091ff" : "#0078d4", color: "#fff", fontSize: 22,
           boxShadow: "0 4px 16px rgba(0,120,212,.45)",
         }}>
         {abierto ? "✕" : "💬"}
