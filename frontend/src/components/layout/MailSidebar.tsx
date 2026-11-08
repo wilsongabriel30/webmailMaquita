@@ -18,7 +18,7 @@ import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
 import { EtiquetasSidebar } from './EtiquetasSidebar';
-import { useCarpetasFavoritas } from '../../lib/carpetasFavoritas';   // ⭐ de la cabecera de la lista (07/11/2026)
+import { useCarpetasFavoritas, alternarFavorita } from '../../lib/carpetasFavoritas';   // Favoritos elegidos por la persona (07/11/2026)
 import { useDesplazarAlArrastrar } from '../../hooks/useDesplazarAlArrastrar';   // carpetas se desplazan al arrastrar (06/11/2026)
 
 interface MailStats {
@@ -46,7 +46,7 @@ const icons: Record<string, string> = {
 const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Archive']);
 // Como en Zimbra: las carpetas del sistema, incluidas Correo no deseado y Papelera, arriba y
 // juntas (antes Papelera quedaba en «Carpetas», que se puede plegar).
-const favorites = ['INBOX', 'Drafts', 'Sent', 'Junk', 'Trash'];
+// Favoritos (07/11/2026): los elige la persona (lib/carpetasFavoritas.ts); todas las carpetas siguen en «Carpetas».
 
 export function MailSidebar() {
   const [hidden, setHidden] = useState(false);
@@ -84,6 +84,7 @@ export function MailSidebar() {
   const [renameValue, setRenameValue] = useState('');
   const [recuperarAbierto, setRecuperarAbierto] = useState(false);
   const [ctxMenu, setCtxMenu] = useState<{ x: number; y: number; folder: Folder } | null>(null);
+  const favoritasUsuario = useCarpetasFavoritas();   // Favoritos elegidos por la persona (07/11/2026)
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [draggedFolder, setDraggedFolder] = useState<string | null>(null);
   const [stats, setStats] = useState<MailStats | null>(null);
@@ -243,7 +244,12 @@ export function MailSidebar() {
   const getFolderCtxItems = (f: Folder) => {
     const isSystem = systemFolders.has(f.name);
     const folderList = folders.filter(fl => fl.name !== f.name && !fl.name.startsWith(f.name + '.'));
+    const enFavoritos = favoritasUsuario.includes(f.name);
     return [
+      { label: enFavoritos ? 'Quitar de Favoritos' : 'Agregar a Favoritos',
+        icon: 'M11.48 3.5l2.1 4.3 4.7.7-3.4 3.3.8 4.7-4.2-2.2-4.2 2.2.8-4.7-3.4-3.3 4.7-.7z',
+        onClick: () => { const si = alternarFavorita(f.name); showToast(si ? 'Agregada a Favoritos' : 'Quitada de Favoritos'); setCtxMenu(null); } },
+      { label: '', icon: '', onClick: () => {}, divider: true },
       // La Papelera lleva primero lo que la gente viene a buscar aqui: rescatar algo que
       // borro. Mismo nombre y mismo sitio que tenia en Zimbra (21/09/2026).
       ...(f.name === 'Trash' ? [
@@ -311,12 +317,9 @@ export function MailSidebar() {
   };
 
   const fullTree = buildTree(folders);
-  const favNodes = fullTree.filter(n => favorites.includes(n.folder.name));
-  const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
-  // Carpetas que la persona marcó con ⭐ (sin sus subcarpetas; siguen también en «Carpetas»).
-  const favoritasUsuario = useCarpetasFavoritas();
-  const favoritasExtra = favoritasUsuario
-    .filter(n => !favorites.includes(n))
+  const otherNodes = fullTree;
+  // Carpetas favoritas en el orden en que se agregaron (sin subcarpetas: esas van en «Carpetas»).
+  const favoritas = favoritasUsuario
     .map(n => folders.find(f => f.name === n))
     .filter((f): f is NonNullable<typeof f> => !!f);
 
@@ -508,8 +511,10 @@ export function MailSidebar() {
         }}
       >
         <SectionHeader title="Favoritos" collapsed={collapsed.fav} onToggle={() => setCollapsed(p => ({...p, fav: !p.fav}))} />
-        {!collapsed.fav && favNodes.map(node => renderNode(node, 0))}
-        {!collapsed.fav && favoritasExtra.map(f => <div key={`fav:${f.name}`}>{renderFolderButton(f, 0, false)}</div>)}
+        {!collapsed.fav && favoritas.map(f => <div key={`fav:${f.name}`}>{renderFolderButton(f, 0, false)}</div>)}
+        {!collapsed.fav && favoritas.length === 0 && (
+          <p className="px-3 py-1 text-[11px] text-[#8a8886]">Clic derecho en una carpeta → «Agregar a Favoritos».</p>
+        )}
 
         <SectionHeader title="Carpetas" collapsed={collapsed.all} onToggle={() => setCollapsed(p => ({...p, all: !p.all}))} />
         {!collapsed.all && (

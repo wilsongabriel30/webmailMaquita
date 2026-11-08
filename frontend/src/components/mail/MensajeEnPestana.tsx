@@ -78,7 +78,11 @@ export function MensajeEnPestana() {
         </div>
       ) : (
         <div className="flex-1 min-h-0 flex overflow-hidden">
-          <MessageView />
+          {/* Ocupa todo el ancho de la ventana (07/11/2026): sin esto el correo se ajustaba a su
+              contenido y quedaba un hueco blanco a la derecha. */}
+          <div className="flex-1 min-w-0 flex flex-col">
+            <MessageView />
+          </div>
         </div>
       )}
       <ToastContainer />

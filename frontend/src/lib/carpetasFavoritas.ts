@@ -1,21 +1,30 @@
 /**
- * Carpetas favoritas elegidas con la ⭐ de la cabecera de la lista (07/11/2026, como Outlook).
- * Las carpetas del sistema siempre están en Favoritos; aquí se guardan las que añade la persona.
+ * Carpetas favoritas de la barra lateral (07/11/2026, como Outlook).
+ * Por defecto: Bandeja de entrada, Borradores y Enviados. La persona agrega o quita cualquiera
+ * con la ⭐ de la cabecera de la lista o con clic derecho → «Agregar a Favoritos».
+ * Todas las carpetas siguen también en la sección «Carpetas»; Favoritos es solo un acceso rápido.
  * Se recuerdan en este navegador (comodidad: si se pierden, solo hay que volver a marcarlas).
  */
 import { useEffect, useState } from 'react';
 
-export const FAVORITAS_FIJAS = ['INBOX', 'Drafts', 'Sent', 'Junk', 'Trash'];
-const CLAVE = 'webmail.carpetasFavoritas';
+export const FAVORITAS_POR_DEFECTO = ['INBOX', 'Drafts', 'Sent'];
+const CLAVE = 'webmail.carpetasFavoritas.v2';
 const EVENTO = 'carpetas-favoritas';
 
 export function leerFavoritas(): string[] {
   try {
-    const v = JSON.parse(localStorage.getItem(CLAVE) || '[]');
-    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
-  } catch { return []; }
+    const crudo = localStorage.getItem(CLAVE);
+    if (crudo === null) return [...FAVORITAS_POR_DEFECTO];
+    const v = JSON.parse(crudo);
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [...FAVORITAS_POR_DEFECTO];
+  } catch { return [...FAVORITAS_POR_DEFECTO]; }
 }
 
+export function esFavorita(carpeta: string): boolean {
+  return leerFavoritas().includes(carpeta);
+}
+
+/** Agrega o quita la carpeta. Devuelve true si quedó como favorita. */
 export function alternarFavorita(carpeta: string): boolean {
   const actuales = leerFavoritas();
   const ya = actuales.includes(carpeta);

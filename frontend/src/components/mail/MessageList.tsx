@@ -31,6 +31,7 @@ import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 import { FilaCorreoLinea } from './FilaCorreoLinea';
+import { PuntoLeido } from './PuntoLeido';   // clic en el puntito = leído / no leído (07/11/2026)
 import { AvisoOtrosSinLeer } from './AvisoOtrosSinLeer';   // «Otros: N sin leer» (07/11/2026)
 import { ChipsAdjuntosFila } from './ChipsAdjuntosFila';   // nombres de adjuntos en la fila (07/11/2026)
 import { usePublicarListaVisible } from './listaVisible';   // lista visible y resaltado por UID (05/11/2026)
@@ -835,7 +836,7 @@ export function MessageList() {
   // Pestañas Prioritarios / Otros: regla en lib/pestanaPrioritarios.ts (06/11/2026).
   // Con «No leídos» o «Marcados» se ven TODOS los que cumplen, sean de Prioritarios o de Otros:
   // antes los de Otros salían un instante y desaparecían al llegar la clasificación (07/11/2026).
-  const ordenLista = useOrdenLista();
+  const ordenLista = useOrdenLista(currentFolder);
   const filtered = messages.filter(m => {
     if (currentFolder !== 'INBOX' || filter !== 'all') return true;
     return pestanaDe(m, priorityMap[m.uid]) === activeTab;
@@ -998,7 +999,7 @@ export function MessageList() {
     if (unaLinea) {
       const spam = spamResults.find(s => s.uid === msg.uid);
       return (
-        <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
+        <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => soloSeleccionar ? handleSelect(msg.uid) : abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
           nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)}
           color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
           fijado={pinnedSet.has(pinKey(currentFolder, msg.uid))} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
@@ -1020,7 +1021,7 @@ export function MessageList() {
         draggable
         onDragStart={alArrastrar}
         onClick={(e) => handleRowClick(msg.uid, idx, e)}
-        onDoubleClick={() => abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
+        onDoubleClick={() => soloSeleccionar ? handleSelect(msg.uid) : abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
         data-idx={idx}
         onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
         className={`group relative flex gap-2.5 pl-2 pr-3 ${density === "full" ? "py-[10px]" : density === "medium" ? "py-[7px]" : "py-[4px]"} cursor-pointer border-b border-[#f3f2f1] transition-all ${
@@ -1028,10 +1029,10 @@ export function MessageList() {
         } ${!msg.seen ? "before:content-[''] before:absolute before:left-0 before:top-0 before:-bottom-px before:w-[3px] before:bg-[#0078d4] before:z-[1]" : ''}`}>
 
         {/* Unread dot + spam indicator */}
-        <div className="w-[4px] shrink-0 flex items-start pt-3">
-          <div className={`w-[6px] h-[6px] rounded-full ${
-            spamResults.some(s => s.uid === msg.uid) ? 'bg-[#ca5010]' : !msg.seen ? 'bg-[#0078d4]' : ''
-          }`} title={spamResults.find(s => s.uid === msg.uid)?.reasons?.join(', ') || ''} />
+        <div className="w-[4px] shrink-0 flex items-start pt-2">
+          <PuntoLeido noLeido={!msg.seen} esSpam={spamResults.some(s => s.uid === msg.uid)}
+            motivoSpam={spamResults.find(s => s.uid === msg.uid)?.reasons?.join(', ')}
+            onAlternar={() => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read')} />
         </div>
 
         {/* Checkbox / Avatar */}
@@ -1224,7 +1225,7 @@ export function MessageList() {
           <h2 className="text-[14px] font-semibold text-[#323130] cursor-pointer hover:text-[#0078d4] transition-colors truncate max-w-[120px] sm:max-w-none sm:whitespace-nowrap" onClick={() => { const s = useMailStore.getState(); if (s.filter !== 'all') s.setFilter('all'); setActiveTab('focused'); }}>{searchQuery ? `Buscando «${searchQuery}»${currentFolder === 'Virtual.Todo' ? ' en todo el correo' : ''}` : folderLabel}</h2>
                     {!searchQuery && <BotonFavoritoCarpeta carpeta={currentFolder} />}
           <div className="flex-1" />
-          <BotonOrdenLista />
+          <BotonOrdenLista carpeta={currentFolder} />
           <div className="flex items-center bg-[#f3f2f1] rounded-md p-0.5">
             {(['all','unread','flagged'] as const).map(f => (
               <button key={f} onClick={() => useMailStore.getState().setFilter(f)}

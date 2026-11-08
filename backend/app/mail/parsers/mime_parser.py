@@ -189,6 +189,14 @@ def _extract_parts(
                     )
                 )
                 attachments.extend(internos)
+                # Imagen con Content-ID pero disposición ATTACHMENT (algunos clientes la mandan
+                # así y la referencian desde el HTML): también se resuelve el cid: (07/11/2026).
+                if cid and payload and content_type.startswith("image/"):
+                    import base64
+
+                    cid_map[cid] = (
+                        f"data:{content_type};base64,{base64.b64encode(payload).decode('ascii')}"
+                    )
             elif part.is_multipart():
                 t, h, a, cm, ci = _extract_parts(part, part_num + ".")
                 if not text_body:

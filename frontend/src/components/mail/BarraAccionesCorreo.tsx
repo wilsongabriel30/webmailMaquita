@@ -30,8 +30,7 @@ const estiloBotonBarra: React.CSSProperties = {
 
 // Botones principales con borde, como Outlook (07/11/2026): icono azul y texto oscuro.
 const estiloPrincipal: React.CSSProperties = {
-  ...estiloBotonBarra, border: '1px solid #d2d0ce', color: '#323130', fontWeight: 400,
-  padding: '5px 14px', background: '#fff', gap: 6,
+  ...estiloBotonBarra, fontWeight: 400, padding: '5px 14px', gap: 6,
 };
 
 const Etiqueta = ({ texto, secundaria }: { texto: string; secundaria?: boolean }) => (
@@ -76,15 +75,15 @@ export function BarraAccionesCorreo({
           Editar borrador
         </button>
       ) : (<>
-        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onResponder} title="Responder">
+        <button className="hover:!bg-[#f3f2f1] bg-white border border-[#d2d0ce] text-[#323130]" style={estiloPrincipal} onClick={onResponder} title="Responder">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M6.5 3L1 8l5.5 5V10c4.5 0 7 1.5 8.5 5-1-4.5-3.5-8-8.5-8.5V3z"/></svg>
           <Etiqueta texto="Responder" />
         </button>
-        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onResponderTodos} title="Responder a todos">
+        <button className="hover:!bg-[#f3f2f1] bg-white border border-[#d2d0ce] text-[#323130]" style={estiloPrincipal} onClick={onResponderTodos} title="Responder a todos">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M9.5 3L4 8l5.5 5V10c4.5 0 6 1.5 7.5 5-1-4.5-3-8-7.5-8.5V3zM3 8L0 5.5v5L3 8z"/></svg>
           <Etiqueta texto="Responder a todos" />
         </button>
-        <button className="hover:!bg-[#f3f2f1]" style={estiloPrincipal} onClick={onReenviar} title="Reenviar">
+        <button className="hover:!bg-[#f3f2f1] bg-white border border-[#d2d0ce] text-[#323130]" style={estiloPrincipal} onClick={onReenviar} title="Reenviar">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="#0078d4"><path d="M9.5 3L15 8l-5.5 5V10C5 10 2.5 11.5 1 15c1-4.5 3.5-8 8.5-8.5V3z"/></svg>
           <Etiqueta texto="Reenviar" />
         </button>

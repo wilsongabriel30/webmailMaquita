@@ -10,6 +10,7 @@ import { showToast } from '../common/Toast';
 import { useMailStore } from '../../store/mailStore';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
+import { olvidarLeido, recordarLeido } from './graciaNoLeidos';
 
 function extraerCorreo(from: string): string {
   const m = (from || '').match(/<([^>]+)>/);
@@ -19,8 +20,22 @@ function extraerCorreo(from: string): string {
 function refrescar(cerrar: boolean) {
   if (cerrar) {
     try { useMailStore.getState().setSelectedMessage(null); } catch { /* noop */ }
+    // En la ventana propia del correo no hay lista detrás: se avisa a la bandeja y se cierra (revisión 07/11/2026).
+    if (window.location.pathname.endsWith('/mensaje')) {
+      try { window.opener?.dispatchEvent(new CustomEvent('refresh-messages')); } catch { /* otro origen */ }
+      setTimeout(() => window.close(), 900);
+      return;
+    }
   }
   window.dispatchEvent(new CustomEvent('refresh-messages'));
+}
+
+/** Refleja al instante el cambio de leído/bandera en el correo abierto y en la fila (revisión 07/11/2026). */
+function reflejar(uid: number, cambio: { seen?: boolean; flagged?: boolean }) {
+  useMailStore.setState(s => ({
+    messages: s.messages.map(m => m.uid === uid ? { ...m, ...cambio } : m),
+    selectedMessage: s.selectedMessage?.uid === uid ? { ...s.selectedMessage, ...cambio } : s.selectedMessage,
+  }));
 }
 
 const icono = (d: string) => (
@@ -36,11 +51,11 @@ const estiloIcono: React.CSSProperties = {
 };
 // Con texto, como Outlook: icono azul y texto oscuro. En pantallas estrechas queda solo el icono (index.css).
 const estiloConTexto: React.CSSProperties = {
-  ...estiloIcono, width: 'auto', padding: '0 8px', gap: 6, fontSize: 14, color: '#323130', whiteSpace: 'nowrap',
+  ...estiloIcono, width: 'auto', padding: '0 8px', gap: 6, fontSize: 14, whiteSpace: 'nowrap',
 };
 const estiloOpcion: React.CSSProperties = {
   display: 'flex', alignItems: 'center', gap: 10, width: '100%', textAlign: 'left', padding: '8px 14px',
-  border: 'none', fontSize: 13, color: '#323130', cursor: 'pointer', whiteSpace: 'nowrap',
+  border: 'none', fontSize: 13, cursor: 'pointer', whiteSpace: 'nowrap',
 };
 
 export function AccionesRapidasCorreo({
@@ -92,6 +107,8 @@ export function AccionesRapidasCorreo({
   const leido = async () => {
     try {
       await lote(seen ? 'mark_unread' : 'mark_read');
+      if (seen) olvidarLeido(folder, uid); else recordarLeido(folder, uid);
+      reflejar(uid, { seen: !seen });
       showToast(seen ? 'Marcado como no leído' : 'Marcado como leído');
       refrescar(false);
     } catch { showToast('No se pudo cambiar'); }
@@ -100,6 +117,7 @@ export function AccionesRapidasCorreo({
   const bandera = async () => {
     try {
       await lote(flagged ? 'unflag' : 'flag');
+      reflejar(uid, { flagged: !flagged });
       showToast(flagged ? 'Bandera quitada' : 'Marcado con bandera');
       refrescar(false);
     } catch { showToast('No se pudo cambiar'); }
@@ -136,41 +154,41 @@ export function AccionesRapidasCorreo({
 
   return (
     <div ref={caja} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, position: 'relative' }}>
-      <button type="button" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloConTexto} onClick={onResponder} title="Responder">{icono(D_RESPONDER)}<span className="accion-rapida-texto">Responder</span></button>
-      <button type="button" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloConTexto} onClick={onResponderTodos} title="Responder a todos">{icono(D_TODOS)}<span className="accion-rapida-texto">Responder a todos</span></button>
-      <button type="button" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloConTexto} onClick={onReenviar} title="Reenviar">{icono(D_REENVIAR)}<span className="accion-rapida-texto">Reenviar</span></button>
-      <span style={{ width: 1, height: 20, background: '#e1dfdd', margin: '0 4px' }} />
-      <button type="button" className="bg-transparent hover:bg-[#f3f2f1]" style={{ ...estiloIcono, color: '#323130' }} onClick={() => setAbierto(v => !v)}
+      <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onResponder} title="Responder">{icono(D_RESPONDER)}<span className="accion-rapida-texto">Responder</span></button>
+      <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onResponderTodos} title="Responder a todos">{icono(D_TODOS)}<span className="accion-rapida-texto">Responder a todos</span></button>
+      <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onReenviar} title="Reenviar">{icono(D_REENVIAR)}<span className="accion-rapida-texto">Reenviar</span></button>
+      <span className="bg-[#e1dfdd]" style={{ width: 1, height: 20, margin: '0 4px' }} />
+      <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloIcono} onClick={() => setAbierto(v => !v)}
         title="Más acciones" aria-label="Más acciones" aria-haspopup="menu" aria-expanded={abierto}>
         <svg width="18" height="18" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
           <circle cx="3" cy="8" r="1.4" /><circle cx="8" cy="8" r="1.4" /><circle cx="13" cy="8" r="1.4" />
         </svg>
       </button>
       {abierto && (
-        <div role="menu" style={{
+        <div role="menu" className="bg-white border border-[#e1dfdd]" style={{
           position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 4, minWidth: 230,
-          background: '#fff', border: '1px solid #e1dfdd', borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0',
+          borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0',
         }}>
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(eliminar)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg>Eliminar</button>
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(leido)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 4h12v8H2zM2 4l6 4.5L14 4" /></svg>{seen ? 'Marcar como no leído' : 'Marcar como leído'}</button>
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(bandera)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 14V2.5M3.5 3h8l-1.8 2.8L11.5 8.5h-8" /></svg>{flagged ? 'Quitar la bandera' : 'Marcar con bandera'}</button>
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(eliminar)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.6 8.5h5.8l.6-8.5" /></svg>Eliminar</button>
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(leido)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 4h12v8H2zM2 4l6 4.5L14 4" /></svg>{seen ? 'Marcar como no leído' : 'Marcar como leído'}</button>
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(bandera)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M3.5 14V2.5M3.5 3h8l-1.8 2.8L11.5 8.5h-8" /></svg>{flagged ? 'Quitar la bandera' : 'Marcar con bandera'}</button>
           {onReenviarAdjunto && (<>
-            <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
-            <div style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 600, color: '#605e5c' }}>Otras acciones de respuesta</div>
-            <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(onReenviarAdjunto)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13.5 7.5l-5 5a3 3 0 01-4.2-4.2l5.6-5.6a2 2 0 012.8 2.8l-5.6 5.6a1 1 0 01-1.4-1.4l5-5" /></svg>Reenviar como adjunto</button>
+            <div className="bg-[#edebe9]" style={{ height: 1, margin: '4px 0' }} />
+            <div className="text-[#605e5c]" style={{ padding: '4px 14px 2px', fontSize: 11, fontWeight: 600 }}>Otras acciones de respuesta</div>
+            <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(onReenviarAdjunto)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M13.5 7.5l-5 5a3 3 0 01-4.2-4.2l5.6-5.6a2 2 0 012.8 2.8l-5.6 5.6a1 1 0 01-1.4-1.4l5-5" /></svg>Reenviar como adjunto</button>
           </>)}
-          <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(noDeseado)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zM3.8 3.8l8.4 8.4" /></svg>{enNoDeseado ? 'No es correo no deseado' : 'Informar de correo no deseado'}</button>
-          {!enNoDeseado && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(phishing)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1.8l5.5 2.2v3.6c0 3.2-2.3 5.7-5.5 6.6-3.2-.9-5.5-3.4-5.5-6.6V4zM8 5.2v3.3M8 10.6v.2" /></svg>Informar sobre phishing</button>}
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(bloquear)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6.5a2.3 2.3 0 100-4.6 2.3 2.3 0 000 4.6zM1.8 13.5c.5-2.4 2.2-3.7 4.2-3.7M11.5 14.5a2.7 2.7 0 100-5.4 2.7 2.7 0 000 5.4zM9.6 13.6l3.8-3.6" /></svg>Bloquear remitente</button>
-          <div style={{ height: 1, background: '#edebe9', margin: '4px 0' }} />
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(onImprimir)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 6V2h7v4M4.5 11.5H2.5V6h11v5.5h-2M4.5 9.5h7V14h-7z" /></svg>Imprimir</button>
-          {onTraducir && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(onTraducir)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 3.5h6M5 2v1.5M3.2 3.5c.6 2.4 2.2 4.2 4.3 5M6.8 3.5c-.6 2.4-2.2 4.2-4.6 5.2M8.5 14l2.8-7 2.8 7M9.5 11.8h3.6" /></svg>Traducir</button>}
-          {onVerOrigen && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(onVerOrigen)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5" /></svg>Ver origen del mensaje</button>}
+          <div className="bg-[#edebe9]" style={{ height: 1, margin: '4px 0' }} />
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(noDeseado)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 2a6 6 0 100 12A6 6 0 008 2zM3.8 3.8l8.4 8.4" /></svg>{enNoDeseado ? 'No es correo no deseado' : 'Informar de correo no deseado'}</button>
+          {!enNoDeseado && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(phishing)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M8 1.8l5.5 2.2v3.6c0 3.2-2.3 5.7-5.5 6.6-3.2-.9-5.5-3.4-5.5-6.6V4zM8 5.2v3.3M8 10.6v.2" /></svg>Informar sobre phishing</button>}
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(bloquear)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 6.5a2.3 2.3 0 100-4.6 2.3 2.3 0 000 4.6zM1.8 13.5c.5-2.4 2.2-3.7 4.2-3.7M11.5 14.5a2.7 2.7 0 100-5.4 2.7 2.7 0 000 5.4zM9.6 13.6l3.8-3.6" /></svg>Bloquear remitente</button>
+          <div className="bg-[#edebe9]" style={{ height: 1, margin: '4px 0' }} />
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(onImprimir)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4.5 6V2h7v4M4.5 11.5H2.5V6h11v5.5h-2M4.5 9.5h7V14h-7z" /></svg>Imprimir</button>
+          {onTraducir && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(onTraducir)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2 3.5h6M5 2v1.5M3.2 3.5c.6 2.4 2.2 4.2 4.3 5M6.8 3.5c-.6 2.4-2.2 4.2-4.6 5.2M8.5 14l2.8-7 2.8 7M9.5 11.8h3.6" /></svg>Traducir</button>}
+          {onVerOrigen && <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(onVerOrigen)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5.5 4.5L2 8l3.5 3.5M10.5 4.5L14 8l-3.5 3.5" /></svg>Ver origen del mensaje</button>}
           {!enVentana && (
-            <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(() => abrirMensajeEnVentana(folder, uid))}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 2.5h8.5V11M2.5 5h8.5v8.5H2.5z" /></svg>Abrir en otra ventana</button>
+            <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(() => abrirMensajeEnVentana(folder, uid))}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 2.5h8.5V11M2.5 5h8.5v8.5H2.5z" /></svg>Abrir en otra ventana</button>
           )}
-          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1]" style={estiloOpcion} onClick={accion(onDescargarEml)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 2.5h9l2 2v9h-11zM5 2.5v3.5h5V2.5M5 13.5V9.5h6v4" /></svg>Guardar como (.eml)</button>
+          <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={accion(onDescargarEml)}><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#605e5c" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M2.5 2.5h9l2 2v9h-11zM5 2.5v3.5h5V2.5M5 13.5V9.5h6v4" /></svg>Guardar como (.eml)</button>
         </div>
       )}
     </div>
