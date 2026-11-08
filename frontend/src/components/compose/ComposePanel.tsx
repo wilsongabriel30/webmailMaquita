@@ -162,6 +162,8 @@ export function ComposePanel({ win }: Props) {
   // Si lo arrastrado trae imágenes, dos zonas: arriba «Adjuntar», abajo «Insertar en el texto» (07/11/2026).
   const [arrastraImagenes, setArrastraImagenes] = useState(false);
   const [zonaSoltar, setZonaSoltar] = useState<ZonaSoltar>('adjuntar');
+  // Límite entre «Adjuntar» e «Insertar»: el borde superior del editor, en px desde arriba del panel (08/11/2026).
+  const [limiteZona, setLimiteZona] = useState<number | null>(null);
   const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
@@ -847,8 +849,11 @@ export function ComposePanel({ win }: Props) {
     e.preventDefault();
     e.stopPropagation();
     const r = e.currentTarget.getBoundingClientRect();
-    setZonaSoltar(e.clientY < r.top + r.height / 2 ? 'adjuntar' : 'insertar');
-  }, []);
+    const dom = editor && !editor.isDestroyed ? editor.view.dom : null;
+    const borde = dom ? Math.min(Math.max(dom.getBoundingClientRect().top - r.top, 90), r.height - 90) : r.height / 2;
+    setLimiteZona(borde);
+    setZonaSoltar(e.clientY - r.top < borde ? 'adjuntar' : 'insertar');
+  }, [editor]);
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -1197,7 +1202,7 @@ export function ComposePanel({ win }: Props) {
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}>
       {/* Zona para soltar archivos (07/11/2026, al estilo Outlook pero más ligera) */}
-      {isDragging && <ZonaSoltarArchivos conImagenes={arrastraImagenes} zona={zonaSoltar} />}
+      {isDragging && <ZonaSoltarArchivos conImagenes={arrastraImagenes} zona={zonaSoltar} limite={limiteZona} />}
       {/* Ribbon (tabs + toolbar) */}
       {/* Ribbon rendered in main Toolbar */}
 

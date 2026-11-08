@@ -3,17 +3,30 @@
  * Por defecto: Bandeja de entrada, Borradores y Enviados. La persona agrega o quita cualquiera
  * con la ⭐ de la cabecera de la lista o con clic derecho → «Agregar a Favoritos».
  * Todas las carpetas siguen también en la sección «Carpetas»; Favoritos es solo un acceso rápido.
- * Se recuerdan en este navegador (comodidad: si se pierden, solo hay que volver a marcarlas).
+ * Se recuerdan en este navegador, POR CUENTA (08/11/2026): si en el mismo equipo entra otra persona,
+ * ve sus propios favoritos. Comodidad: si se pierden, solo hay que volver a marcarlas.
  */
 import { useEffect, useState } from 'react';
+import { usuarioSesion } from './sesionActual';
 
 export const FAVORITAS_POR_DEFECTO = ['INBOX', 'Drafts', 'Sent'];
-const CLAVE = 'webmail.carpetasFavoritas.v2';
+const CLAVE_BASE = 'webmail.carpetasFavoritas.v2';
+
+/** Clave por cuenta; sin sesión conocida se usa la general (y los favoritos anteriores a este cambio se heredan). */
+function clave(): string {
+  const u = usuarioSesion();
+  return u ? `${CLAVE_BASE}:${u}` : CLAVE_BASE;
+}
+function leerCrudo(): string | null {
+  const propio = localStorage.getItem(clave());
+  if (propio !== null) return propio;
+  return localStorage.getItem(CLAVE_BASE);
+}
 const EVENTO = 'carpetas-favoritas';
 
 export function leerFavoritas(): string[] {
   try {
-    const crudo = localStorage.getItem(CLAVE);
+    const crudo = leerCrudo();
     if (crudo === null) return [...FAVORITAS_POR_DEFECTO];
     const v = JSON.parse(crudo);
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [...FAVORITAS_POR_DEFECTO];
@@ -29,7 +42,7 @@ export function alternarFavorita(carpeta: string): boolean {
   const actuales = leerFavoritas();
   const ya = actuales.includes(carpeta);
   const nuevas = ya ? actuales.filter(c => c !== carpeta) : [...actuales, carpeta];
-  try { localStorage.setItem(CLAVE, JSON.stringify(nuevas)); } catch { /* sin almacenamiento: no se recuerda */ }
+  try { localStorage.setItem(clave(), JSON.stringify(nuevas)); } catch { /* sin almacenamiento: no se recuerda */ }
   window.dispatchEvent(new CustomEvent(EVENTO));
   return !ya;
 }

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMenuTeclado } from '../../lib/menuTeclado';
 import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
 import type { AttachmentInfo } from '../../types';
 import { formatSize } from '../../lib/tamanoAdjunto';
@@ -43,6 +44,9 @@ export function TarjetaAdjunto({ folder, uid, att, onAbrir, compacto = false }: 
   const [menu, setMenu] = useState<{ top: number; right: number } | null>(null);
   const [guardar, setGuardar] = useState(false);
   const caja = useRef<HTMLSpanElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const cerrarMenu = useCallback(() => setMenu(null), []);
+  useMenuTeclado(!!menu, cerrarMenu, menuRef, caja);
   const url = `/api/mail/attachment/${encodeURIComponent(folder)}/${uid}/${att.part_number}/${encodeURIComponent(att.filename)}`;
   const b = attBadge(att.filename);
 
@@ -77,7 +81,7 @@ export function TarjetaAdjunto({ folder, uid, att, onAbrir, compacto = false }: 
         <svg width="10" height="10" viewBox="0 0 10 10" fill="currentColor" aria-hidden="true"><path d="M1.5 3.2L5 6.8l3.5-3.6z" /></svg>
       </button>
       {menu && (
-        <div role="menu" className="bg-white border border-[#e1dfdd]" style={{ position: 'fixed', top: menu.top, right: menu.right, zIndex: 60, minWidth: 200, borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0' }}>
+        <div ref={menuRef} role="menu" aria-label={`Acciones para ${att.filename}`} className="bg-white border border-[#e1dfdd]" style={{ position: 'fixed', top: menu.top, right: menu.right, zIndex: 60, minWidth: 200, borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0' }}>
           <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => { setMenu(null); onAbrir(); }}>{svg('M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8zM8 10a2 2 0 100-4 2 2 0 000 4z')}Vista previa</button>
           <a role="menuitem" href={url} download={att.filename} className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => setMenu(null)}>{svg('M8 2v8.5M4.8 7.5L8 10.7l3.2-3.2M2.5 12.5v1.5h11v-1.5')}Descargar</a>
           <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => { setMenu(null); setGuardar(true); }}>{svg('M4.5 12.5h7.2a2.8 2.8 0 00.4-5.6A4 4 0 004.3 6a3.2 3.2 0 00.2 6.5z')}Guardar en Archivos</button>

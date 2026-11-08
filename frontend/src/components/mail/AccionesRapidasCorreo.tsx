@@ -4,7 +4,8 @@
  * La barra de abajo sigue igual; esto es el acceso rápido sin bajar hasta el final del correo.
  * Las acciones del menú actúan solo sobre ESTE correo (no sobre la selección de la lista).
  */
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMenuTeclado } from '../../lib/menuTeclado';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 import { useMailStore } from '../../store/mailStore';
@@ -74,6 +75,9 @@ export function AccionesRapidasCorreo({
 }) {
   const [abierto, setAbierto] = useState(false);
   const caja = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const cerrarMenu = useCallback(() => setAbierto(false), []);
+  useMenuTeclado(abierto, cerrarMenu, menuRef, caja);
   const enNoDeseado = folder === 'Junk' || folder === 'Spam';
 
   useEffect(() => {
@@ -165,7 +169,7 @@ export function AccionesRapidasCorreo({
         </svg>
       </button>
       {abierto && (
-        <div role="menu" className="bg-white border border-[#e1dfdd]" style={{
+        <div ref={menuRef} role="menu" aria-label="Más acciones del correo" className="bg-white border border-[#e1dfdd]" style={{
           position: 'absolute', top: '100%', right: 0, zIndex: 50, marginTop: 4, minWidth: 230,
           borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0',
         }}>

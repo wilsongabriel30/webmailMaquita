@@ -1120,8 +1120,11 @@ export function MessageList() {
           <ChipsAdjuntosFila nombres={msg.adjuntos} />
         </div>
 
-        {/* Flag */}
+        {/* Chincheta (si está anclado) y bandera */}
         <div className="flex flex-col items-center justify-between shrink-0 py-0.5">
+          {pinnedSet.has(pinKey(currentFolder, msg.uid)) && (
+            <svg className="w-[13px] h-[13px] text-[#0078d4] mb-1" fill="currentColor" viewBox="0 0 24 24"><title>Anclado arriba</title><path d={pinIcon} /></svg>
+          )}
           <button onClick={e => { e.stopPropagation(); handleFlag(msg.uid, msg.flagged); }}
             className={`transition-colors ${msg.flagged ? 'text-[#d13438]' : 'text-transparent group-hover:text-[#a19f9d] hover:!text-[#d13438]'}`}
             title={msg.flagged ? 'Quitar marca' : 'Marcar'}>

@@ -797,6 +797,8 @@ const MessageView: React.FC = () => {
   const handleTraducir = useCallback(() => {
     const texto = (displayMsg?.text_body || '').trim();
     if (!texto) { showToast('Este correo no tiene texto para traducir'); return; }
+    // Aviso (08/11/2026): el texto sale a un servicio externo; no conviene con información confidencial.
+    if (!window.confirm('El texto de este correo (hasta 2.000 caracteres) se enviará a Google Traductor, un servicio externo a Maquita.\n\nNo lo use con información confidencial o datos personales de terceros.\n\n¿Abrir el traductor?')) return;
     window.open('https://translate.google.com/?sl=auto&tl=es&text=' + encodeURIComponent(texto.slice(0, 2000)), '_blank', 'noopener,noreferrer');
   }, [displayMsg]);
 
