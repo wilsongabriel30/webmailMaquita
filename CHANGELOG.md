@@ -7,6 +7,55 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.12.0] - 2026-11-08
+
+El correo se ve y se maneja como Outlook, el asistente de IA responde en segundos sobre el correo del día, y
+Tareas queda unificado con Seguimiento. Para instalaciones existentes, el actualizador aplica solo el ajuste 56
+(temporizadores del asistente).
+
+### Añadido
+- **Asistente de IA en todo el correo**: panel lateral «Asistente» con acciones sobre el correo abierto (resumir,
+  ideas para responder) y «Pregúntale a tu correo»; cada respuesta muestra en qué correos se basó y abre el correo
+  con un clic. Espera visible con segundos y botón «Cancelar».
+- **Lo recibido en el día se puede preguntar enseguida**: pasada `rag-recientes` cada 15 min (06:45–20:45) sobre
+  Bandeja de entrada y Enviados; la pasada nocturna sigue haciendo el resto. `deploy/ajustes/56-asistente-rag-temporizadores.sh`
+  instala ambas en cualquier servidor; documentado en `docs/AI.md`.
+- **Correo al estilo Outlook**: tarjetas con avatar, adjuntos visibles en la lista (nombres con tipo), barra inferior
+  con Responder/Responder a todos/Reenviar, menú «⋯» completo (eliminar, leído, bandera, reenviar como adjunto,
+  no deseado, phishing, bloquear, imprimir, traducir, ver origen, abrir en otra ventana, guardar .eml), menú «▾» en
+  cada adjunto, Favoritos elegibles (clic derecho y ⭐, por cuenta), orden recordado por carpeta («Por fecha ▾»),
+  chincheta visible, «3 de 48» en las flechas, filas compactas, puntito de no leído clicable y papelera «Descartar» al
+  redactar con «Deshacer» de 5 s.
+- **Redactar**: al arrastrar imágenes, dos zonas claras («Adjuntar» arriba, «Insertar en el texto» abajo) separadas
+  por el borde del editor; firma visible también en modo oscuro.
+- **Impresión completa en A4** del correo con cabecera, adjuntos e imágenes.
+- **Menús manejables con teclado** (↑/↓, Inicio/Fin, Escape devuelve el foco) en «⋯», «▾» y «Ordenar».
+- **Tareas**: «Asignado a mí» reúne todo lo asignado; un solo cuadro y un solo modelo de asignación; las completadas se
+  archivan sin borrarse; soltar varios correos crea una tarea por correo; recordatorios como Outlook; Seguimiento con
+  tablero por defecto, columna «Vencidas» y arrastre entre estados.
+- **Menú del perfil**: descarga directa de la app de Windows; «Configurar mi correo» con Teams y acceso directo web.
+- **Almacén y panel**: compartir, desbloqueo de buzones y dominios del grupo.
+
+### Cambiado
+- **«Pregúntale a tu correo» responde con el modelo normal** (4–8 s). El de calidad tardaba 20–35 s y el navegador
+  cerraba antes de ver la respuesta. `RAG_CALIDAD=1` vuelve al modelo grande.
+- **Qué no se indexa para el asistente**: además de Papelera, No deseado y Borradores, se omiten el spam marcado por
+  el servidor, los rebotes y avisos automáticos y la publicidad masiva (`List-Unsubscribe` + `Precedence: bulk`); los
+  remitentes de los dominios habilitados nunca se omiten. Eliminar, mover, archivar o informar como no deseado desde
+  el webmail quita el correo del índice al instante.
+- **Milter con varios procesos** (`MILTER_PROCESOS`, 6 por defecto), caché de adjuntos limpios y análisis por trozos:
+  con adjuntos pasa de 3,3 a 6,7–10 correos/s; en texto, ≈48 correos/s.
+- Nombres de adjuntos del listado en caché Redis (2 días); «Traducir» avisa de que el texto sale a un servicio externo.
+
+### Corregido
+- Nombres de adjuntos con paréntesis, ñ o tildes (RFC 2231) y literales IMAP; una conexión IMAP con tiempo agotado ya
+  no vuelve al grupo de conexiones; imágenes incrustadas enviadas como adjunto con `Content-ID` se muestran.
+- Ventana propia del correo a todo el ancho y adaptable; Favoritos ya no se vacía al plegarse.
+- Un correo nuevo da un solo aviso del navegador, en cualquier orden de llegada.
+- Tareas: la configuración guarda solo lo que cambia; el detalle de Seguimiento reconoce a la persona de la sesión;
+  «Abrir la tarea» en la misma pestaña; sin emojis en la interfaz.
+- CI: candado de textos de marca y prueba del correo marcado.
+
 ### Cambiado
 - **El aviso de recordatorio en pantalla tiene un botón «Entrar a la reunión»**, que abre el enlace en otra pestaña. Al pulsar la notificación del navegador también se abre la reunión directamente, en lugar del Calendario. El servidor envía el enlace aparte en el aviso (`link`) y la interfaz solo acepta enlaces http(s).
 
