@@ -349,10 +349,14 @@ export function MailView() {
       {/* Content: layout changes based on readingPane */}
       {readingPane === 'right' && (
         /* ── DERECHA: lista izquierda + lectura/compose derecha (default Outlook) ── */
-        <div className="flex-1 flex overflow-hidden min-h-0">
-          <MessageList />
+        /* Tarjetas blancas con esquinas redondeadas sobre fondo gris, como Outlook (07/11/2026).
+           En el celular, a pantalla completa y sin márgenes. */
+        <div className="flex-1 flex overflow-hidden min-h-0 bg-[#f3f2f1]">
+          <div className="flex min-h-0 my-2 ml-2 rounded-lg overflow-hidden bg-white shadow-[0_1px_4px_rgba(0,0,0,0.13)] [&_.message-list-container]:border-r-0 max-md:m-0 max-md:rounded-none max-md:shadow-none max-md:flex-1">
+            <MessageList />
+          </div>
           <ListResizeHandle />
-          <div className="flex-1 min-w-0 flex flex-col">
+          <div className="flex-1 min-w-0 flex flex-col my-2 mr-2 rounded-lg overflow-hidden bg-white shadow-[0_1px_4px_rgba(0,0,0,0.13)] max-md:m-0 max-md:rounded-none">
             {activeCompose ? (
               <ComposePanel key={activeCompose.id} win={activeCompose} />
             ) : (

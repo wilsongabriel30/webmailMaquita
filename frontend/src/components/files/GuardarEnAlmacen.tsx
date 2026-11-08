@@ -12,15 +12,20 @@ interface Props {
   folder: string;
   uid: number;
   att: { part_number: string; filename: string; size?: number };
+  /** Abierto desde el menú «▾» de la tarjeta del adjunto (07/11/2026): sin botón propio. */
+  abiertoDesdeFuera?: boolean;
+  onCerrar?: () => void;
 }
 
 interface Carpeta { nombre: string; ruta: string; }
 
-export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
+export function BotonGuardarEnAlmacen({ folder, uid, att, abiertoDesdeFuera, onCerrar }: Props) {
   // Desde una cuenta asignada (multicuenta) lo guardado va a Cuentas/<cuenta>/ del Drive de la persona.
   const asignada = cuentaActiva();
   const carpetaCuenta = asignada ? `/Cuentas/${asignada}` : null;
-  const [abierto, setAbierto] = useState(false);
+  const [abiertoInterno, setAbiertoInterno] = useState(!!abiertoDesdeFuera);
+  const abierto = abiertoInterno;
+  const setAbierto = (v: boolean) => { setAbiertoInterno(v); if (!v) onCerrar?.(); };
   const [carpeta, setCarpeta] = useState(carpetaCuenta || '/');
   const [subcarpetas, setSubcarpetas] = useState<Carpeta[]>([]);
   const [guardando, setGuardando] = useState(false);
@@ -63,7 +68,7 @@ export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
 
   return (
     <>
-      <button
+      {!abiertoDesdeFuera && <button
         onClick={e => { e.stopPropagation(); setCarpeta(carpetaCuenta || '/'); setAbierto(true); }}
         title="Guardar este adjunto en tu nube (Archivos)"
         style={{
@@ -72,7 +77,7 @@ export function BotonGuardarEnAlmacen({ folder, uid, att }: Props) {
           cursor: 'pointer', fontSize: 12, lineHeight: 1,
         }}>
         ☁️
-      </button>
+      </button>}
       {abierto && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
           onClick={() => setAbierto(false)}>

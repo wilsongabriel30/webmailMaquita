@@ -1,3 +1,4 @@
+// 07/11/2026: van arriba, debajo del asunto (como Outlook).
 // 06/11/2026: cada adjunto se puede abrir ANTES de enviar (VistaPreviaAdjuntoLocal) para comprobar
 // que es el archivo correcto (pedido de Finanzas: se mandó una carta equivocada).
 import { useState } from 'react';
@@ -21,11 +22,11 @@ export function Attachments({ files, onRemove }: Props) {
   const enVista = verIdx !== null ? files[verIdx]?.file : undefined;
 
   return (
-    <div className="px-4 py-2 border-t border-[#edebe9] bg-[#faf9f8] shrink-0">
+    <div className="px-4 pt-2.5 pb-2 border-b border-[#edebe9] bg-white shrink-0 max-h-[30%] overflow-y-auto">
       <p className="text-[12px] text-[#605e5c] mb-1.5">{files.length} archivo{files.length > 1 ? 's' : ''} adjunto{files.length > 1 ? 's' : ''} · pulse uno para verlo antes de enviar</p>
       <div className="flex flex-wrap gap-1.5">
         {files.map((f, i) => (
-          <div key={i} className="flex items-center gap-2 px-2.5 py-1.5 bg-white border border-[#edebe9] rounded group hover:border-[#c8c6c4] transition-colors max-w-[220px]">
+          <div key={i} className="flex items-center gap-2 px-2.5 py-2 bg-white border border-[#e1dfdd] rounded-md shadow-sm group hover:border-[#c8c6c4] transition-colors w-[240px] max-w-full">
             <div className="w-7 h-7 bg-[#e1dfdd] rounded flex items-center justify-center shrink-0">
               <FileIcon type={f.type} />
             </div>

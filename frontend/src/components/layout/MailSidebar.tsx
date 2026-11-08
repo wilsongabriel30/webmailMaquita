@@ -18,6 +18,7 @@ import { buscarSoloEnCarpetaActual } from '../../lib/busquedaGlobal';
 import { RecuperarEliminados } from '../mail/RecuperarEliminados';
 import { BarraCuentas } from './BarraCuentas';
 import { EtiquetasSidebar } from './EtiquetasSidebar';
+import { useCarpetasFavoritas } from '../../lib/carpetasFavoritas';   // ⭐ de la cabecera de la lista (07/11/2026)
 import { useDesplazarAlArrastrar } from '../../hooks/useDesplazarAlArrastrar';   // carpetas se desplazan al arrastrar (06/11/2026)
 
 interface MailStats {
@@ -312,6 +313,12 @@ export function MailSidebar() {
   const fullTree = buildTree(folders);
   const favNodes = fullTree.filter(n => favorites.includes(n.folder.name));
   const otherNodes = fullTree.filter(n => !favorites.includes(n.folder.name));
+  // Carpetas que la persona marcó con ⭐ (sin sus subcarpetas; siguen también en «Carpetas»).
+  const favoritasUsuario = useCarpetasFavoritas();
+  const favoritasExtra = favoritasUsuario
+    .filter(n => !favorites.includes(n))
+    .map(n => folders.find(f => f.name === n))
+    .filter((f): f is NonNullable<typeof f> => !!f);
 
   const [treeCollapsed, setTreeCollapsed] = useState<Record<string, boolean>>({});
   const [recienCreada, setRecienCreada] = useState<string | null>(null);
@@ -502,6 +509,7 @@ export function MailSidebar() {
       >
         <SectionHeader title="Favoritos" collapsed={collapsed.fav} onToggle={() => setCollapsed(p => ({...p, fav: !p.fav}))} />
         {!collapsed.fav && favNodes.map(node => renderNode(node, 0))}
+        {!collapsed.fav && favoritasExtra.map(f => <div key={`fav:${f.name}`}>{renderFolderButton(f, 0, false)}</div>)}
 
         <SectionHeader title="Carpetas" collapsed={collapsed.all} onToggle={() => setCollapsed(p => ({...p, all: !p.all}))} />
         {!collapsed.all && (

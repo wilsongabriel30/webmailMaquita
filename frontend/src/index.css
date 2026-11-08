@@ -304,3 +304,8 @@
     .placeholder\:text-\[\#a19f9d\]::placeholder { color: #6b6966; }
   }
 }
+
+/* Acciones rápidas del correo abierto (07/11/2026, como Outlook): con poco ancho, solo iconos. */
+@media (max-width: 1300px) {
+  .accion-rapida-texto { display: none; }
+}

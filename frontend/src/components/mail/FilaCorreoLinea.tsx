@@ -36,10 +36,13 @@ export interface FilaCorreoLineaProps {
   onEliminar: (e: React.MouseEvent) => void;
   onArchivar: (e: React.MouseEvent) => void;
   onLeido: (e: React.MouseEvent) => void;
+  /** Chincheta: anclar arriba de la lista (07/11/2026). */
+  onFijar?: (e: React.MouseEvent) => void;
 }
 
 const flagIcon = 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z';
 const deleteIcon = 'M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16';
+const pinIcon = 'M14.5 3.5l6 6-2.6.9-3.7 3.7.4 4.1-1.6 1.6-3.6-3.6L4.5 21l-1.5-1.5 4.8-4.9-3.6-3.6 1.6-1.6 4.1.4 3.7-3.7z';
 const archiveIcon = 'M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4';
 const unreadIcon = 'M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z';
 
@@ -99,7 +102,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
       onContextMenu={p.onContextMenu}
       className={`group relative flex items-center gap-2 pl-1.5 pr-2 h-[32px] cursor-pointer border-b border-[#f3f2f1] ${
         p.marcado ? 'bg-[#deecf9]' : p.activo ? 'bg-[#eff6fc]' : 'hover:bg-[#f3f2f1]'
-      }`}
+      } ${noLeido ? "before:content-[''] before:absolute before:left-0 before:top-0 before:-bottom-px before:w-[3px] before:bg-[#0078d4] before:z-[1]" : ''}`}
     >
       {/* Punto de no leído / aviso de spam */}
       <div className="w-[4px] shrink-0 flex items-center">
@@ -108,14 +111,22 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
       </div>
 
       {/* Casilla pequeña: avatar con iniciales que al pasar el ratón se vuelve casilla */}
-      <div className="shrink-0" onClick={p.onMarcar}>
-        <div className={`w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-semibold text-white transition-all ${
-          p.marcado ? 'bg-[#0078d4]' : 'group-hover:ring-2 group-hover:ring-[#c8c6c4]'
-        }`} style={p.marcado ? {} : { backgroundColor: p.color }}>
-          {p.marcado
-            ? <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-            : p.iniciales}
-        </div>
+      <div className="shrink-0" title={p.marcado ? 'Quitar de la selección' : 'Seleccionar'}
+          onClick={p.onMarcar}>
+          {/* Como Outlook (07/11/2026): al pasar el ratón el círculo se cambia por una casilla cuadrada blanca;
+              marcado = casilla azul con visto. Varias marcadas → la cinta actúa sobre todas o se arrastran juntas. */}
+          <div className={`w-[20px] h-[20px] rounded-full flex items-center justify-center text-[9px] font-semibold text-white cursor-pointer ${
+            p.marcado ? '' : 'group-hover:!bg-transparent'
+          }`} style={p.marcado ? {} : { backgroundColor: p.color }}>
+            {p.marcado ? (
+              <span className="w-[16px] h-[16px] rounded-[3px] bg-[#0078d4] flex items-center justify-center">
+                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
+              </span>
+            ) : (<>
+              <span className="group-hover:hidden">{p.iniciales}</span>
+              <span className="hidden group-hover:block w-[16px] h-[16px] rounded-[3px] bg-white border-[1.5px] border-[#605e5c] hover:border-[#0078d4]" />
+            </>)}
+          </div>
       </div>
 
       {/* Orden elegido por la persona (06/11/2026): asunto primero (lo habitual) o nombre primero (como Outlook) */}
@@ -148,9 +159,10 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
 
       {/* Acciones rápidas (escritorio) */}
       <div className="hidden group-hover:flex max-md:hidden items-center gap-0.5 absolute right-7 top-[3px] bg-[#f3f2f1] rounded shadow-sm border border-[#e1dfdd] px-0.5">
-        <Rapida d={deleteIcon} title="Eliminar" onClick={p.onEliminar} />
-        <Rapida d={archiveIcon} title="Archivar" onClick={p.onArchivar} />
         <Rapida d={unreadIcon} title={msg.seen ? 'Marcar como no leído' : 'Marcar como leído'} onClick={p.onLeido} />
+        {p.onFijar && <Rapida d={pinIcon} title={p.fijado ? 'Desanclar' : 'Anclar arriba'} filled={p.fijado} onClick={p.onFijar} />}
+        <Rapida d={archiveIcon} title="Archivar" onClick={p.onArchivar} />
+        <Rapida d={deleteIcon} title="Eliminar" onClick={p.onEliminar} />
       </div>
     </div>
   );

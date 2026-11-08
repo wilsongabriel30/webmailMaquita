@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { nombreApp } from '../../lib/marca';
 
-/** Tras cerrar el aviso de instalar, no se vuelve a ofrecer en 30 días (antes, al día siguiente:
- *  un aviso que vuelve cada mañana es ruido para quien ya dijo que no). */
-const PLAZO_TRAS_CERRAR_MS = 30 * 24 * 60 * 60 * 1000;
+/** Instalar el correo como aplicación web (acceso directo). Desde el 07/11/2026 ya NO se ofrece solo
+ *  con un aviso en la parte inferior: es opcional y se pide desde Configuración → Configurar mi correo
+ *  (`AccesoDirectoWeb`). Aquí solo se guarda el permiso del navegador y se muestra la guía de iPhone. */
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -39,16 +39,6 @@ export function InstallPrompt() {
     // Check if already installed as standalone
     if (yaInstalada()) return;
 
-    // iOS detection
-    const isiOS = esIOS();
-
-    if (isiOS) {
-      // On iOS, show banner after 3 seconds (no beforeinstallprompt support)
-      const dismissed = localStorage.getItem('pwa-install-dismissed');
-      if (dismissed && Date.now() - parseInt(dismissed) < PLAZO_TRAS_CERRAR_MS) return;
-      setTimeout(() => setShowBanner(true), 3000);
-      return;
-    }
 
     // Android/Chrome - listen for beforeinstallprompt
     const handler = (e: Event) => {
@@ -56,12 +46,6 @@ export function InstallPrompt() {
       const prompt = e as BeforeInstallPromptEvent;
       setDeferredPrompt(prompt);
       window.__pwaInstallPrompt = prompt;
-
-      // Check if dismissed recently (only 1 day now, not 7)
-      const dismissed = localStorage.getItem('pwa-install-dismissed');
-      if (dismissed && Date.now() - parseInt(dismissed) < PLAZO_TRAS_CERRAR_MS) return;
-
-      setTimeout(() => setShowBanner(true), 2000);
     };
     window.addEventListener('beforeinstallprompt', handler);
 
@@ -76,7 +60,7 @@ export function InstallPrompt() {
     window.__pwaInstallFn = () => {
       if (window.__pwaInstallPrompt) {
         window.__pwaInstallPrompt.prompt();
-      } else if (isiOS) {
+      } else if (esIOS()) {
         setShowIOSGuide(true);
         setShowBanner(true);
       }
@@ -104,7 +88,6 @@ export function InstallPrompt() {
   const handleDismiss = () => {
     setShowBanner(false);
     setShowIOSGuide(false);
-    localStorage.setItem('pwa-install-dismissed', Date.now().toString());
   };
 
   if (isInstalled || !showBanner) return null;
