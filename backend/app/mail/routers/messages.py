@@ -23,6 +23,7 @@ from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
 from app.mail.services.cache_uids import invalidar_uids
 from app.mail.services.message_service import get_message, list_messages
+from app.rag import eliminar as rag_eliminar
 
 
 def _validate_folder(folder: str) -> str:
@@ -390,4 +391,8 @@ async def bulk_action(
         raise HTTPException(status_code=400, detail="Failed to perform bulk action")
     # Sin esto, tras vaciar/borrar la lista seguía mostrando los mensajes eliminados.
     await invalidar_uids(request.app.state.redis, username, folder, body.dest_folder)
+    # El asistente deja de «ver» al instante lo eliminado o movido (08/11/2026).
+    await rag_eliminar.tras_accion(
+        request.app.state.db_pool, username, folder, body.uids, body.action
+    )
     return {"status": "ok", "count": len(body.uids)}

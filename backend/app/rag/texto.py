@@ -17,6 +17,8 @@ import html
 import quopri
 import re
 
+from app.rag.filtro_cabeceras import CAMPOS_EXTRA
+
 FORMATO = 2  # sube si cambia el contenido indexado: los correos del formato anterior se rehacen
 
 _RE_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
@@ -114,7 +116,7 @@ def cabeceras(crudo) -> dict:
     try:
         msg = email.message_from_bytes(bytes(crudo or b""), policy=email.policy.default)
     except Exception:
-        return {"de": "", "para": "", "asunto": "", "fecha": ""}
+        return {"de": "", "para": "", "asunto": "", "fecha": "", "extra": {}}
     fecha = ""
     bruto = _cabecera(msg, "Date")
     if bruto:
@@ -131,6 +133,8 @@ def cabeceras(crudo) -> dict:
         "para": sin_nul(para).strip()[:300],
         "asunto": sin_nul(_cabecera(msg, "Subject")).strip()[:500],
         "fecha": fecha,
+        # Cabeceras que deciden las omisiones (ver filtro_cabeceras); no van al contenido.
+        "extra": {n: sin_nul(_cabecera(msg, n)).strip()[:300] for n in CAMPOS_EXTRA},
     }
 
 

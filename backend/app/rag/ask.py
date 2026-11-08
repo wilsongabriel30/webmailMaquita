@@ -1,4 +1,11 @@
-"""Pregúntale a tu correo (RAG grounded)."""
+"""Pregúntale a tu correo (RAG grounded).
+
+08/11/2026: por omisión responde el modelo normal (rápido, 5-8 s). El de calidad (14B en la P40)
+tardaba 20-35 s con seis correos de contexto y la gente cerraba antes de ver la respuesta
+(nginx anotaba 499). RAG_CALIDAD=1 vuelve a pedir el modelo grande.
+"""
+
+import os
 
 from app.rag import busqueda
 from app.rag import config as rag_config
@@ -54,7 +61,7 @@ async def ask(db, username, question):
                 system=system,
                 temperature=t,
                 max_tokens=400,
-                calidad=True,  # modelo de calidad si IA_MODEL_CALIDAD (04/11/2026)
+                calidad=os.getenv("RAG_CALIDAD", "0") == "1",
             ),
             0.1,
             "rag_ask",

@@ -135,6 +135,11 @@ async def _main():
                 )
             )
             return
+        if "--recientes" in sys.argv:  # pasada corta del día (rag-recientes.timer)
+            from app.rag.recientes import correr
+
+            await correr(db, redis, registrar=lambda m: print(m, flush=True))
+            return
         minutos = float(_arg("--max-minutos", os.getenv("RAG_MAX_MINUTOS", "570")))
         limite = int(_arg("--limite", os.getenv("RAG_LIMITE_EJECUCION", "0")))
         ronda = int(_arg("--ronda", os.getenv("RAG_LIMITE_RONDA", "5000")))

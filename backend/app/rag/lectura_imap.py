@@ -11,7 +11,11 @@ import re
 from app.mail.clients.imap_client import _decode_lines
 from app.rag import estructura, respuesta_fetch, texto
 
-CAMPOS_CABECERA = "BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE)]"
+# Los últimos cinco campos deciden si el correo se omite (spam, servidor, publicidad; 08/11/2026).
+CAMPOS_CABECERA = (
+    "BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE "
+    "X-SPAM-FLAG PRECEDENCE AUTO-SUBMITTED LIST-UNSUBSCRIBE RETURN-PATH)]"
+)
 
 
 def citar(nombre_imap: str) -> str:

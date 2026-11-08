@@ -1,0 +1,17 @@
+[Unit]
+Description=Indexado de correos recientes para el asistente (RAG), cada 15 min de día - TI Maquita 08/11/2026
+After=network-online.target postgresql.service
+
+[Service]
+Type=oneshot
+# No se solapa con la pasada nocturna completa.
+ExecCondition=/bin/sh -c '! systemctl is-active --quiet rag-indexacion.service'
+User=www-data
+WorkingDirectory=/opt/maquita-webmail/backend
+Environment=PATH=/opt/maquita-webmail/backend/venv/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=/opt/maquita-webmail/backend/.env
+ExecStart=/opt/maquita-webmail/backend/venv/bin/python -m app.rag.run --recientes
+TimeoutStartSec=14min
+Nice=10
+StandardOutput=append:/var/log/rag-recientes.log
+StandardError=append:/var/log/rag-recientes.log
