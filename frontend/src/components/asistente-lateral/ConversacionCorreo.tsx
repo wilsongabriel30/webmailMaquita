@@ -7,6 +7,7 @@ import { api } from '../../api/client';
 import { useAsistenteStore, type FuenteRag } from './asistenteStore';
 import { useEstadoIndice } from './useEstadoIndice';
 import { FuentesRespuesta } from './FuentesRespuesta';
+import { EsperaRespuesta } from './EsperaRespuesta';
 
 const SUGERENCIAS = [
   '¿Qué tengo pendiente o requiere mi atención?',
@@ -22,6 +23,8 @@ export function ConversacionCorreo() {
   const [pregunta, setPregunta] = useState('');
   const [pensando, setPensando] = useState(false);
   const finRef = useRef<HTMLDivElement>(null);
+  // Para «Cancelar» mientras la IA responde (08/11/2026).
+  const controlador = useRef<AbortController | null>(null);
 
   useEffect(() => { finRef.current?.scrollIntoView({ block: 'end' }); }, [mensajes.length, pensando]);
 
@@ -39,12 +42,15 @@ export function ConversacionCorreo() {
     setPregunta('');
     agregar({ rol: 'usuario', texto: q });
     setPensando(true);
+    controlador.current = new AbortController();
     try {
-      const r = await api.post<{ answer: string; sources: FuenteRag[] }>('/rag/ask', { question: q });
+      const r = await api.post<{ answer: string; sources: FuenteRag[] }>('/rag/ask', { question: q }, { signal: controlador.current.signal });
       agregar({ rol: 'asistente', texto: (typeof r?.answer === 'string' && r.answer.trim()) || 'No encontré una respuesta para esa pregunta en tu correo. Prueba a escribirla con otras palabras.', fuentes: Array.isArray(r?.sources) ? r.sources : [] });
-    } catch {
-      agregar({ rol: 'asistente', texto: 'No pude consultar tu bandeja ahora. Inténtalo de nuevo en un momento.', error: true });
+    } catch (e) {
+      const cancelada = (e as { name?: string } | null)?.name === 'AbortError' || controlador.current?.signal.aborted;
+      agregar({ rol: 'asistente', texto: cancelada ? 'Consulta cancelada.' : 'No pude consultar tu bandeja ahora. Inténtalo de nuevo en un momento.', error: !cancelada });
     }
+    controlador.current = null;
     setPensando(false);
   };
 
@@ -92,7 +98,7 @@ export function ConversacionCorreo() {
             </div>
           </div>
         ))}
-        {pensando && <p className="text-xs text-[#605e5c]">Revisando tus correos…</p>}
+        {pensando && <EsperaRespuesta onCancelar={() => controlador.current?.abort()} />}
         <div ref={finRef} />
       </div>
 

@@ -198,6 +198,14 @@ def test_cuerpo_html_sin_citas_ni_nul_y_recortado():
 
 def test_contenido_y_cabeceras_decodificadas():
     cab = texto.cabeceras(CAB)
+    extra = cab.pop("extra")  # cabeceras para las omisiones (08/11/2026), vacías aquí
+    assert set(extra) == {
+        "X-Spam-Flag",
+        "Precedence",
+        "Auto-Submitted",
+        "List-Unsubscribe",
+        "Return-Path",
+    }
     assert cab == {
         "de": "José Pérez <jose@x.org>",
         "para": "ana@example.org",

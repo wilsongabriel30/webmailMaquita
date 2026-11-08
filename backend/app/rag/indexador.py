@@ -9,7 +9,15 @@ import asyncio
 import logging
 import os
 
-from app.rag import almacen, carpetas, lectura_imap, plan, texto
+from app.rag import (
+    almacen,
+    carpetas,
+    filtro_cabeceras,
+    lectura_imap,
+    omitidos,
+    plan,
+    texto,
+)
 from app.rag.embeddings import embed
 
 logger = logging.getLogger(__name__)
@@ -34,8 +42,13 @@ def ajustes() -> dict:
 
 async def _indexar_tanda(db, username, carpeta, etiqueta, leidos, cfg, embed_fn, prog):
     """Embeddings de una tanda ya leída del IMAP y guardado en un solo lote."""
-    filas, fallos_seguidos = [], 0
+    filas, fuera, fallos_seguidos = [], [], 0
     for m in leidos:
+        # Spam, avisos del servidor y publicidad masiva no entran al índice (08/11/2026).
+        motivo = filtro_cabeceras.motivo_omision(m, cfg.get("dominios_casa", ()))
+        if motivo:
+            fuera.append((m["uid"], motivo))
+            continue
         contenido = texto.contenido(etiqueta, m, m.get("cuerpo", ""))
         emb = await embed_fn(contenido)
         if not emb:
@@ -56,6 +69,9 @@ async def _indexar_tanda(db, username, carpeta, etiqueta, leidos, cfg, embed_fn,
             )
         )
     await almacen.guardar_lote(db, username, carpeta, filas)
+    if fuera:
+        await omitidos.guardar(db, username, carpeta, fuera)
+        prog["omitidos"] = prog.get("omitidos", 0) + len(fuera)
     prog["indexed"] += len(filas)
     return len(filas)
 
@@ -84,19 +100,24 @@ async def _carpeta(
         return True
     if que == plan.REINICIAR:
         n = await almacen.borrar_carpeta(db, username, nombre)
+        await omitidos.borrar_carpeta(db, username, nombre)
         logger.info(
             "RAG %s: «%s» cambió de UIDVALIDITY; se reindexa (%s quitados)",
             username,
             nombre,
             n,
         )
-    indexados = (
-        await almacen.formatos(db, username, nombre) if que != plan.REINICIAR else {}
-    )
+    indexados = {}
+    if que != plan.REINICIAR:  # los omitidos cuentan como hechos: no se releen
+        indexados = {
+            **await almacen.formatos(db, username, nombre),
+            **await omitidos.formatos(db, username, nombre),
+        }
     uids_srv = await lectura_imap.uids(imap) if info["mensajes"] else []
     por_hacer, a_borrar = plan.pendientes(uids_srv, indexados, texto.FORMATO)
     if a_borrar:
         await almacen.borrar_uids(db, username, nombre, a_borrar)
+        await omitidos.borrar_uids(db, username, nombre, a_borrar)
     cupo = plan.cupo(presupuesto, limite_buzon, prog["indexed"])
     if cupo is not None:
         por_hacer_ahora = por_hacer[:cupo]
@@ -166,6 +187,8 @@ async def indexar_buzon(
     """
     cfg = cfg or ajustes()
     await almacen.asegurar_esquema(db)
+    await omitidos.asegurar(db)
+    cfg["dominios_casa"] = await filtro_cabeceras.dominios_casa(db)
     imap = await conectar()
     try:
         todas = await lectura_imap.listar(imap)
@@ -173,6 +196,7 @@ async def indexar_buzon(
         prog.update(carpetas_total=len(lista), carpetas_hechas=0, pendientes=0)
         if any(c["name"].upper() == "INBOX" for c in lista):
             await almacen.borrar_ausentes(db, username, [c["name"] for c in lista])
+            await omitidos.borrar_ausentes(db, username, [c["name"] for c in lista])
         completo, errores_imap = True, 0
         for c in lista:
             if presupuesto.agotado() or (

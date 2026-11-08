@@ -22,6 +22,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
 from app.core.session import get_imap_login_user, get_user_password
+from app.rag import eliminar as rag_eliminar
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["spam"])
@@ -465,6 +466,8 @@ async def report_spam(
 
     db = request.app.state.db_pool
     await ensure_spam_table(db)
+    # Fuera del índice del asistente desde ya (08/11/2026).
+    await rag_eliminar.quitar(db, user, folder, uids)
 
     # Guardar como spam confirmado por usuario
     for uid in uids:

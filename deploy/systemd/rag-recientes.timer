@@ -1,0 +1,11 @@
+[Unit]
+Description=Indexado RAG de correos recientes cada 15 min (06:45 a 20:45; de noche corre la pasada completa)
+
+[Timer]
+OnCalendar=*-*-* 06..20:45:00
+OnCalendar=*-*-* 07..20:00,15,30:00
+Persistent=false
+RandomizedDelaySec=30
+
+[Install]
+WantedBy=timers.target
