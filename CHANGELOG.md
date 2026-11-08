@@ -56,6 +56,11 @@ Tareas queda unificado con Seguimiento. Para instalaciones existentes, el actual
   «Abrir la tarea» en la misma pestaña; sin emojis en la interfaz.
 - CI: candado de textos de marca y prueba del correo marcado.
 
+## [1.11.8] - 2026-10-30
+
+Incluye también lo publicado como 1.11.7 (29/10/2026): grupo «Párrafo» e importancia en el redactor, aviso de
+invitaciones del calendario, Tareas al estilo To Do y sitios en .rar y .7z.
+
 ### Cambiado
 - **El aviso de recordatorio en pantalla tiene un botón «Entrar a la reunión»**, que abre el enlace en otra pestaña. Al pulsar la notificación del navegador también se abre la reunión directamente, en lugar del Calendario. El servidor envía el enlace aparte en el aviso (`link`) y la interfaz solo acepta enlaces http(s).
 
