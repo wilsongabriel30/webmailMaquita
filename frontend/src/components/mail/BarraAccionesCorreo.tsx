@@ -64,7 +64,7 @@ export function BarraAccionesCorreo({
 }) {
   return (
     <div className="barra-acciones-correo" style={{
-      padding: '8px 24px 10px', borderTop: '1px solid #f3f2f1', flexShrink: 0,
+      padding: '8px 88px 10px 24px', borderTop: '1px solid #f3f2f1', flexShrink: 0,
       display: 'flex', alignItems: 'center', gap: 6, background: '#fff', flexWrap: 'wrap', rowGap: 4,
     }}>
       {esBorrador ? (
@@ -96,7 +96,7 @@ export function BarraAccionesCorreo({
         {/* «Respuesta IA» y «Resumir» conservan siempre su texto (revisión 04/11/2026, H11): solo con
             icono no se reconocen, y en pantalla táctil no hay descripción emergente. Si falta sitio, la
             barra pasa a una segunda fila. */}
-        <button style={{ ...estiloBotonBarra, marginLeft: 'auto', color: '#8764b8' }} onClick={onRespuestaIA} disabled={generandoRespuestas} title="Respuestas sugeridas por IA">
+        <button style={{ ...estiloBotonBarra, color: '#8764b8' }} onClick={onRespuestaIA} disabled={generandoRespuestas} title="Respuestas sugeridas por IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} />
         </button>
