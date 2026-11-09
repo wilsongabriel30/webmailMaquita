@@ -17,6 +17,7 @@ import { Actualizaciones } from "./pages/Actualizaciones";
 import { PrimerosPasos } from "./pages/PrimerosPasos";
 import { Respaldos } from "./pages/Respaldos";
 import { Dispositivos } from "./pages/Dispositivos";
+import { Flota } from "./pages/Flota";
 import { Mailboxes } from "./pages/Mailboxes";
 import { Aliases } from "./pages/Aliases";
 import { Forwarding } from "./pages/Forwarding";
@@ -157,6 +158,7 @@ function App() {
             <Route path="primeros-pasos" element={<PrimerosPasos />} />
             <Route path="respaldos" element={<Respaldos />} />
             <Route path="dispositivos" element={<Dispositivos />} />
+            <Route path="flota" element={<Flota />} />
             <Route path="ai" element={<AiConfig />} />
             <Route path="office" element={<OfficeConfig />} />
             <Route path="voice" element={<VoiceConfig />} />
