@@ -5,12 +5,14 @@ import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import { nombreOrg } from '../../lib/marca';
 import { BarraAccionesCorreo } from './BarraAccionesCorreo';
 import { reenviarComoAdjunto } from '../../lib/correosComoAdjunto';
+import { dejarArchivosParaRedaccion } from '../../lib/archivosParaRedaccion';
 import { ImagenesEnCuerpo } from './ImagenesEnCuerpo';
 import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { escapeHtml, extractEmail, buildQuoteHtml } from '../../lib/citaRespuesta';
 import { DireccionConNombre } from './DireccionConNombre';   // personas por su nombre (06/11/2026)
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
+import { AvisoAcuseLectura } from './AvisoAcuseLectura';   // 09/11/2026: confirmaciones de lectura
 
 /** Abre el panel de redacción, con la firma exacta que expone el store. */
 type AbrirRedaccion = ReturnType<typeof useMailStore.getState>['openCompose'];
@@ -638,6 +640,12 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         </div>
       )}
 
+      {msg.acuse_lectura && (
+        <div style={{ padding: '0 16px' }}>
+          <AvisoAcuseLectura folder={msg.folder || currentFolder} uid={msg.uid} pedido={msg.acuse_lectura} />
+        </div>
+      )}
+
       {/* Body */}
       <div style={{ padding: '0 16px 14px' }}>
         {msg.html_body ? (
@@ -888,6 +896,34 @@ const MessageView: React.FC = () => {
       reenvio_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
   }, [msg, openCompose, currentFolder]);
+
+  // Firmar PDF desde el visor (09/11/2026): el PDF firmado entra como adjunto de la respuesta o
+  // del reenvío. Se deja en la cola (lib/archivosParaRedaccion) y ComposePanel lo recoge al montarse.
+  const responderConArchivo = useCallback((archivo: File) => {
+    if (!msg || !openCompose) return;
+    dejarArchivosParaRedaccion([archivo]); setPreviewOpen(false);
+    // Respuesta ya redactada (pedido 09/11/2026): saludo a quien pidió la firma, «adjunto lo solicitado» y despedida.
+    const nombre = extractName(msg.from) || '';
+    const saludo = nombre ? `Estimado/a ${escapeHtml(nombre)},` : 'Estimado/a,';
+    const formattedDate = msg.date ? format(new Date(msg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+    const quoteHtml = buildQuoteHtml(
+      msg.from, formattedDate, msg.to, msg.cc, msg.subject,
+      msg.html_body || `<pre style="white-space:pre-wrap">${msg.text_body}</pre>`,
+      false,
+    );
+    openCompose('reply', {
+      to: [extractEmail(msg.from)],
+      subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
+      text_body: '',
+      in_reply_to: msg.message_id || '',
+      references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
+      html_body: quoteHtml,
+      prefill_body: `<p>${saludo}</p><p>Adjunto el documento firmado que solicitó.</p><p>Saludos,</p>`,
+    });
+  }, [msg, openCompose]);
+  const reenviarConArchivo = useCallback((archivo: File) => {
+    dejarArchivosParaRedaccion([archivo]); setPreviewOpen(false); handleForward();
+  }, [handleForward]);
 
   // «Reenviar como adjunto»: el correo viaja como .eml dentro de uno nuevo (lib/correosComoAdjunto.ts).
   const handleForwardAsAttachment = useCallback(() => {
@@ -1193,6 +1229,8 @@ const MessageView: React.FC = () => {
           allAttachments={previewContext.attachments}
           currentIndex={previewAttIdx}
           onNavigate={(idx: number) => setPreviewAttIdx(idx)}
+          onResponderCon={responderConArchivo}
+          onReenviarCon={reenviarConArchivo}
         />
       </div>
     );
@@ -1364,6 +1402,7 @@ const MessageView: React.FC = () => {
 
         <RemitenteExternoAviso email={senderEmail} nombre={senderName} />
         <AvisoFechaRemitente msg={{ ...msg, folder: msg.folder || currentFolder }} />
+        <AvisoAcuseLectura folder={msg.folder || currentFolder} uid={msg.uid} pedido={displayMsg?.acuse_lectura} />
 
         <TrackingNotice
           notice={spamMarcado ? null : displayMsg?.tracking_notice}
@@ -1511,6 +1550,8 @@ const MessageView: React.FC = () => {
         allAttachments={previewContext.attachments}
         currentIndex={previewAttIdx}
         onNavigate={(idx: number) => setPreviewAttIdx(idx)}
+        onResponderCon={responderConArchivo}
+        onReenviarCon={reenviarConArchivo}
       />
     </div>
   );

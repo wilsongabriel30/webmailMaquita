@@ -12,6 +12,7 @@ from app.mail.clients.imap_client import (
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.parsers.mime_parser import parse_full_message, parse_headers
 from app.mail.rendering.policy import apply_render_policy
+from app.mail.services import acuse_lectura
 from app.mail.services.adjuntos_lista import adjuntos_por_uid
 
 
@@ -173,6 +174,8 @@ async def get_message(
         "references": normalized.references,
         "in_reply_to": normalized.in_reply_to,
         "calendar_invite": _serialize_calendar_invite(normalized.calendar_invite),
+        # Confirmación de lectura pedida por el remitente y aún sin contestar (09/11/2026).
+        "acuse_lectura": acuse_lectura.pedido_acuse(raw["raw_email"], normalized.flags),
     }
 
 
