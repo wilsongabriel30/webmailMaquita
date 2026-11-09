@@ -252,8 +252,22 @@ def _extract_parts(
                 pass
         elif content_type == "text/html":
             html_body = _decode_payload(msg)
-        else:
+        elif msg.get_content_maintype() == "text":
             text_body = _decode_payload(msg)
+        else:
+            # Correo de una sola parte que no es texto (p. ej. un informe DMARC que llega
+            # como `application/zip` sin cuerpo): es un adjunto, no texto. Antes se volcaba
+            # el binario como cuerpo y se veía ilegible. En IMAP, la parte 1 de un correo
+            # sin multipart es su propio cuerpo (RFC 3501), así que se descarga igual (08/11/2026).
+            payload = msg.get_payload(decode=True)
+            attachments.append(
+                AttachmentInfo(
+                    filename=msg.get_filename() or "attachment_1",
+                    content_type=content_type,
+                    size=len(payload) if payload else 0,
+                    part_number=f"{part_prefix}1" if part_prefix else "1",
+                )
+            )
 
     return text_body, html_body, attachments, cid_map, calendar_invite
 

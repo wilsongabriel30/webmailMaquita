@@ -55,6 +55,8 @@ Tareas queda unificado con Seguimiento. Para instalaciones existentes, el actual
 - Tareas: la configuración guarda solo lo que cambia; el detalle de Seguimiento reconoce a la persona de la sesión;
   «Abrir la tarea» en la misma pestaña; sin emojis en la interfaz.
 - CI: candado de textos de marca y prueba del correo marcado.
+- Un correo que llega como una sola parte no textual (los informes DMARC de Google en `application/zip`) se
+  muestra como adjunto descargable; antes se volcaba el binario como cuerpo y se veía ilegible.
 
 ## [1.11.8] - 2026-10-30
 
