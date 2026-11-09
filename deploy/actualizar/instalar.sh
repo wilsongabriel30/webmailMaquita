@@ -20,7 +20,7 @@ install -m 755 "${SELF}/maquita-actualizar" /usr/local/sbin/maquita-actualizar
 bash "${APP_DIR}/deploy/sudoers/instalar.sh"  # maquita-sudo y sus validadores (/usr/local/lib/maquita-sudo)
 install -d -m 755 /etc/maquita-actualizar /var/lib/maquita-actualizar
 install -m 644 "${SELF}/firmantes" /etc/maquita-actualizar/firmantes
-[ -f /etc/maquita-actualizar/config.json ] || echo '{"canal": "estable", "automatico": true}' > /etc/maquita-actualizar/config.json
+[ -f /etc/maquita-actualizar/config.json ] || echo '{"canal": "estable", "automatico": false}' > /etc/maquita-actualizar/config.json
 
 echo -e "${GREEN}[2/3] Temporizador nocturno...${NC}"
 cat > /etc/systemd/system/maquita-actualizar.service <<'UNIT'

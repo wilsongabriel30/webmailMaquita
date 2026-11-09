@@ -43,7 +43,7 @@ async def aplicar(body: Aplicar, r: Request, admin: dict = Depends(require_super
 
 class Config(BaseModel):
     canal: str = "estable"
-    automatico: bool = True
+    automatico: bool = False
 
 
 @router.put("/config")

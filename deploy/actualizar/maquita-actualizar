@@ -73,9 +73,11 @@ def despachar(a):
 
         return proceso.instalar(v.objetivo(a[1]))
     if a == ["automatico"]:
-        if not v.config()["automatico"]:
-            return {"automatico": False}
+        # Cada noche se busca siempre, para que el panel muestre la versión disponible;
+        # solo se instala si la organización activó la actualización automática.
         disponible = v.buscar()
+        if not v.config()["automatico"]:
+            return {"automatico": False, "nueva": bool(disponible.get("nueva"))}
         if not disponible.get("nueva"):
             return {"automatico": True, "nueva": False}
         import proceso

@@ -18,8 +18,11 @@ como versión publicada.
    `deploy/actualizar/firmantes` y la sube. Las notas de la versión son los títulos de los commits desde
    la anterior.
 4. **Los demás servidores** (canal «estable») la ven esa misma noche: a las 03:30 (más hasta 45 min al
-   azar, para no actualizar todos a la vez) buscan, comprueban la firma y, si la actualización automática
-   está activada, la instalan. También se puede pulsar «Buscar» e «Instalar ahora» en el panel.
+   azar) buscan, comprueban la firma y la **anuncian en el panel** (Protección → Actualizaciones). Instalarla
+   es **decisión de cada organización**: una persona pulsa «Instalar ahora» cuando le convenga (puede tener
+   sus propios ajustes y querer revisarlos antes). Solo si la organización activa «Instalar automáticamente
+   por la noche» se instala sola; desde la 1.12.0 viene desactivado (los servidores ya instalados pasan a
+   manual una sola vez con el ajuste 79; quien quiera volver a automático lo activa en el panel).
 
 ## Qué hace al instalar (`maquita-actualizar`, en segundo plano)
 
@@ -121,9 +124,9 @@ En vez de parchear, use la configuración, que sí se conserva:
 - **Cualquier otro caso**: pida el cambio por el repositorio (issue o PR). Si el parche resuelve algo del
   producto, debe entrar como versión; si es propio del servidor, como opción de configuración.
 
-Si mantiene parches igualmente, puede dejar la actualización automática activada: tras cada versión revise
-en el panel los archivos marcados «tenía cambios locales» y vuelva a aplicarlos desde la copia (`diff -u` de
-arriba). Lo que no esté instalado por el producto (por ejemplo un vhost propio de nginx) no se toca, y si
+Si mantiene parches igualmente, instale cada versión a mano desde el panel cuando tenga tiempo de revisarla
+(es lo que viene por defecto): tras instalar, revise los archivos marcados «tenía cambios locales» y vuelva a
+aplicarlos desde la copia (`diff -u` de arriba). Lo que no esté instalado por el producto (por ejemplo un vhost propio de nginx) no se toca, y si
 alguna vez cambiara, aparecería igualmente en la lista.
 
 ## Firma de las versiones
@@ -157,5 +160,5 @@ etiquetas antiguas, sin firma, no se instalan.
 sudo bash deploy/webmail/instalar-app.sh actualizar
 ```
 
-Requiere que `/opt/maquita-webmail` sea un clon de git del repositorio. Deja el canal «estable» con la
-actualización automática activada; se cambia en el panel.
+Requiere que `/opt/maquita-webmail` sea un clon de git del repositorio. Deja el canal «estable» en modo
+manual (la pasada nocturna solo busca y anuncia); la actualización automática se activa en el panel.

@@ -39,4 +39,4 @@ NOTAS="$(git log --no-merges -n 80 --format='- %s' ${ANTERIOR:+$ANTERIOR..}HEAD)
 git -c gpg.format=ssh -c user.signingkey="$CLAVE" tag -s "$VERSION" -m "Versión $VERSION" -m "$NOTAS"
 git -c gpg.format=ssh -c gpg.ssh.allowedSignersFile=deploy/actualizar/firmantes verify-tag "$VERSION"
 git push origin "$VERSION"
-echo "Publicada $VERSION. Los servidores con actualización automática la instalarán esta noche."
+echo "Publicada $VERSION. Esta noche los servidores la verán en el panel (Protección → Actualizaciones); la instalan al pulsar «Instalar ahora», o solos si activaron la actualización automática."
