@@ -498,8 +498,13 @@ def test_sitios_paquete_propio():
     assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.tar.gz", "sin-bd")
     assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd",
                "fedcba9876543210fedcba9876543210.sql.gz")
+    assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.rar", "sin-bd")
+    assert _ok("maquita-admin", "maquita-sitios", "paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.7z", "con-bd",
+               "fedcba9876543210fedcba9876543210.sql")
     for malo in (("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "con-bd", "../x.sql"),
                  ("paquete", "ejemplo.org", "../../etc/shadow", "con-bd"), ("paquete", "ejemplo.org", "x.zip", "con-bd"),
+                 ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.exe", "sin-bd"),
+                 ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.7z.php", "sin-bd"),
                  ("paquete", "ejemplo.org", "0123456789abcdef0123456789abcdef.zip", "si")):
         with pytest.raises(ms.Rechazo):
             _ok("maquita-admin", "maquita-sitios", *malo)

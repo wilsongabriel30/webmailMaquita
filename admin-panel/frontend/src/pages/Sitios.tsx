@@ -339,7 +339,7 @@ export function Sitios() {
                       <span>
                       <button onClick={() => setInstalarEn(s.dominio)} disabled={!!ocupado} className="text-ms-blue hover:underline text-xs disabled:opacity-50">Instalar una aplicación</button>
                       <span className="text-ms-gray-60 text-xs"> · </span>
-                      <button onClick={() => setSubirEn(s.dominio)} disabled={!!ocupado} title="Su propio .zip o .tar.gz de una aplicación que no está en el catálogo." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Subir paquete</button>
+                      <button onClick={() => setSubirEn(s.dominio)} disabled={!!ocupado} title="Su propio .zip, .tar.gz, .rar o .7z de una aplicación que no está en el catálogo." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Subir paquete</button>
                       <span className="text-ms-gray-60 text-xs"> · </span>
                       <button onClick={() => setPropiaEn(s.dominio)} disabled={!!ocupado} title="Su propio código: HTML/JS, Python o Node.js." className="text-ms-blue hover:underline text-xs disabled:opacity-50">Aplicación propia</button>
                       </span>

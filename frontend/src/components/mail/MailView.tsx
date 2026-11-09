@@ -6,7 +6,7 @@ import { MessageList } from './MessageList';
 import { MessageView } from './MessageView';
 import { ComposePanel } from '../compose/ComposePanel';
 import RecuperarRedacciones from '../compose/RecuperarRedacciones';
-import { ToastContainer } from '../common/Toast';
+import { ToastContainer } from '../common/ToastContainer';
 import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';

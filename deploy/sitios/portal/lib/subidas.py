@@ -17,7 +17,7 @@ import rutas
 from errores import ErrorPortal
 
 EXTENSIONES = {
-    "paquete": re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz)$"),
+    "paquete": re.compile(r"^[0-9a-f]{32}\.(zip|tar\.gz|tgz|rar|7z)$"),
     "respaldo": re.compile(r"^[0-9a-f]{32}\.(sql|sql\.gz)$"),
     "texto": re.compile(r"^[0-9a-f]{32}\.txt$"),
     # Administrador de archivos (v1.10): cualquier contenido; maquita-sitios lo copia con el usuario del sitio.

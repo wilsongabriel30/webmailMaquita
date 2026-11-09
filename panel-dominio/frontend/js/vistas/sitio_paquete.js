@@ -1,4 +1,4 @@
-// Pestaña «Subir y migrar»: un paquete propio (.zip o .tar.gz) en un sitio vacío y, con el
+// Pestaña «Subir y migrar»: un paquete propio (.zip, .tar.gz, .rar o .7z) en un sitio vacío y, con el
 // respaldo de su base (.sql o .sql.gz), la migración desde otro hospedaje.
 import { api } from '../api.js';
 import { el, aviso, casilla } from '../ui.js';
@@ -29,7 +29,7 @@ export function pestanaPaquete(ctx) {
   const max = estado.subida_max_mb || 512;
   const ruta = `/sitios/${enRutaSitio(sitio)}/paquete`;
   const msj = mensajes();
-  const paquete = el('input', { type: 'file', id: 'paquete-archivo', accept: '.zip,.tar.gz,.tgz,application/zip,application/gzip' });
+  const paquete = el('input', { type: 'file', id: 'paquete-archivo', accept: '.zip,.tar.gz,.tgz,.rar,.7z,application/zip,application/gzip,application/vnd.rar,application/x-7z-compressed' });
   const respaldo = el('input', { type: 'file', id: 'paquete-respaldo', accept: '.sql,.sql.gz,application/sql,application/gzip' });
   const conBd = casilla('Crear una base de datos para la aplicación', true);
   const avance = el('progress', { max: '100', value: '0', hidden: true, 'aria-label': 'Avance de la subida' });
@@ -38,7 +38,7 @@ export function pestanaPaquete(ctx) {
   const enviar = async (e) => {
     e.preventDefault();
     const archivo = paquete.files[0], copia = respaldo.files[0];
-    if (!archivo) { msj.error('Elige el paquete (.zip o .tar.gz).'); return; }
+    if (!archivo) { msj.error('Elige el paquete (.zip, .tar.gz, .rar o .7z).'); return; }
     if (pesa(archivo) || (copia && pesa(copia))) { msj.error(`Cada archivo puede pesar como máximo ${max} MB.`); return; }
     subir.disabled = true;
     avance.hidden = false;
@@ -65,7 +65,7 @@ export function pestanaPaquete(ctx) {
     el('h2', null, 'Subir un paquete o migrar un sitio'),
     s.app ? aviso('nota', 'Este sitio ya tiene una aplicación. El paquete solo se puede instalar en un sitio vacío.') : null,
     el('p', { clase: 'ayuda' }, `Tu propia aplicación o la copia de un sitio que tenías en otro hospedaje, hasta ${max} MB por archivo. Con una conexión lenta, la subida puede tardar: deja esta página abierta.`),
-    el('label', { for: paquete.id }, 'Paquete (.zip o .tar.gz)'), paquete,
+    el('label', { for: paquete.id }, 'Paquete (.zip, .tar.gz, .rar o .7z)'), paquete,
     el('label', { for: respaldo.id }, 'Respaldo de la base (opcional, .sql o .sql.gz): con él es una migración'), respaldo,
     conBd.nodo, avance, msj.nodo,
     el('div', { clase: 'pie-form' }, subir));

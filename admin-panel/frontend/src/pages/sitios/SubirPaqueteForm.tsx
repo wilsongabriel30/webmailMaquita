@@ -52,11 +52,11 @@ export function SubirPaqueteForm({ dominio, onCancelar, onListo }: {
       <h2 className="text-base font-semibold text-ms-gray-130">Subir un paquete o traer un sitio de otro hosting a {dominio}</h2>
       <ul className="text-xs text-ms-gray-90 list-disc ml-4 space-y-0.5">
         <li><b>Migrar un sitio:</b> suba el .zip con sus archivos y el respaldo de su base (.sql o .sql.gz, exportado con phpMyAdmin o el panel del otro hosting). La base se importa y, si es WordPress, Joomla o usa un archivo .env (Laravel y similares), su conexión se corrige sola; en WordPress también la dirección del sitio.</li>
-        <li><b>Aplicación que no está en el catálogo:</b> suba el .zip o .tar.gz del proyecto y siga su instalador con los datos de la base que se mostrarán.</li>
+        <li><b>Aplicación que no está en el catálogo:</b> suba el .zip, .tar.gz, .rar o .7z del proyecto y siga su instalador con los datos de la base que se mostrarán.</li>
         <li>Hasta 512 MB en total. Se detecta la carpeta pública (public/, htdocs/…).</li>
       </ul>
-      <label className="block text-sm">Archivos del sitio (.zip o .tar.gz)
-        <input type="file" accept=".zip,.tar.gz,.tgz,application/zip,application/gzip" onChange={(e) => setArchivo(e.target.files?.[0] || null)} className="block text-sm mt-1" />
+      <label className="block text-sm">Archivos del sitio (.zip, .tar.gz, .rar o .7z)
+        <input type="file" accept=".zip,.tar.gz,.tgz,.rar,.7z,application/zip,application/gzip,application/vnd.rar,application/x-7z-compressed" onChange={(e) => setArchivo(e.target.files?.[0] || null)} className="block text-sm mt-1" />
       </label>
       <label className="block text-sm">Respaldo de la base (opcional: .sql o .sql.gz)
         <input type="file" accept=".sql,.gz,application/sql,application/gzip" onChange={(e) => setBase(e.target.files?.[0] || null)} className="block text-sm mt-1" />

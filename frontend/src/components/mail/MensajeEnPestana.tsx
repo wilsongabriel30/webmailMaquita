@@ -11,7 +11,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
-import { ToastContainer } from '../common/Toast';
+import { ToastContainer } from '../common/ToastContainer';
 import { MessageView } from './MessageView';
 import type { Folder, MessageFull } from '../../types';
 
