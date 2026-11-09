@@ -18,7 +18,15 @@ tablas="${generales:+$generales,}regexp:$FILTRO"
 pendiente=()
 cmp -s "$DIR/fecha_servidor_envio" "$FILTRO" 2>/dev/null || pendiente+=("instalar $FILTRO")
 [ -n "$("${PC[@]}" -M cleanup_envio/unix 2>/dev/null)" ] || pendiente+=("crear el servicio cleanup_envio")
-[ "$("${PC[@]}" -Ph cleanup_envio/unix/header_checks 2>/dev/null)" = "$tablas" ] || pendiente+=("cleanup_envio: header_checks")
+# El servidor puede llevar tablas propias detrás (p. ej. un filtro de asunto): se respetan y solo se exige
+# que las generales y la de la fecha estén, en ese orden, al principio.
+actual="$("${PC[@]}" -Ph cleanup_envio/unix/header_checks 2>/dev/null)"
+extras=""
+for t in ${actual//,/ }; do
+  case ",$tablas," in *",$t,"*) ;; *) extras="${extras:+$extras,}$t" ;; esac
+done
+tablas_finales="${tablas}${extras:+,$extras}"
+[ "$actual" = "$tablas_finales" ] || pendiente+=("cleanup_envio: header_checks")
 [ "$("${PC[@]}" -Ph cleanup_envio/unix/always_add_missing_headers 2>/dev/null)" = "yes" ] || pendiente+=("cleanup_envio: always_add_missing_headers")
 servicios=()
 for s in submission smtps; do
@@ -38,7 +46,7 @@ cp -a "$CONF/master.cf" "$CONF/master.cf.bak.$(date +%Y%m%d_%H%M%S)"
 install -m644 "$DIR/fecha_servidor_envio" "$FILTRO"
 [ -n "$("${PC[@]}" -M cleanup_envio/unix 2>/dev/null)" ] || \
   "${PC[@]}" -M "cleanup_envio/unix=cleanup_envio unix n - y - 0 cleanup"
-"${PC[@]}" -P "cleanup_envio/unix/header_checks=$tablas" \
+"${PC[@]}" -P "cleanup_envio/unix/header_checks=$tablas_finales" \
              "cleanup_envio/unix/always_add_missing_headers=yes"
 for s in "${servicios[@]}"; do "${PC[@]}" -P "$s/inet/cleanup_service_name=cleanup_envio"; done
 

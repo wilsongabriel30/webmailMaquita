@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- Ajuste 10 (fecha del servidor en los envíos): respeta las tablas de `header_checks` propias del servidor en `cleanup_envio` (p. ej. un filtro de asunto); antes las quitaba al aplicarse y el simulador lo marcaba como pendiente cuando ya estaba en su sitio.
+
 ## [1.12.0] - 2026-11-08
 
 El correo se ve y se maneja como Outlook, el asistente de IA responde en segundos sobre el correo del día, y
