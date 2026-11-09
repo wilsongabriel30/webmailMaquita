@@ -1,0 +1,17 @@
+[Unit]
+Description=Indexación nocturna de correos para «Conversa con tu correo» (RAG) - TI Maquita 04/11/2026
+After=maquita-webmail.service postgresql.service
+
+[Service]
+Type=oneshot
+User=www-data
+WorkingDirectory=/opt/maquita-webmail/backend
+Environment=PATH=/opt/maquita-webmail/backend/venv/bin:/usr/local/bin:/usr/bin
+EnvironmentFile=/opt/maquita-webmail/backend/.env
+ExecStart=/opt/maquita-webmail/backend/venv/bin/python -m app.rag.run
+Nice=10
+IOSchedulingClass=idle
+CPUQuota=150%
+TimeoutStartSec=10h
+StandardOutput=append:/var/log/rag-indexacion.log
+StandardError=append:/var/log/rag-indexacion.log
