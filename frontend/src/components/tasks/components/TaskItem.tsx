@@ -17,16 +17,21 @@ interface Props {
   seleccionada?: boolean;
   /** Clic derecho: menú de la tarea (Mover a…, Mi día, etc.). */
   onMenu?: (task: Task, e: MouseEvent) => void;
+  /** Tarjeta del modo Tablero: menos margen a los lados. */
+  compacta?: boolean;
+  /** Etiqueta «En curso» (en el Tablero sobra dentro de su propia columna). */
+  mostrarEstado?: boolean;
 }
 
-export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista, seleccionada, onMenu }: Props) {
+export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLista, seleccionada, onMenu, compacta, mostrarEstado = true }: Props) {
+  const enCurso = mostrarEstado && !task.completed && task.estado === 'en_curso';
   return (
     <div
       onClick={() => onClick(task)}
       onContextMenu={onMenu ? e => { e.preventDefault(); onMenu(task, e); } : undefined}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
-        padding: '10px 24px', cursor: 'pointer',
+        padding: compacta ? '8px 10px' : '10px 24px', cursor: 'pointer',
         transition: 'background 0.1s',
         background: seleccionada ? COLORS.activeBg : 'transparent',
         fontFamily: "'Segoe UI', system-ui, sans-serif",
@@ -71,8 +76,9 @@ export function TaskItem({ task, onToggle, onToggleImportant, onClick, mostrarLi
             ) : mostrarLista ? task.list_name : null}
           </div>
         )}
-        {(task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note || !!task.labels?.length) && (
+        {(enCurso || task.due_date || task.recurrence || task.reminder || task.pasos || task.adjuntos || task.note || !!task.labels?.length) && (
           <div style={{ fontSize: 12, color: COLORS.secondary, marginTop: 2, display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            {enCurso && <span style={{ color: '#8a6d00', background: '#fff4ce', borderRadius: 3, padding: '0 5px', fontWeight: 600 }}>En curso</span>}
             {!!task.pasos && <span>{task.pasos_hechos ?? 0} de {task.pasos}</span>}
             {task.recurrence && (
               <span style={{ display: 'flex', alignItems: 'center', gap: 2 }}>

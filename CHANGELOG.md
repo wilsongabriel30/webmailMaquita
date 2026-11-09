@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Tareas: vista «Tablero»** junto a «Cuadrícula» y «Lista», en cualquier lista (Mi día, Importante, Tareas, listas
+  propias). Columnas Vencidas / Pendiente / En curso / Completada como en Seguimiento; arrastrar una tarea cambia su
+  estado (`PATCH /api/tasks/tasks/{id}/estado`). Completar o reabrir pasa por el mismo camino que el círculo
+  (repetición, bandera del correo marcado, calendario); una tarea con seguimiento cambia por Seguimiento. En
+  «Completada», las de los últimos 30 días. La vista Lista muestra la etiqueta «En curso».
+
 ## [1.12.0] - 2026-11-08
 
 El correo se ve y se maneja como Outlook, el asistente de IA responde en segundos sobre el correo del día, y
