@@ -281,6 +281,7 @@ export function TasksView() {
           onRefrescar={() => { void fetchTasks(); }}
           onAsignada={trasAsignar}
           confirmar={ajustes.confirmar_eliminar}
+          onCambiarEstado={(id, e) => { void cambiarEstado(id, e); }}
         />
       )}
 
