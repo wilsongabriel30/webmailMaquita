@@ -65,7 +65,7 @@ export function Actualizaciones() {
         { titulo: "De dónde vienen", desc: "Del repositorio del proyecto. En el canal «estable» solo se instalan versiones (vX.Y.Z) firmadas por el equipo: una versión sin firma válida no se instala nunca, aunque aparezca en el repositorio." },
         { titulo: "Qué hace al instalar", desc: "Valida el servidor, respalda la base de datos, cambia el código, aplica migraciones, dependencias, frontends del correo y del panel, las secciones instaladas y los ajustes del servidor, reinicia y vuelve a validar. Si quedan más fallos que antes, vuelve sola a la versión anterior." },
         { titulo: "Archivos del sistema", desc: "Al terminar se muestra qué archivos de configuración del servidor (DNS, nginx, fail2ban, correo, systemd, programas instalados, .env) creó, cambió o borró la actualización. Si alguno tenía un parche hecho a mano, se marca «tenía cambios locales» y su contenido anterior queda en una copia para recuperarlo." },
-        { titulo: "Automático", desc: "Cada noche (03:30 más un margen al azar) busca y, si hay versión nueva firmada, la instala. El correo se corta unos 30 segundos al reiniciar." },
+        { titulo: "Cuándo se instala", desc: "Por defecto, cuando una persona pulsa «Instalar ahora»: instalar una versión es decisión de cada organización, que puede tener sus propios ajustes. Cada noche (03:30 más un margen al azar) el servidor solo busca y muestra aquí la versión disponible. Si activa «Instalar automáticamente por la noche», la instala sin preguntar; el correo se corta unos 30 segundos al reiniciar." },
       ]} />
 
       <div className={caja}>
@@ -107,7 +107,7 @@ export function Actualizaciones() {
       <div className={caja}>
         <h2 className="font-semibold text-ms-gray-130">Configuración</h2>
         <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={est.config.automatico} disabled={ocupado} onChange={(e) => guardar({ automatico: e.target.checked })} />
-          Instalar solo cada noche las versiones nuevas firmadas</label>
+          Instalar automáticamente por la noche las versiones nuevas firmadas (si no, se anuncian aquí y se instalan con «Instalar ahora»)</label>
         <div className="flex flex-wrap items-center gap-2 text-sm">
           <span>Canal:</span>
           <input value={canal} onChange={(e) => setCanal(e.target.value.trim())} className="px-2 py-1 border border-ms-gray-40 rounded text-sm font-mono w-56" />

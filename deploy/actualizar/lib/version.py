@@ -63,7 +63,9 @@ def guardar_json(ruta, datos, modo=0o644):
 
 
 def config():
-    conf = {"canal": "estable", "automatico": True}
+    # Manual por defecto (08/11/2026): instalar una versión es decisión de cada organización,
+    # que puede tener sus propios parches. La pasada nocturna solo busca y lo anuncia en el panel.
+    conf = {"canal": "estable", "automatico": False}
     conf.update(leer_json(CONFIG, {}))
     return conf
 

@@ -37,6 +37,10 @@ Tareas queda unificado con Seguimiento. Para instalaciones existentes, el actual
 - **Almacén y panel**: compartir, desbloqueo de buzones y dominios del grupo.
 
 ### Cambiado
+- **Las versiones ya no se instalan solas**: la pasada nocturna solo busca y anuncia la versión disponible en el
+  panel (Protección → Actualizaciones); instalarla es decisión de cada organización con «Instalar ahora», porque
+  puede tener sus propios ajustes. Quien quiera la instalación automática la activa en el panel. El ajuste 79 pasa a
+  manual, una sola vez, los servidores ya instalados.
 - **«Pregúntale a tu correo» responde con el modelo normal** (4–8 s). El de calidad tardaba 20–35 s y el navegador
   cerraba antes de ver la respuesta. `RAG_CALIDAD=1` vuelve al modelo grande.
 - **Qué no se indexa para el asistente**: además de Papelera, No deseado y Borradores, se omiten el spam marcado por
