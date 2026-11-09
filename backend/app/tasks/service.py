@@ -81,6 +81,7 @@ def _row_to_card(row):
         reminder=row.get("reminder"),
         note=row.get("note", ""),
         recurrence=row.get("recurrence"),
+        estado=row.get("estado") or "pendiente",
         created_at=row["created_at"],
         updated_at=row["updated_at"],
     )

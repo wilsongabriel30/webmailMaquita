@@ -1,10 +1,11 @@
-// «Cuadrícula | Lista» junto al título de la lista de tareas (como en Outlook).
+// «Cuadrícula | Lista | Tablero» junto al título de la lista de tareas (como en Outlook).
 import { COLORS } from '../types';
 import type { ModoVista } from './modoVista';
 
 const OPCIONES: { valor: ModoVista; etiqueta: string; icono: string }[] = [
   { valor: 'cuadricula', etiqueta: 'Cuadrícula', icono: 'M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z' },
   { valor: 'lista', etiqueta: 'Lista', icono: 'M4 6h16M4 12h10M4 18h16' },
+  { valor: 'tablero', etiqueta: 'Tablero', icono: 'M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v13h-4z' },
 ];
 
 export function SelectorVista({ modo, onCambiar }: { modo: ModoVista; onCambiar: (m: ModoVista) => void }) {

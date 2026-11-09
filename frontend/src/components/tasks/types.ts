@@ -53,6 +53,8 @@ export interface Task {
   labels?: string[];
   // Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
   seguimiento?: boolean;
+  // Columna del modo Tablero: pendiente / en_curso (con seguimiento, también espera / completada).
+  estado?: string;
 }
 
 /** Persona de una lista compartida (la propietaria o un miembro). */

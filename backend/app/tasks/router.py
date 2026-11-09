@@ -21,6 +21,7 @@ from app.tasks import (
 )
 from app.tasks.rutas_compartir import router as f4_router
 from app.tasks.rutas_desde_correo import router as desde_correo_router
+from app.tasks.rutas_estado import router as estado_router
 from app.tasks.rutas_f5 import router as f5_router
 from app.tasks.rutas_f6 import router as f6_router
 from app.tasks.rutas_listas import router as listas_router
@@ -62,6 +63,7 @@ router.include_router(f5_router)  # duplicar listas
 router.include_router(f6_router)  # configuración y sugerencias
 # Tareas al soltar correos en el ícono Tareas.
 router.include_router(desde_correo_router)
+router.include_router(estado_router)  # modo Tablero: Pendiente / En curso / Completada
 
 
 def _db(request: Request):
