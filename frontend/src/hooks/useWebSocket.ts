@@ -90,7 +90,9 @@ export function useWebSocket(enabled: boolean = true) {
               // Show toast notification
               const delta = data.delta || 1;
               const aviso = textoAvisoCorreo(delta, data.de, data.asunto);   // 06/11/2026
-              showToast(aviso.cuerpo.replace(/\n/g, ' · '));
+              // Correo archivado por una regla en otra carpeta (09/11/2026): se dice en cuál.
+              const enCarpeta = data.folder && data.folder !== 'INBOX' ? `En «${data.folder}»: ` : '';
+              showToast(enCarpeta + aviso.cuerpo.replace(/\n/g, ' · '));
 
               // Play sound
               playNotificationSound();
