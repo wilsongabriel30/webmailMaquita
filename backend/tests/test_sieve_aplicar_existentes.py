@@ -3,6 +3,7 @@
 import pytest
 
 from app.sieve.aplicar_existentes import (
+    BusquedaNoDisponible,
     Cabecera,
     Resultado,
     aplicar_regla_existentes,
@@ -252,3 +253,24 @@ async def test_eliminar_va_a_la_papelera():
     r = await aplicar_regla_existentes(imap, regla, "INBOX")
     assert r["papelera"] == 1 and r["destino"] == "Trash"
     assert ("uid", "move", "2", "Trash") in imap.ordenes
+
+
+@pytest.mark.asyncio
+async def test_busqueda_que_falla_avisa_en_vez_de_decir_cero():
+    imap = ImapFalso(CORREOS)
+
+    async def search_no(criterio):
+        return _Resp(
+            result="NO",
+            lines=[b"NO [INUSE] Timeout while waiting for indexing to finish"],
+        )
+
+    imap.uid_search = search_no
+    regla = FilterRule(
+        name="Cursos",
+        conditions=[c("from", "contains", "cursos@example.org")],
+        actions=[FilterAction(type="move", value="INBOX.Cursos")],
+    )
+    with pytest.raises(BusquedaNoDisponible):
+        await aplicar_regla_existentes(imap, regla, "INBOX")
+    assert not [o for o in imap.ordenes if o[0] == "uid" and o[1] == "move"]

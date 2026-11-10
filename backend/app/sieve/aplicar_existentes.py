@@ -52,6 +52,16 @@ _RE_UID = re.compile(r"\bUID\s+(\d+)")
 _RE_SIZE = re.compile(r"RFC822\.SIZE\s+(\d+)")
 
 
+class BusquedaNoDisponible(ValueError):
+    """El buzón no pudo buscar (índice en construcción o IMAP sin respuesta)."""
+
+    def __init__(self) -> None:
+        super().__init__(
+            "La búsqueda en el buzón no respondió (el índice puede estar en construcción). "
+            "La regla quedó guardada; pulse «Aplicar ahora» en Ajustes › Reglas de correo en unos minutos."
+        )
+
+
 @dataclass
 class Cabecera:
     """Lo que hace falta de un correo para evaluar las condiciones."""
@@ -249,10 +259,18 @@ def _uids_de_busqueda(lines: Iterable) -> list[int]:
 
 
 async def _buscar(imap, criterio: str) -> list[int]:
-    resp = await imap.uid_search(criterio)
+    try:
+        resp = await imap.uid_search(criterio)
+    except (
+        Exception
+    ) as exc:  # p. ej. TimeoutError de aioimaplib mientras se construye el índice
+        logger.warning("UID SEARCH %s no respondió: %s", criterio[:80], exc)
+        raise BusquedaNoDisponible() from exc
     if resp.result != "OK":
+        # Con el índice de texto completo en construcción Dovecot responde NO («Timeout while waiting
+        # for indexing to finish»). Decir «ningún correo cumple» sería mentir: se avisa (10/11/2026).
         logger.warning("UID SEARCH %s falló: %s", criterio[:80], resp.result)
-        return []
+        raise BusquedaNoDisponible()
     return _uids_de_busqueda(resp.lines)
 
 
