@@ -5,6 +5,7 @@
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
 import { createPortal } from 'react-dom';
+import { nombreHojaSeguro } from '../../lib/nombreCarpeta';
 import { useEffect, useState, useRef } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
@@ -153,7 +154,8 @@ export function MailSidebar() {
   // --- Folder operations ---
   const handleCreate = async () => {
     if (!newName.trim()) return;
-    const fullName = createParent ? `${createParent}.${newName.trim()}` : newName.trim();
+    const hoja = nombreHojaSeguro(newName);  // el punto partiría la carpeta (10/11/2026)
+    const fullName = createParent ? `${createParent}.${hoja}` : hoja;
     try {
       await api.post('/mail/folders', { name: fullName });
       showToast(`Carpeta "${newName.trim()}" creada`);
@@ -171,7 +173,8 @@ export function MailSidebar() {
     if (!renameValue.trim() || renameValue.trim() === getFolderDisplayName(oldName)) { setRenaming(null); return; }
     // Preserve parent path, only rename the leaf
     const dotIdx = oldName.lastIndexOf('.');
-    const newFull = dotIdx > 0 ? oldName.substring(0, dotIdx + 1) + renameValue.trim() : renameValue.trim();
+    const hoja = nombreHojaSeguro(renameValue);  // el punto partiría la carpeta (10/11/2026)
+    const newFull = dotIdx > 0 ? oldName.substring(0, dotIdx + 1) + hoja : hoja;
     try {
       await api.put(`/mail/folders/${encodeURIComponent(oldName)}`, { new_name: newFull });
       showToast(`Carpeta renombrada a "${renameValue.trim()}"`);
