@@ -2,6 +2,9 @@
 -- `photo_url` sigue siendo la foto EFECTIVA que leen todas las vistas (avatars, foto, directorio, búsqueda).
 -- Las columnas nuevas separan la foto de Raíces (con su huella para detectar cambios) de la propia del correo.
 -- Ejecutar como dueño de la tabla (el usuario de la aplicación no es dueño de user_profiles).
+-- `fuente` la creó a mano el administrador el 05/11/2026 (quién llenó el perfil: nomina, nomina-nombre…);
+-- aquí queda declarada para las instalaciones nuevas y para el CI.
+ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS fuente             TEXT;
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS foto_raices_url    TEXT NOT NULL DEFAULT '';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS foto_raices_huella TEXT NOT NULL DEFAULT '';
 ALTER TABLE user_profiles ADD COLUMN IF NOT EXISTS foto_propia_url    TEXT NOT NULL DEFAULT '';

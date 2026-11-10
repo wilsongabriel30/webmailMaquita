@@ -31,7 +31,7 @@ export function FichaEquipo({ id, onCerrar, onOrden, onCambio }: Props) {
   const e = d.equipo;
   const datos: [string, string][] = [
     ["Etiqueta", e.etiqueta || "—"], ["Estado", e.estado === "activo" ? "Gestionado" : `Retirado ${fechaHora(e.retirado_en)} por ${e.retirado_por}: ${e.motivo_retiro}`],
-    ["equipo_id", e.equipo_id], ["MachineGuid", e.machine_guid], ["Windows", e.windows || "—"], ["Teams Maquita", e.version_app || "—"],
+    ["equipo_id", e.equipo_id], ["MachineGuid", e.machine_guid], ["Windows", e.windows || "—"], ["App de escritorio", e.version_app || "—"],
     ["Enrolado", `${fechaHora(e.enrolado_en)}${e.reenrolado_en ? ` · reenrolado ${fechaHora(e.reenrolado_en)}` : ""}`],
     ["Último sondeo del agente", `${fechaHora(e.ultimo_sondeo)} desde ${e.ultima_ip || "—"}`], ["Inventario", fechaHora(e.inventario_en)],
   ];

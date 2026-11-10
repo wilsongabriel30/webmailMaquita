@@ -99,7 +99,7 @@ const navSections = [
       { to: "/branding", label: "Personalización", help: "Personaliza logo, colores y nombre de la organización en el webmail y el panel.", icon: "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" },
       { to: "/portales", label: "Portales por empresa", help: "Nombre de servidor, logo, nombre y colores propios de cada empresa (mail.<empresa>). Lo que no se defina se hereda de Personalización.", icon: "M3 21h18M5 21V7l8-4v18M19 21V11l-6-4M9 9v.01M9 12v.01M9 15v.01M9 18v.01" },
       { to: "/dispositivos", label: "Teléfonos institucionales", help: "Celulares de la organización: inventario y custodio, estado que reportan, mensajes urgentes con acuse y códigos de enrolamiento.", icon: "M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" },
-      { to: "/flota", label: "Equipos Windows (Flota)", help: "Equipos propios de la Fundación con Teams Maquita: inventario, códigos de alta, órdenes firmadas (actualizar, inventario) y registro de cada acción.", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+      { to: "/flota", label: "Equipos Windows (Flota)", help: "Equipos propios de la organización con la app de escritorio: inventario, códigos de alta, órdenes firmadas (actualizar, inventario) y registro de cada acción.", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
     ],
   },
   {
