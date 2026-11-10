@@ -9,7 +9,7 @@ import { TablaOrdenes } from "./flota/TablaOrdenes";
 import { TablaRegistro } from "./flota/TablaRegistro";
 import { Asiento, Catalogo, EquipoFlota, Orden, Totales } from "./flota/tipos";
 
-// Flota Maquita (T-88): consola de los equipos Windows propios de la Fundación. La app Teams Maquita es
+// Flota Maquita (T-88): consola de los equipos Windows propios de la Fundación. La app la app de escritorio es
 // el agente: se enrola con un código de un uso, sondea sus órdenes firmadas cada 15 min y devuelve el
 // resultado. Solo superadmin/admin.
 
@@ -39,11 +39,11 @@ export function Flota() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div><h1 className="text-xl font-semibold text-ms-gray-130">Flota Maquita · equipos Windows</h1>
-          <p className="text-sm text-ms-gray-60">Equipos propios con Teams Maquita: inventario, órdenes firmadas y registro de cada acción.</p></div>
+        <div><h1 className="text-xl font-semibold text-ms-gray-130">Flota · equipos Windows</h1>
+          <p className="text-sm text-ms-gray-60">Equipos propios con la app de escritorio: inventario, órdenes firmadas y registro de cada acción.</p></div>
         <div className="flex items-center gap-3">
           <button disabled={!catalogo} onClick={() => setEmitir([])} className="px-3 py-1.5 bg-ms-blue text-white rounded text-sm disabled:opacity-40">Emitir orden</button>
-          <SectionHelp titulo="Flota Maquita" items={[
+          <SectionHelp titulo="Flota de equipos" items={[
             { titulo: "Solo equipos propios", desc: "Un equipo entra a la flota únicamente con un código de alta de un solo uso creado aquí por Tecnología. Sin código, la app funciona igual pero el equipo no recibe órdenes. Los equipos personales no se enrolan." },
             { titulo: "Cómo llegan las órdenes", desc: "El equipo pregunta al servidor cada 15 minutos desde su tarea de sistema (no se abren puertos en los equipos). Cada orden va firmada con la clave de Flota del servidor; el equipo rechaza cualquier orden sin firma válida, de otro equipo o caducada." },
             { titulo: "Fases", desc: "Fase 1 (activa): comprobar conexión, inventario y forzar la actualización de Teams. Fase 3 (candado de USB, cámara y micrófono): bloqueada hasta el visto bueno de protección de datos y el aviso al personal; entonces exige escribir CONFIRMO en cada orden. Nunca se captura imagen ni sonido: solo se enciende o apaga el permiso del dispositivo." },
