@@ -20,7 +20,7 @@ from app import organizacion
 logger = logging.getLogger("sieve.dominios")
 
 CACHE_SEGUNDOS = 600
-_cache: dict = {"ts": 0.0, "dominios": frozenset()}
+_cache: dict = {"ts": None, "dominios": frozenset()}
 
 
 def _de_organizacion() -> frozenset:
@@ -42,7 +42,9 @@ async def dominios_internos(db=None) -> frozenset:
     if db is None:
         return propios
     ahora = time.monotonic()
-    if ahora - _cache["ts"] < CACHE_SEGUNDOS:
+    # `ts` None = caché vacía. No vale 0.0: time.monotonic() arranca cerca de cero en una
+    # máquina recién encendida (o en el CI) y la base no se consultaba en los primeros 10 minutos.
+    if _cache["ts"] is not None and ahora - _cache["ts"] < CACHE_SEGUNDOS:
         return propios | _cache["dominios"]
     de_base = await _de_la_base(db)
     if de_base or not _cache["dominios"]:
@@ -66,4 +68,4 @@ async def es_interno(direccion: str, db=None) -> bool:
 
 def olvidar_cache() -> None:
     """Vacía la caché (para pruebas o tras dar de alta un dominio)."""
-    _cache.update(ts=0.0, dominios=frozenset())
+    _cache.update(ts=None, dominios=frozenset())
