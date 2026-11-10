@@ -6,8 +6,10 @@ La vista «Etiqueta: X» de la barra lateral lo prefiere frente a /labels/{id}/m
 devuelve carpeta+uid y obligaba al navegador a pedir cada resumen uno a uno). Aquí se agrupan las
 asignaciones de la página por carpeta real, se seleccionan en IMAP y se obtienen los resúmenes con
 las mismas funciones que el listado normal, devolviendo en cada uno su `folder` real.
-Los UIDs que ya no existen en IMAP (correo borrado o movido) se omiten; NO se limpian de
-`message_labels` aquí: un fallo pasajero de IMAP los borraría sin motivo.
+Los UIDs que ya no existen en IMAP (correo borrado o movido) se omiten y se MARCAN como faltantes
+(`faltante_desde`, 09/11/2026) solo si la carpeta respondió bien; `total` cuenta únicamente las vigentes y
+la página se rellena con las siguientes asignaciones para no quedar corta. NO se borran aquí: un fallo
+pasajero de IMAP las borraría sin motivo; las purga `services/etiquetas_huerfanas.py` tras 7 días.
 """
 
 import logging
@@ -20,13 +22,21 @@ from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import _quote_folder, fetch_message_headers
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.parsers.mime_parser import parse_headers
+from app.mail.services.etiquetas_faltantes import (
+    contar_vigentes,
+    faltantes_de_pagina,
+    marcar_faltantes,
+)
 from app.mail.services.message_service import _summary_from_normalized
 
 router = APIRouter(prefix="/api/mail", tags=["mail-labels"])
 log = logging.getLogger("maquita.webmail.etiquetas")
 
 
-async def _resumenes_de_carpeta(imap, carpeta: str, uids: list[int]) -> list[dict]:
+async def _resumenes_de_carpeta(
+    imap, carpeta: str, uids: list[int]
+) -> list[dict] | None:
+    """Resúmenes de esos uids; None si la carpeta no se pudo seleccionar (no se marca nada)."""
     resp = await imap.select(_quote_folder(carpeta))
     if resp.result != "OK":
         log.warning(
@@ -34,7 +44,7 @@ async def _resumenes_de_carpeta(imap, carpeta: str, uids: list[int]) -> list[dic
             carpeta,
             len(uids),
         )
-        return []
+        return None
     salida = []
     for raw in await fetch_message_headers(imap, uids):
         n = parse_headers(
@@ -68,35 +78,34 @@ async def mensajes_por_etiqueta(
     )
     if not lbl:
         raise HTTPException(status_code=404, detail="Etiqueta no encontrada")
-    total = await db.fetchval(
-        "SELECT COUNT(*) FROM message_labels WHERE label_id = $1 AND owner = $2",
-        label_id,
-        username,
-    )
-    filas = await db.fetch(
-        """SELECT folder, message_uid FROM message_labels
-           WHERE label_id = $1 AND owner = $2
-           ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4""",
-        label_id,
-        username,
-        per_page,
-        (page - 1) * per_page,
-    )
-    por_carpeta: dict[str, list[int]] = defaultdict(list)
-    for f in filas:
-        por_carpeta[f["folder"]].append(f["message_uid"])
-
+    filas = await _asignaciones(db, label_id, username, per_page, (page - 1) * per_page)
     mensajes: list[dict] = []
-    if por_carpeta:
+    if filas:
         password = await get_user_password(request, username)
         login_user = await get_imap_login_user(request, username)
         async with get_pooled_imap(login_user, password) as imap:
-            for carpeta, uids in por_carpeta.items():
-                mensajes.extend(await _resumenes_de_carpeta(imap, carpeta, uids))
+            mensajes, faltan = await _resolver(imap, filas)
+            await marcar_faltantes(db, username, label_id, faltan)
+            # Relleno: si faltaron correos en esta página, se traen las siguientes asignaciones
+            # (una sola vez) para que la página no salga corta.
+            if faltan and len(mensajes) < per_page:
+                extra = await _asignaciones(
+                    db,
+                    label_id,
+                    username,
+                    len(faltan),
+                    (page - 1) * per_page + len(filas),
+                )
+                if extra:
+                    mas, faltan2 = await _resolver(imap, extra)
+                    await marcar_faltantes(db, username, label_id, faltan2)
+                    filas = filas + extra
+                    mensajes.extend(mas)
 
     # Mismo orden que las asignaciones (más reciente primero); los que IMAP ya no tiene no aparecen.
     orden = {(f["folder"], f["message_uid"]): i for i, f in enumerate(filas)}
     mensajes.sort(key=lambda m: orden.get((m["folder"], m["uid"]), 999999))
+    total = await contar_vigentes(db, username, label_id)
     return {
         "label": {"id": lbl["id"], "name": lbl["name"], "color": lbl["color"]},
         "total": total,
@@ -104,3 +113,33 @@ async def mensajes_por_etiqueta(
         "per_page": per_page,
         "messages": mensajes,
     }
+
+
+async def _asignaciones(
+    db, label_id: int, username: str, limite: int, desplazamiento: int
+):
+    return await db.fetch(
+        """SELECT folder, message_uid FROM message_labels
+           WHERE label_id = $1 AND owner = $2 AND faltante_desde IS NULL
+           ORDER BY created_at DESC, id DESC LIMIT $3 OFFSET $4""",
+        label_id,
+        username,
+        limite,
+        desplazamiento,
+    )
+
+
+async def _resolver(imap, filas) -> tuple[list[dict], list[tuple[str, int]]]:
+    """Pide a IMAP los resúmenes de las asignaciones; devuelve (resúmenes, (carpeta, uid) faltantes)."""
+    por_carpeta: dict[str, list[int]] = defaultdict(list)
+    for f in filas:
+        por_carpeta[f["folder"]].append(f["message_uid"])
+    mensajes: list[dict] = []
+    devueltos: dict[str, set[int]] = {}
+    for carpeta, uids in por_carpeta.items():
+        resumenes = await _resumenes_de_carpeta(imap, carpeta, uids)
+        if resumenes is None:
+            continue  # carpeta no consultable: no se marca nada de ella
+        devueltos[carpeta] = {m["uid"] for m in resumenes}
+        mensajes.extend(resumenes)
+    return mensajes, faltantes_de_pagina(por_carpeta, devueltos)

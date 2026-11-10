@@ -14,6 +14,8 @@ import OpcionDescargaTeams from './OpcionDescargaTeams';
 import { nombreArchivoApk, textoTamano, urlApk, useManifiestoApp } from '../../lib/appAndroid';
 import { RUTA_CONFIGURAR_CORREO } from '../../lib/appMovil';
 import { BotonAsistente } from '../asistente-lateral';
+import { AvatarFoto } from '../common/AvatarFoto';
+import { useMiPerfil } from '../../hooks/useMiPerfil';
 
 
 const appsIcon = 'M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zm10 0a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z';
@@ -75,8 +77,14 @@ export function Topbar() {
     return () => window.removeEventListener('focus', syncPermission);
   }, []);
 
-  const initials = user?.username?.split('@')[0]?.slice(0, 2)?.toUpperCase() || '?';
-  const displayName = user?.username?.split('@')[0]?.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || '';
+  // Foto y nombre del perfil (Raíces o propio) en lugar de derivarlos de la dirección (09/11/2026)
+  const perfil = useMiPerfil();
+  const nombrePerfil = (perfil?.display_name || '').trim();
+  const displayName = nombrePerfil || user?.username?.split('@')[0]?.replace(/\./g, ' ').replace(/\b\w/g, c => c.toUpperCase()) || '';
+  const initials = nombrePerfil
+    ? nombrePerfil.split(/\s+/).filter(Boolean).map(p => p[0]).filter((_, i, a) => i === 0 || i === a.length - 1).join('').toUpperCase()
+    : (user?.username?.split('@')[0]?.slice(0, 2)?.toUpperCase() || '?');
+  const fotoUrl = perfil?.photo_url || '';
   const displayEmail = user?.username || '';
   const excludedFromCount = ["Junk", "Spam", "Trash", "No deseado", "Papelera", "Correo no deseado"];
   const unreadFolders = (folders || []).filter((folder) => folder.unseen > 0);
@@ -322,15 +330,13 @@ export function Topbar() {
         <div ref={profileRef} className="relative ml-1">
 <PresenceSelector />
           <button onClick={() => setShowProfile(!showProfile)}
-            className="w-8 h-8 rounded-full bg-[#106ebe] flex items-center justify-center text-white text-[11px] font-semibold hover:ring-2 hover:ring-white/30 transition-all">
-            {initials}
+            className="w-8 h-8 rounded-full flex items-center justify-center hover:ring-2 hover:ring-white/30 transition-all">
+            <AvatarFoto url={fotoUrl} initials={initials} size={32} color="#106ebe" fontSize={11} />
           </button>
           {showProfile && (
             <div className="absolute right-0 top-full mt-1 w-64 bg-white rounded-lg shadow-xl border border-[#edebe9] z-[200] py-1">
               <div className="px-4 py-3 border-b border-[#edebe9] flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-[#0078d4] flex items-center justify-center text-white text-[14px] font-semibold shrink-0">
-                  {initials}
-                </div>
+                <AvatarFoto url={fotoUrl} initials={initials} size={40} color="#0078d4" fontSize={14} />
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold text-[#323130] truncate">{displayName}</p>
                   <p className="text-[11px] text-[#605e5c] truncate">{displayEmail}</p>

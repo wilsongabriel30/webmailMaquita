@@ -5,6 +5,7 @@ from app.core.sanitize import strip_html
 Only works for recipients on local domains (ejemplo.com).
 Uses doveadm to search and delete/replace messages in recipient mailboxes.
 """
+import logging
 import re
 import subprocess
 
@@ -19,6 +20,12 @@ from pydantic import BaseModel
 from app.auth.dependencies import get_current_user
 from app.branding.service import marca_corta
 from app.config import get_settings
+from app.core.session import get_imap_login_user, get_user_password
+from app.mail.clients.imap_pool import get_pooled_imap
+from app.mail.services import recuperar_correo
+from app.mail.services.cache_uids import invalidar_uids
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mail", tags=["mail-recall"])
 
@@ -33,8 +40,12 @@ class RecallRequest(BaseModel):
 
 class RecallResult(BaseModel):
     recipient: str
-    status: str  # "recalled", "not_found", "external", "error"
+    status: str  # "recalled", "not_found", "external", "external_request_sent", "error"
     detail: str
+    # ¿El destinatario ya lo había leído? (None para externos o no encontrados)
+    was_read: Optional[bool] = None
+    # Carpetas del destinatario de donde se quitó (vacío si no aplica)
+    folders: list[str] = []
 
 
 def _validate_email(email: str) -> bool:
@@ -87,11 +98,23 @@ def _doveadm_search(recipient: str, message_id: str) -> list[tuple[str, str]]:
         return []
 
 
-def _doveadm_expunge(recipient: str, message_id: str) -> bool:
-    """Delete a message from recipient's mailbox by Message-ID."""
+CARPETAS_HABITUALES = ["INBOX", "Sent", "Drafts", "Junk", "Trash", "Archive"]
+
+
+def _doveadm_expunge(
+    recipient: str, message_id: str, carpetas: Optional[list[str]] = None
+) -> bool:
+    """Delete a message from recipient's mailbox by Message-ID.
+
+    `carpetas`: las carpetas donde `doveadm fetch` vio el mensaje (todas deben terminar bien).
+    Si no se conocen, se recorren las habituales y basta con que alguna exista y responda OK
+    (una carpeta inexistente, p. ej. Archive, no debe dar la recuperación por fallida).
+    """
+    conocidas = bool(carpetas)
+    alguna_ok = False
     try:
-        # doveadm expunge requires MAILBOX in search — try INBOX first, then all common folders
-        for folder in ["INBOX", "Sent", "Drafts", "Junk", "Trash", "Archive"]:
+        # doveadm expunge requires MAILBOX in search
+        for folder in carpetas or CARPETAS_HABITUALES:
             result = subprocess.run(
                 [
                     "sudo",
@@ -112,8 +135,10 @@ def _doveadm_expunge(recipient: str, message_id: str) -> bool:
                 timeout=10,
             )
             if result.returncode == 0:
-                return True
-        return False
+                alguna_ok = True
+            elif conocidas:
+                return False
+        return alguna_ok
     except Exception:
         return False
 
@@ -130,7 +155,7 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
                 "fetch",
                 "-u",
                 recipient,
-                "uid hdr.subject flags",
+                "mailbox uid hdr.subject flags",
                 "header",
                 "message-id",
                 message_id,
@@ -141,9 +166,13 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
         )
         if result.returncode != 0:
             return {}
-        info = {}
+        info = {"folders": []}
         for line in result.stdout.strip().split("\n"):
-            if line.startswith("uid:"):
+            if line.startswith("mailbox:"):
+                carpeta = line.split(":", 1)[1].strip()
+                if carpeta and carpeta not in info["folders"]:
+                    info["folders"].append(carpeta)
+            elif line.startswith("uid:"):
                 info["uid"] = line.split(":", 1)[1].strip()
             elif line.startswith("hdr.subject:"):
                 info["subject"] = line.split(":", 1)[1].strip()
@@ -176,29 +205,29 @@ async def _send_external_recall_request(
         recall_email = OutgoingEmail(
             from_addr=sender,
             to=[recipient],
-            subject=f"Solicitud de recuperacion: mensaje {original_msg_id}",
+            subject=f"Solicitud de recuperación: mensaje {original_msg_id}",
             html_body=f"""
             <div style="font-family:Calibri,sans-serif;max-width:600px;margin:0 auto">
                 <div style="background:#fff4ce;border:1px solid #f8d22a;border-radius:4px;padding:16px;margin-bottom:16px">
                     <p style="margin:0;font-weight:600;color:#323130">
-                        ⚠️ Solicitud de recuperacion de mensaje
+                        Solicitud de recuperación de mensaje
                     </p>
                 </div>
                 <p>Estimado/a destinatario,</p>
-                <p><b>{sender_name}</b> ({sender}) solicita la eliminacion del mensaje con ID:</p>
+                <p><b>{sender_name}</b> ({sender}) solicita la eliminación del mensaje con ID:</p>
                 <p style="font-family:monospace;background:#f3f2f1;padding:8px;border-radius:4px;font-size:12px;word-break:break-all">
                     {original_msg_id}
                 </p>
-                <p>El remitente indica que este mensaje fue enviado por error o contiene informacion incorrecta.</p>
-                <p><b>Por favor, considere eliminar el mensaje original de su buzon.</b></p>
+                <p>El remitente indica que este mensaje fue enviado por error o contiene información incorrecta.</p>
+                <p><b>Por favor, considere eliminar el mensaje original de su buzón.</b></p>
                 <hr style="border:none;border-top:1px solid #edebe9;margin:20px 0">
                 <p style="font-size:11px;color:#a19f9d">
-                    Este es un mensaje automatico generado por el sistema de correo de {html_lib.escape(marca_corta())}.
-                    La eliminacion del mensaje original queda a discrecion del destinatario.
+                    Este es un mensaje automático generado por el sistema de correo de {html_lib.escape(marca_corta())}.
+                    La eliminación del mensaje original queda a discreción del destinatario.
                 </p>
             </div>
             """,
-            text_body=f"Solicitud de recuperacion: {sender_name} ({sender}) solicita la eliminacion del mensaje {original_msg_id}. Por favor elimine el mensaje original.",
+            text_body=f"Solicitud de recuperación: {sender_name} ({sender}) solicita la eliminación del mensaje {original_msg_id}. Por favor elimine el mensaje original.",
         )
 
         await send_email(recall_email, password)
@@ -288,11 +317,11 @@ async def recall_message(
                         recipient=recipient,
                         status="external_request_sent" if recall_sent else "external",
                         detail=(
-                            "Solicitud de recuperacion enviada al destinatario externo. "
-                            "NOTA: El servidor destino puede aceptar o rechazar esta solicitud. "
-                            "No se garantiza la eliminacion del mensaje."
+                            "Solicitud de recuperación enviada al destinatario externo. "
+                            "NOTA: el servidor destino puede aceptar o rechazar esta solicitud. "
+                            "No se garantiza la eliminación del mensaje."
                             if recall_sent
-                            else "Destinatario externo — no se pudo enviar solicitud de recuperacion"
+                            else "Destinatario externo — no se pudo enviar la solicitud de recuperación"
                         ),
                     )
                 )
@@ -301,7 +330,7 @@ async def recall_message(
                     RecallResult(
                         recipient=recipient,
                         status="external",
-                        detail="Destinatario externo — solo se puede enviar solicitud de recuperacion",
+                        detail="Destinatario externo — solo se puede enviar solicitud de recuperación",
                     )
                 )
             continue
@@ -317,20 +346,27 @@ async def recall_message(
                 RecallResult(
                     recipient=recipient,
                     status="not_found",
-                    detail="Mensaje no encontrado en el buzon del destinatario (puede haber sido eliminado)",
+                    detail="Mensaje no encontrado en el buzón del destinatario (puede haber sido eliminado)",
                 )
             )
             continue
 
-        # Get message info before deleting
+        # Get message info before deleting (flags y carpetas reales donde está)
         info = _doveadm_fetch_info(recipient, msg_id)
         was_read = info.get("was_read", False)
+        carpetas_mensaje = list(info.get("folders") or [])
 
-        # Delete the message
+        # Delete the message. Decisión de la dirección (09/11/2026): se quita del buzón
+        # aunque el destinatario ya lo haya leído; la lectura solo se informa.
         if body.action in ("delete", "replace"):
-            success = _doveadm_expunge(recipient, msg_id)
+            success = _doveadm_expunge(recipient, msg_id, carpetas_mensaje or None)
 
             if success:
+                # Sin esto el destinatario seguía viendo el correo en su lista hasta 5 min
+                # (caché Redis) y al abrirlo daba «No se pudo abrir el mensaje».
+                carpetas = await recuperar_correo.tras_expunge(
+                    request.app.state.redis, recipient, carpetas_mensaje
+                )
                 # If replace: send corrected version
                 if body.action == "replace" and body.replacement_html:
                     from app.core.session import get_user_password
@@ -351,39 +387,68 @@ async def recall_message(
                     except Exception:
                         pass  # Best effort
 
-                detail = "Mensaje recuperado exitosamente"
+                detail = "Recuperado"
                 if was_read:
-                    detail += " (NOTA: el destinatario ya lo habia leido)"
+                    detail = "Recuperado (ya lo había leído)"
 
                 results.append(
-                    RecallResult(recipient=recipient, status="recalled", detail=detail)
+                    RecallResult(
+                        recipient=recipient,
+                        status="recalled",
+                        detail=detail,
+                        was_read=bool(was_read),
+                        folders=carpetas,
+                    )
                 )
             else:
                 results.append(
                     RecallResult(
                         recipient=recipient,
                         status="error",
-                        detail="Error al eliminar el mensaje del buzon",
+                        detail="Error al eliminar el mensaje del buzón",
+                        was_read=bool(was_read),
                     )
                 )
 
-    # Log the recall action
-    try:
-        await db.execute(
-            "INSERT INTO audit_log (username, action, details, created_at) VALUES ($1, $2, $3, NOW())",
-            username,
-            "message_recall",
-            f"Recalled message {body.message_id} from {len(body.recipients)} recipients. Results: {[r.status for r in results]}",
-        )
-    except Exception:
-        pass  # Non-critical
+    resultados = [r.model_dump() for r in results]
+
+    # Si a todos los destinatarios locales les salió bien, el correo del remitente deja
+    # «Enviados» y pasa a «Borradores» para corregirlo y volverlo a enviar (dirección, 09/11/2026).
+    movido = {"movido": False}
+    if recuperar_correo.decidir_mover_a_borradores(resultados):
+        movido = await _mover_enviado_a_borradores(request, username, msg_id)
+        if movido.get("movido"):
+            await invalidar_uids(
+                request.app.state.redis,
+                username,
+                recuperar_correo.CARPETA_ENVIADOS,
+                recuperar_correo.CARPETA_BORRADORES,
+            )
+
+    # Rastro de quién recuperó qué (antes fallaba en silencio por una columna inexistente).
+    await recuperar_correo.registrar_auditoria(
+        db,
+        username,
+        msg_id,
+        resultados,
+        ip=request.client.host if request.client else None,
+        movido_a_borradores=bool(movido.get("movido")),
+    )
 
     # Summary
     recalled_count = sum(1 for r in results if r.status == "recalled")
-    external_count = sum(1 for r in results if r.status == "external")
+    external_count = sum(
+        1 for r in results if r.status in recuperar_correo.ESTADOS_EXTERNOS
+    )
+
+    mensaje = f"Recuperados: {recalled_count}/{len(results)}"
+    if external_count:
+        mensaje += f" ({external_count} externos: solo solicitud)"
+    if movido.get("movido"):
+        mensaje = "Mensaje recuperado. Lo encontrará en Borradores para corregirlo y volverlo a enviar."
 
     return {
-        "results": [r.model_dump() for r in results],
+        "results": resultados,
         "summary": {
             "total": len(results),
             "recalled": recalled_count,
@@ -391,9 +456,25 @@ async def recall_message(
             "not_found": sum(1 for r in results if r.status == "not_found"),
             "errors": sum(1 for r in results if r.status == "error"),
         },
-        "message": f"Recuperados: {recalled_count}/{len(results)}"
-        + (f" ({external_count} externos no recuperables)" if external_count else ""),
+        "movido_a_borradores": bool(movido.get("movido")),
+        "message": mensaje,
     }
+
+
+async def _mover_enviado_a_borradores(
+    request: Request, username: str, msg_id: str
+) -> dict:
+    """Mueve el correo del remitente de Enviados a Borradores con su propia conexión IMAP."""
+    try:
+        password = await get_user_password(request, username)
+        login_user = await get_imap_login_user(request, username)
+        async with get_pooled_imap(login_user, password) as imap:
+            return await recuperar_correo.mover_a_borradores(imap, msg_id)
+    except Exception as exc:
+        logger.warning(
+            "recuperación: %s no pudo mover %s a Borradores: %s", username, msg_id, exc
+        )
+        return {"movido": False, "motivo": str(exc)}
 
 
 @router.post("/recall/check")
@@ -425,7 +506,7 @@ async def check_recallable(
                     "recipient": recipient,
                     "can_recall": False,
                     "can_request": True,
-                    "reason": "Dominio externo — se puede enviar solicitud de recuperacion (no garantizada)",
+                    "reason": "Dominio externo — se puede enviar solicitud de recuperación (no garantizada)",
                     "was_read": None,
                 }
             )
@@ -444,13 +525,16 @@ async def check_recallable(
             continue
 
         info = _doveadm_fetch_info(recipient, msg_id)
+        was_read = info.get("was_read", None)
         checks.append(
             {
                 "recipient": recipient,
                 "can_recall": True,
-                "reason": "Recuperable",
-                "was_read": info.get("was_read", None),
+                # Leído o no, se puede recuperar: el texto nunca debe sonar a impedimento.
+                "reason": "Recuperable (ya lo leyó)" if was_read else "Recuperable",
+                "was_read": was_read,
                 "subject": info.get("subject", ""),
+                "folders": info.get("folders", []),
             }
         )
 

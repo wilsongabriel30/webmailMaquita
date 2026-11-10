@@ -11,21 +11,14 @@ import { useCabeceraPlegable } from '../../hooks/useCabeceraPlegable';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { escapeHtml, extractEmail, buildQuoteHtml } from '../../lib/citaRespuesta';
 import { DireccionConNombre } from './DireccionConNombre';   // personas por su nombre (06/11/2026)
+import { AvatarFoto } from '../common/AvatarFoto';            // foto del directorio (09/11/2026)
+import { useAvatar } from '../../hooks/useAvatares';
 import type { MessageFull, AttachmentInfo, CalendarInvite } from '../../types';
 import { AvisoAcuseLectura } from './AvisoAcuseLectura';   // 09/11/2026: confirmaciones de lectura
 
 /** Abre el panel de redacción, con la firma exacta que expone el store. */
 type AbrirRedaccion = ReturnType<typeof useMailStore.getState>['openCompose'];
 
-/** Resultado de comprobar o ejecutar la retirada de un correo enviado. */
-interface EstadoRetirada {
-  can_recall: boolean;
-  was_read: boolean | null;
-  recipient: string;
-  detail?: string;
-  reason?: string;
-  status?: string;
-}
 import React, { useState, useCallback } from 'react';
 import { formatDistanceToNow, format } from 'date-fns';
 import { fechaCortaLista } from '../../lib/fechaLegible';
@@ -35,6 +28,7 @@ import { useMailStore } from '../../store/mailStore';
 import { AccionesRapidasCorreo } from './AccionesRapidasCorreo';
 import { imprimirCorreo } from '../../lib/imprimirCorreo';
 import { showToast } from '../common/Toast';
+import { PanelRecuperarCorreo } from './PanelRecuperarCorreo';
 import { BotonCerrarCorreo, FlechasCorreo } from './NavegacionCorreo';
 import { AttachmentPreview } from './AttachmentPreview';
 import ListaAdjuntos from './ListaAdjuntos';
@@ -528,6 +522,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
   const senderEmail = extractEmail(msg.from);
   const bgColor = avatarColor(senderName);
   const initial = avatarInitial(senderName);
+  const fotoRemitente = useAvatar(senderEmail)?.photo_url;
   const fechaVer = fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders);
   const relDate = fechaVer ? formatDistanceToNow(new Date(fechaVer), { addSuffix: true, locale: es }) : '';
   const fullDate = fechaVer ? format(new Date(fechaVer), "EEEE, d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
@@ -555,13 +550,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         onMouseOut={(e) => { (e.currentTarget as HTMLDivElement).style.background = '#faf9f8'; }}
       >
         {/* Mini avatar */}
-        <div style={{
-          width: 28, height: 28, borderRadius: '50%', background: bgColor,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontWeight: 600, fontSize: 12, flexShrink: 0,
-        }}>
-          {initial}
-        </div>
+        <AvatarFoto url={fotoRemitente} initials={initial} size={28} color={bgColor} fontSize={12} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
             <span style={{ fontWeight: 600, fontSize: 13, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
@@ -600,13 +589,7 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
           cursor: 'pointer',
         }}
       >
-        <div style={{
-          width: 36, height: 36, borderRadius: '50%', background: bgColor,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontWeight: 600, fontSize: 14, flexShrink: 0,
-        }}>
-          {initial}
-        </div>
+        <AvatarFoto url={fotoRemitente} initials={initial} size={36} color={bgColor} fontSize={14} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
@@ -690,8 +673,6 @@ const MessageView: React.FC = () => {
   const [imageMsg, setImageMsg] = useState<typeof msg>(null);
   const [sourceText, setSourceText] = useState<string | null>(null);
   const [loadingSource, setLoadingSource] = useState(false);
-  const [recallStatus, setRecallStatus] = React.useState<'idle'|'checking'|'recalling'|'done'|'error'>('idle');
-  const [recallInfo, setRecallInfo] = React.useState<EstadoRetirada[]>([]);
   // IA: Smart Reply + Summarize
   const [smartReplies, setSmartReplies] = useState<string[]>([]);
   const [loadingReplies, setLoadingReplies] = useState(false);
@@ -709,6 +690,8 @@ const MessageView: React.FC = () => {
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
   // Cabecera que se pliega al desplazar el cuerpo (aprovecha pantallas bajas).
   const cabecera = useCabeceraPlegable(msg?.uid);
+  // Foto del remitente desde el directorio (hook compartido con caché; se declara aquí, antes de los retornos).
+  const avatarPrincipal = useAvatar(msg?.from ? extractEmail(msg.from) : '');
   // La rueda sobre la cabecera o los adjuntos también desplaza el cuerpo (04/11/2026).
   const cuerpoRef = React.useRef<HTMLDivElement>(null);
   const ruedaEnVisor = useCallback((e: React.WheelEvent<HTMLDivElement>) => {
@@ -948,34 +931,6 @@ const MessageView: React.FC = () => {
       adjuntos_borrador: msg.attachments || [],
     });
   }, [msg, openCompose]);
-
-  const handleRecallCheck = React.useCallback(async () => {
-    if (!msg || !msg.to) return;
-    setRecallStatus('checking');
-    try {
-      const recipients = msg.to.split(',').map((s: string) => s.trim()).filter(Boolean);
-      if (msg.cc) recipients.push(...msg.cc.split(',').map((s: string) => s.trim()).filter(Boolean));
-      const res = await api.post<{checks: EstadoRetirada[]}>('/mail/recall/check', {
-        message_id: msg.message_id, recipients, action: 'delete',
-      });
-      setRecallInfo(res.checks || []);
-      setRecallStatus('idle');
-    } catch { setRecallStatus('error'); }
-  }, [msg]);
-
-  const handleRecall = React.useCallback(async () => {
-    if (!msg) return;
-    setRecallStatus('recalling');
-    try {
-      const recipients = msg.to.split(',').map((s: string) => s.trim()).filter(Boolean);
-      if (msg.cc) recipients.push(...msg.cc.split(',').map((s: string) => s.trim()).filter(Boolean));
-      const res = await api.post<{results: EstadoRetirada[], message: string}>('/mail/recall', {
-        message_id: msg.message_id, recipients, action: 'delete',
-      });
-      setRecallStatus('done');
-      setRecallInfo(res.results?.map((r) => ({can_recall: r.status === 'recalled', was_read: null, recipient: r.recipient, detail: r.detail, status: r.status})) || []);
-    } catch { setRecallStatus('error'); }
-  }, [msg]);
 
   //  IA: Smart Reply — genera 3 respuestas sugeridas
   const handleSmartReply = useCallback(async () => {
@@ -1242,6 +1197,7 @@ const MessageView: React.FC = () => {
   const senderEmail = extractEmail(msg.from);
   const bgColor = avatarColor(senderName);
   const initial = avatarInitial(senderName);
+  const fotoRemitente = avatarPrincipal?.photo_url;
 
   const fechaVer = fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders);
   const relDate = fechaVer ? formatDistanceToNow(new Date(fechaVer), { addSuffix: true, locale: es }) : '';
@@ -1305,13 +1261,7 @@ const MessageView: React.FC = () => {
 
         {!cabecera.plegada && (<>
         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
-          <div style={{
-            width: 40, height: 40, borderRadius: '50%', background: bgColor,
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            color: '#fff', fontWeight: 600, fontSize: 16, flexShrink: 0,
-          }}>
-            {initial}
-          </div>
+          <AvatarFoto url={fotoRemitente} initials={initial} size={40} color={bgColor} fontSize={16} />
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
@@ -1506,39 +1456,7 @@ const MessageView: React.FC = () => {
         onRespuestaIA={handleSmartReply} generandoRespuestas={loadingReplies}
         onResumir={handleSummarize} resumiendo={loadingSummary}
       >
-        {currentFolder === 'Sent' && (
-          <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 6 }}>
-            {recallStatus === 'done' ? (
-              <span style={{ fontSize: 12, color: '#107c10', fontWeight: 600 }}>Mensaje recuperado exitosamente</span>
-            ) : recallStatus === 'error' ? (
-              <span style={{ fontSize: 12, color: '#d13438' }}>Error al recuperar</span>
-            ) : recallInfo.length > 0 ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ fontSize: 11, color: '#605e5c' }}>
-                  {recallInfo.map((r, i: number) => (
-                    <div key={i}>
-                      {r.recipient}: {r.can_recall ? (r.was_read ? 'Ya leído' : 'Recuperable') : (r.reason || 'No disponible')}
-                    </div>
-                  ))}
-                </div>
-                {recallInfo.some((r) => r.can_recall) && (
-                  <button onClick={handleRecall} disabled={recallStatus === 'recalling'}
-                    style={{ padding: '5px 14px', background: '#d13438', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
-                    {recallStatus === 'recalling' ? 'Recuperando...' : 'Confirmar recuperación'}
-                  </button>
-                )}
-              </div>
-            ) : (
-              <button onClick={handleRecallCheck} disabled={recallStatus === 'checking'}
-                style={{ padding: '5px 14px', background: '#ca5010', color: 'white', border: 'none', borderRadius: 4, fontSize: 12, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 4, fontWeight: 600 }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6" />
-                </svg>
-                {recallStatus === 'checking' ? 'Verificando...' : 'Recuperar mensaje'}
-              </button>
-            )}
-          </div>
-        )}
+        <PanelRecuperarCorreo msg={msg as MessageFull} folder={currentFolder} />
       </BarraAccionesCorreo>
 
       <AttachmentPreview

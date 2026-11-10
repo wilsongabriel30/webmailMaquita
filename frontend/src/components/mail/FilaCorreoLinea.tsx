@@ -1,6 +1,7 @@
 import { PuntoLeido } from './PuntoLeido';
 import { memo } from 'react';
 import type { MessageSummary } from '../../types';
+import { AvatarFoto } from '../common/AvatarFoto';
 
 /**
  * Fila de correo en UNA sola línea (densidad «Una línea», 05/11/2026).
@@ -19,6 +20,8 @@ export interface FilaCorreoLineaProps {
   idx: number;
   nombre: string;
   iniciales: string;
+  /** Foto del directorio (Raíces o propia); si falta o falla, se ven las iniciales (09/11/2026). */
+  fotoUrl?: string;
   color: string;
   fecha: string;
   activo: boolean;
@@ -123,7 +126,9 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
               </span>
             ) : (<>
-              <span className="group-hover:hidden">{p.iniciales}</span>
+              <span className="group-hover:hidden flex">
+                <AvatarFoto url={p.fotoUrl} initials={p.iniciales} size={20} color={p.color} fontSize={9} />
+              </span>
               <span className="hidden group-hover:block w-[16px] h-[16px] rounded-[3px] bg-white border-[1.5px] border-[#605e5c] hover:border-[#0078d4]" />
             </>)}
           </div>

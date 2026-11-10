@@ -15,6 +15,7 @@ export function Mailboxes() {
   const [showForm, setShowForm] = useState(false);
   const [importar, setImportar] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", password2: "", name: "", quota_mb: 0 });
+  const [verPw, setVerPw] = useState(false);  // ojo para ver la contraseña escrita (09/11/2026)
   // La dirección se compone: parte local + dominio del servidor (elegido de la lista, con búsqueda)
   const [dominios, setDominios] = useState<string[]>([]);
   const [localParte, setLocalParte] = useState("");
@@ -128,9 +129,9 @@ export function Mailboxes() {
     if (newPw !== newPw2) { alert("Las contraseñas no coinciden. Escriba la misma contraseña en ambos campos."); return; }
     try {
       await api.put(`/mailboxes/${encodeURIComponent(u)}`, { password: newPw });
-      setEditPw(null); setNewPw(""); setNewPw2(""); alert("Contraseña actualizada correctamente para: " + u);
+      setEditPw(null); setNewPw(""); setNewPw2(""); setVerPw(false); load(); alert("Contraseña actualizada correctamente para: " + u + ". La cuenta queda activa y desbloqueada.");
     } catch (e: any) {
-      alert("Error al cambiar contraseña: " + (e.message || "Error desconocido"));
+      alert("Error al cambiar contraseña: " + (e?.detail || e?.message || "Error desconocido"));
     }
   };
 
@@ -552,19 +553,25 @@ export function Mailboxes() {
           <form onClick={(e) => e.stopPropagation()} onSubmit={(e) => { e.preventDefault(); changePw(editPw); }} className="p-5 bg-white rounded border border-ms-gray-30 w-[32rem] max-w-[95vw] space-y-2">
             <span className="text-sm font-medium text-ms-gray-130">Cambiar contraseña de: {editPw}</span>
             <input type="hidden" name="username" autoComplete="username" value={editPw || ""} />
-            <div className="flex items-center gap-3">
-              <input type="password" autoFocus placeholder="Nueva contraseña" value={newPw} onChange={(e) => setNewPw(e.target.value)}
+            <div className="flex items-center gap-2">
+              <input type={verPw ? "text" : "password"} autoFocus placeholder="Nueva contraseña" value={newPw} onChange={(e) => setNewPw(e.target.value)}
                 autoComplete="new-password" title="Escriba la nueva contraseña. Mínimo 6 caracteres."
-                className="px-3 py-1.5 border border-ms-gray-40 rounded text-sm flex-1 focus:outline-none focus:border-ms-blue" />
-              <input type="password" placeholder="Confirmar contraseña" value={newPw2} onChange={(e) => setNewPw2(e.target.value)}
+                className="px-3 py-1.5 border border-ms-gray-40 rounded text-sm flex-1 min-w-0 focus:outline-none focus:border-ms-blue" />
+              <input type={verPw ? "text" : "password"} placeholder="Confirmar contraseña" value={newPw2} onChange={(e) => setNewPw2(e.target.value)}
                 autoComplete="new-password" title="Repita la contraseña para confirmar."
-                className={`px-3 py-1.5 border rounded text-sm flex-1 focus:outline-none focus:border-ms-blue ${newPw2 && newPw !== newPw2 ? "border-ms-red bg-red-50" : "border-ms-gray-40"}`} />
-              <button type="submit"
-                title="Aplica la nueva contraseña inmediatamente. Se registra en auditoria."
-                className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm">Cambiar</button>
-              <button type="button" onClick={() => setEditPw(null)}
+                className={`px-3 py-1.5 border rounded text-sm flex-1 min-w-0 focus:outline-none focus:border-ms-blue ${newPw2 && newPw !== newPw2 ? "border-ms-red bg-red-50" : "border-ms-gray-40"}`} />
+              <button type="button" onClick={() => setVerPw(!verPw)} aria-label={verPw ? "Ocultar contraseña" : "Ver contraseña"}
+                title={verPw ? "Ocultar la contraseña escrita." : "Ver la contraseña escrita para comprobarla antes de aplicarla."}
+                className="px-2 py-1.5 border border-ms-gray-40 rounded text-sm text-ms-gray-90 shrink-0">{verPw ? "Ocultar" : "Ver"}</button>
+            </div>
+            <p className="text-[11px] text-ms-gray-60">Al cambiar la contraseña la cuenta queda activa y sin bloqueo por intentos fallidos.</p>
+            <div className="flex items-center justify-end gap-2 pt-1">
+              <button type="button" onClick={() => { setEditPw(null); setVerPw(false); }}
                 title="Cancela sin cambiar la contraseña."
                 className="px-4 py-1.5 border border-ms-gray-40 rounded text-sm text-ms-gray-90">Cancelar</button>
+              <button type="submit"
+                title="Aplica la nueva contraseña inmediatamente, activa la cuenta y quita el bloqueo por intentos fallidos. Se registra en auditoría."
+                className="px-4 py-1.5 bg-ms-blue text-white rounded text-sm">Cambiar</button>
             </div>
             {newPw2 && newPw !== newPw2 && <span className="text-[10px] text-ms-red">Las contraseñas no coinciden</span>}
           </form>

@@ -11,9 +11,9 @@ import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
+import { eliminarSeleccion, hayEliminacionDefinitiva } from '../../lib/eliminarSeleccion';
 import type { MessagesResponse, MessageFull, MessageSummary } from '../../types';
 import { usePriority } from '../../hooks/usePriority';
-import { sanitizeHtml } from '../../lib/sanitize';
 import { getFolderDisplayName } from '../../folders';
 import { cargarEtiquetasDeMensajes, claveEtiquetas } from '../../lib/etiquetasDeMensajes';   // por carpeta real (05/11/2026)
 import { cargarCorreosDeEtiqueta } from '../../lib/correosPorEtiqueta';   // vista «Etiqueta: X» (05/11/2026)
@@ -31,6 +31,7 @@ import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 import { FilaCorreoLinea } from './FilaCorreoLinea';
+import { AvatarFoto } from '../common/AvatarFoto';
 import { PuntoLeido } from './PuntoLeido';   // clic en el puntito = leído / no leído (07/11/2026)
 import { AvisoOtrosSinLeer } from './AvisoOtrosSinLeer';   // «Otros: N sin leer» (07/11/2026)
 import { ChipsAdjuntosFila } from './ChipsAdjuntosFila';   // nombres de adjuntos en la fila (07/11/2026)
@@ -151,15 +152,6 @@ function getInitials(from: string, avatarMap?: Record<string, { name: string; in
   return name.charAt(0).toUpperCase();
 }
 
-
-function escapeHtml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
 
 const palette = ['#0078d4','#107c10','#8764b8','#ca5010','#b4009e','#038387','#4f6bed','#c239b3','#da3b01','#00b7c3'];
 function getColor(s: string) { let h=0; for(let i=0;i<s.length;i++) h=s.charCodeAt(i)+((h<<5)-h); return palette[Math.abs(h)%palette.length]; }
@@ -296,7 +288,7 @@ export function MessageList() {
   // La carga falló y no hay nada que mostrar: se dice, en vez de «No hay mensajes» (que hacía
   // creer a la persona que había perdido su correo).
   const [errorCarga, setErrorCarga] = useState(false);
-  const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string }>>({});
+  const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string; photo_url?: string }>>({});
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [spamScanning, setSpamScanning] = useState(false);
   const [spamResults, setSpamResults] = useState<{ uid: number; score: number; reasons: string[] }[]>([]);
@@ -593,7 +585,7 @@ export function MessageList() {
     const missing = emails.filter(e => !avatarMap[e]);
     if (!missing.length) return;
     const batch = missing.slice(0, 200).join(',');
-    api.get<Record<string, { name: string; initials: string }>>(`/contacts/avatars?emails=${encodeURIComponent(batch)}`)
+    api.get<Record<string, { name: string; initials: string; photo_url?: string }>>(`/contacts/avatars?emails=${encodeURIComponent(batch)}`)
       .then(data => { setAvatarMap(prev => ({ ...prev, ...data })); })
       .catch(() => {});
   }, [messageIds]);
@@ -709,27 +701,10 @@ export function MessageList() {
           msg = local;
         }
       }
-      // Modo 'popout': abrir mensaje en ventana emergente
+      // Modo «Solo elementos emergentes»: el correo se abre en su ventana propia (/mensaje), con todos
+      // los botones (Responder, Reenviar…). Antes era una copia estática sin acciones (09/11/2026).
       if (useMailStore.getState().readingPane === 'popout') {
-        const w = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes');
-        if (w) {
-          const subj = escapeHtml(msg.subject || '(sin asunto)');
-          const from = escapeHtml(msg.from || '');
-          const date = escapeHtml(msg.date ? new Date(msg.date).toLocaleString('es-EC') : '');
-          const body = msg.html_body ? sanitizeHtml(msg.html_body) : ('<pre style="white-space:pre-wrap">' + escapeHtml(msg.text_body || '') + '</pre>');
-          const safeTo = msg.to ? escapeHtml(msg.to) : '';
-          const safeCc = msg.cc ? escapeHtml(msg.cc) : '';
-          w.document.write('<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + subj + '</title></head>'
-            + '<body style="font-family:Segoe UI,Calibri,sans-serif;max-width:900px;margin:20px auto;padding:20px;color:#323130;">'
-            + '<h2 style="margin:0 0 8px;font-size:20px;">' + subj + '</h2>'
-            + '<div style="color:#605e5c;font-size:13px;margin-bottom:16px;border-bottom:1px solid #edebe9;padding-bottom:12px;">'
-            + '<b>De:</b> ' + from + '<br/><b>Fecha:</b> ' + date
-            + (safeTo ? '<br/><b>Para:</b> ' + safeTo : '')
-            + (safeCc ? '<br/><b>CC:</b> ' + safeCc : '') + '</div>'
-            + '<div style="font-size:14px;line-height:1.6;">' + body + '</div>'
-            + '</body></html>');
-          w.document.close();
-        }
+        abrirMensajeEnVentana(carpeta, uid);
         setLoadingMessage(false);
         return;
       }
@@ -838,6 +813,13 @@ export function MessageList() {
   // antes los de Otros salían un instante y desaparecían al llegar la clasificación (07/11/2026).
   const ordenLista = useOrdenLista(currentFolder);
   const filtered = messages.filter(m => {
+    // Vista por etiqueta: «No leídos»/«Marcados» se aplican aquí (el servidor devuelve todos) y las
+    // pestañas Prioritarios/Otros no intervienen (09/11/2026).
+    if (etiquetaFiltro) {
+      if (filter === 'unread') return !m.seen;
+      if (filter === 'flagged') return m.flagged;
+      return true;
+    }
     if (currentFolder !== 'INBOX' || filter !== 'all') return true;
     return pestanaDe(m, priorityMap[m.uid]) === activeTab;
   });
@@ -1000,7 +982,7 @@ export function MessageList() {
       const spam = spamResults.find(s => s.uid === msg.uid);
       return (
         <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => soloSeleccionar ? handleSelect(msg.uid) : abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
-          nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)}
+          nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)} fotoUrl={avatarMap[extractEmail(quien)]?.photo_url}
           color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
           fijado={pinnedSet.has(pinKey(currentFolder, msg.uid))} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
           etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []}
@@ -1048,7 +1030,10 @@ export function MessageList() {
                 <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
               </span>
             ) : (<>
-              <span className="group-hover:hidden">{getInitials(quien, avatarMap)}</span>
+              {/* Foto del directorio si la hay; si no, iniciales (09/11/2026). Al pasar el ratón sigue saliendo la casilla. */}
+              <span className="group-hover:hidden flex">
+                <AvatarFoto url={avatarMap[extractEmail(quien)]?.photo_url} initials={getInitials(quien, avatarMap)} size={32} color={getColor(quien)} fontSize={11} />
+              </span>
               <span className="hidden group-hover:block w-[18px] h-[18px] rounded-[3px] bg-white border-[1.5px] border-[#605e5c] hover:border-[#0078d4]" />
             </>)}
           </div>
@@ -1238,8 +1223,8 @@ export function MessageList() {
             ))}
           </div>
         </div>
-        {/* Focused / Other tabs + action icons */}
-        {currentFolder === 'INBOX' && (
+        {/* Focused / Other tabs + action icons (no en la vista por etiqueta: mezcla carpetas) */}
+        {currentFolder === 'INBOX' && !etiquetaFiltro && (
           <div className="flex items-center px-3 mt-1">
             {(['focused','other'] as const).map(tab => (
               <button key={tab} onClick={() => setActiveTab(tab)} title={AYUDA_PESTANAS[tab]}
@@ -1318,7 +1303,7 @@ export function MessageList() {
           <span className="text-[11px] text-[#0078d4] font-semibold mr-1 whitespace-nowrap shrink-0">
             {selectedUids.size}
           </span>
-          <button onClick={() => { const uids = Array.from(selectedUids); if (currentFolder === 'Trash' && !window.confirm(AVISO_ELIMINAR_CORREO)) return; api.post(`/mail/bulk-action/${encodeURIComponent(currentFolder)}`, { uids, action: currentFolder === 'Trash' ? 'delete' : 'move', dest_folder: 'Trash' }).then(() => { showToast(`${uids.length} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }); }}
+          <button onClick={() => { const uids = Array.from(selectedUids); if (hayEliminacionDefinitiva(uids, currentFolder) && !window.confirm(AVISO_ELIMINAR_CORREO)) return; eliminarSeleccion(uids, currentFolder).then(() => { showToast(`${uids.length} eliminado${uids.length > 1 ? 's' : ''}`); useMailStore.getState().clearSelection(); useMailStore.getState().setSelectedMessage(null); window.dispatchEvent(new CustomEvent('refresh-messages')); }).catch(() => showToast('No se pudieron eliminar los correos')); }}
             className="px-1.5 py-1 text-[11px] text-[#d13438] hover:bg-[#fde7e9] rounded flex items-center gap-1 shrink-0" title="Eliminar">
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={deleteIcon} /></svg>
             <span>Eliminar</span>

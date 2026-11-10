@@ -18,7 +18,7 @@ import asyncpg  # noqa: E402
 from app import organizacion  # noqa: E402
 from app.branding.service import ORG_NAME_FALLBACK, get_org_name  # noqa: E402
 from app.core.database import create_db_pool  # noqa: E402
-from app.tareas import avisos  # noqa: E402
+from app.tareas import avisos, fotos_mismo_nombre, fotos_raices  # noqa: E402
 
 # Cache del directorio de la organizacion (correo -> nombre). Son datos
 # personales: vive en el directorio de datos del servicio, NUNCA en el arbol
@@ -384,79 +384,45 @@ async def main():
                     t["departamento"],
                     t["cargo"] or "",
                 )
-        # Foto de perfil: la de Raíces (usuarios.profile_picture) o la de nómina (trabajadores.foto_perfil) → GAL del correo
-        nf = 0
+        # Foto de perfil (09/11/2026): «la foto de Raíces manda» → app/tareas/fotos_raices.py. Guarda la URL
+        # y una huella de la imagen de Raíces; si cambió, pisa la foto propia del correo; si no, la propia
+        # (si la hay) sigue siendo la efectiva. Solo buzones institucionales de personal ACTIVO.
         activos_inst = {
             e for e in activos if _es_institucional(e)
         } - cruzados  # sin foto ni datos ajenos
-        con_foto = set()
-        for u in usuarios_raices:
-            pp = (u["profile_picture"] or "").strip()
-            fp = (u["foto_perfil"] or "").strip()
-            if pp.startswith("http"):
-                url = pp
-            elif pp:
-                url = (
-                    organizacion.url_intranet()
-                    + "/static/"
-                    + (pp if pp.startswith("uploads/") else "uploads/profiles/" + pp)
-                )
-            elif fp:
-                url = organizacion.url_intranet() + "/static/" + fp
-            else:
-                continue
-            # 05/11/2026: solo buzones institucionales de personal ACTIVO (antes también correos personales y salidos)
-            for correo in {u["email"], u["email_inst"]}:
-                if correo and correo in activos_inst:
-                    await db.execute(
-                        """INSERT INTO user_profiles (user_email, photo_url, fuente) VALUES ($1,$2,'nomina')
-                           ON CONFLICT (user_email) DO UPDATE SET photo_url = EXCLUDED.photo_url, fuente = 'nomina', updated_at = NOW()
-                           WHERE user_profiles.photo_url IS DISTINCT FROM EXCLUDED.photo_url""",
-                        correo,
-                        url,
-                    )
-                    nf += 1
-                    con_foto.add(correo)
-        # 05/11/2026: salidas y buzones que cambiaron de persona: lo que puso la nómina se limpia (el nombre vuelve
-        # al del buzón, sin cargo ni foto). Las fotos propias (fuente <> 'nomina') no se tocan. Y si la persona sigue
-        # activa pero ya no tiene foto en Raíces, se retira la foto de la intranet.
-        limpiados = await db.fetch(
-            """UPDATE user_profiles SET display_name = NULL, title = '', department = '', office_location = '', mobile = '',
-                      phone = '', photo_url = '', fuente = NULL, updated_at = NOW()
-               WHERE fuente = 'nomina' AND lower(user_email) <> ALL($1::text[]) RETURNING user_email""",
-            sorted(activos_inst),
-        )
-        await db.execute(
-            """UPDATE user_profiles SET photo_url = '', updated_at = NOW()
-               WHERE fuente = 'nomina' AND lower(user_email) = ANY($1::text[]) AND lower(user_email) <> ALL($2::text[])
-                 AND photo_url LIKE $3 || '%'""",
-            sorted(activos_inst),
-            sorted(con_foto),
-            organizacion.url_intranet() + "/static/",
-        )
-        por_nombre = await nombres_por_coincidencia(db, trab)  # 06/11/2026
-        # caché de nombres y fotos del webmail (avatar:<correo>): se renueva en el próximo uso
         try:
-            import redis as _redis
-
-            url_redis = next(
-                (
-                    l.split("=", 1)[1].strip()
-                    for l in open(".env", encoding="utf-8")
-                    if l.startswith("REDIS_URL=")
-                ),
-                "",
+            res_fotos = await fotos_raices.sincronizar(
+                db, usuarios_raices, activos_inst, organizacion.url_intranet()
             )
-            if url_redis:
-                claves = [
-                    f"avatar:{e}"
-                    for e in activos_inst
-                    | {x["user_email"].lower() for x in limpiados}
-                    | por_nombre
-                ]
-                r = _redis.from_url(url_redis)
-                for i in range(0, len(claves), 200):
-                    r.delete(*claves[i : i + 200])
+        except Exception as e:  # noqa: BLE001
+            res_fotos = {"con_foto": 0, "cambiados": 0, "invalidar": set()}
+            log.error("fotos de Raíces: %s", e)
+        nf = res_fotos["con_foto"]
+        # 05/11/2026: salidas y buzones que cambiaron de persona: lo que puso la nómina se limpia (el nombre vuelve
+        # al del buzón, sin cargo ni foto de Raíces). La foto propia (si la hay) se conserva.
+        limpiados = await fotos_raices.limpiar_salidos(db, activos_inst)
+        por_nombre = await nombres_por_coincidencia(db, trab)  # 06/11/2026
+        # 09/11/2026: los buzones emparejados por nombre llevan la MISMA foto de Raíces que el principal.
+        try:
+            con_foto_copiada = await fotos_mismo_nombre.propagar(db)
+        except Exception as e:  # noqa: BLE001
+            con_foto_copiada = set()
+            log.error("foto en buzones del mismo nombre: %s", e)
+        # caché de nombres y fotos del webmail (avatar:<correo>): se renueva en el próximo uso. Se usa la
+        # configuración Redis común del backend (antes leía REDIS_URL de un .env relativo y podía no ejecutarse).
+        try:
+            claves = (
+                set(res_fotos["invalidar"])
+                | set(limpiados)
+                | set(por_nombre)
+                | con_foto_copiada
+            )
+            borradas = await fotos_raices.invalidar_avatares(claves)
+            log.info(
+                "caché de avatares: %d claves pedidas, %d borradas",
+                len(claves),
+                borradas,
+            )
         except Exception as e:  # noqa: BLE001
             log.warning("no se pudo limpiar la caché de avatares: %s", e)
         # 05/11/2026: salida registrada por Talento Humano → cierre del buzón (ver salidas_buzon.py; simula hasta activar)

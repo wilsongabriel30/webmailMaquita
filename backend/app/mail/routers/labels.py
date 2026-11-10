@@ -7,18 +7,19 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
+from app.mail.services.etiquetas_faltantes import (
+    contar_vigentes,
+    contar_vigentes_por_etiqueta,
+    limpiar_faltantes_vistos,
+)
+from app.mail.services.etiquetas_predeterminadas import PREDETERMINADAS, crear_si_no_hay
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/mail", tags=["mail-labels"])
 
-DEFAULT_LABELS = [
-    ("Importante", "#d13438"),
-    ("Trabajo", "#0078d4"),
-    ("Personal", "#107c10"),
-    ("Seguimiento", "#ca5010"),
-    ("Proyecto", "#8764b8"),
-]
+# Se conserva el nombre por compatibilidad; la lista vive en services/etiquetas_predeterminadas.py.
+DEFAULT_LABELS = list(PREDETERMINADAS)
 
 
 async def ensure_tables(db):
@@ -28,18 +29,12 @@ async def ensure_tables(db):
 
 
 async def seed_defaults(db, owner: str):
-    """Seed default labels for a user if they have none."""
-    count = await db.fetchval(
-        "SELECT COUNT(*) FROM user_labels WHERE owner = $1", owner
-    )
-    if count == 0:
-        for name, color in DEFAULT_LABELS:
-            await db.execute(
-                "INSERT INTO user_labels (owner, name, color) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING",
-                owner,
-                name,
-                color,
-            )
+    """Crea las etiquetas predeterminadas si la cuenta no tiene ninguna.
+
+    Ya NO lo llama `GET /labels` (un GET no debe escribir, 09/11/2026): lo hace
+    `POST /labels/predeterminadas`, que el navegador pide una vez si la lista llega vacía.
+    """
+    return await crear_si_no_hay(db, owner)
 
 
 class LabelCreate(BaseModel):
@@ -61,28 +56,32 @@ class AssignBody(BaseModel):
 async def list_labels(request: Request, username: str = Depends(get_current_user)):
     db = request.app.state.db_pool
     await ensure_tables(db)
-    await seed_defaults(db, username)
     rows = await db.fetch(
         "SELECT id, name, color, created_at FROM user_labels WHERE owner = $1 ORDER BY id",
         username,
     )
-    # Get counts for each label
-    labels = []
-    for r in rows:
-        count = await db.fetchval(
-            "SELECT COUNT(*) FROM message_labels WHERE label_id = $1 AND owner = $2",
-            r["id"],
-            username,
-        )
-        labels.append(
-            {
-                "id": r["id"],
-                "name": r["name"],
-                "color": r["color"],
-                "count": count,
-            }
-        )
+    # Contador = asignaciones vigentes (las marcadas faltantes no cuentan), en una sola consulta.
+    conteos = await contar_vigentes_por_etiqueta(db, username)
+    labels = [
+        {
+            "id": r["id"],
+            "name": r["name"],
+            "color": r["color"],
+            "count": conteos.get(r["id"], 0),
+        }
+        for r in rows
+    ]
     return {"labels": labels}
+
+
+@router.post("/labels/predeterminadas")
+async def crear_predeterminadas(
+    request: Request, username: str = Depends(get_current_user)
+):
+    """Crea las 5 etiquetas predeterminadas solo si la cuenta no tiene ninguna. Idempotente."""
+    db = request.app.state.db_pool
+    creadas = await crear_si_no_hay(db, username)
+    return {"creadas": creadas}
 
 
 @router.post("/labels")
@@ -225,6 +224,15 @@ async def get_message_labels(
     uid_list = [int(u.strip()) for u in uids.split(",") if u.strip().isdigit()]
     if not uid_list:
         return {"message_labels": {}}
+    # Estos uids se están viendo en su carpeta: si alguna asignación estaba marcada faltante, ya no lo es.
+    try:
+        await limpiar_faltantes_vistos(db, username, folder, uid_list)
+    except (
+        Exception
+    ) as e:  # columna aún sin migrar u otro fallo: las etiquetas se muestran igual
+        logger.debug(
+            "etiquetas: no se pudo limpiar faltantes de %s/%s: %s", username, folder, e
+        )
     rows = await db.fetch(
         """
         SELECT ml.message_uid, ml.label_id, ul.name, ul.color
@@ -265,14 +273,10 @@ async def get_label_messages(
     )
     if not lbl:
         raise HTTPException(status_code=404, detail="Label not found")
-    total = await db.fetchval(
-        "SELECT COUNT(*) FROM message_labels WHERE label_id = $1 AND owner = $2",
-        label_id,
-        username,
-    )
+    total = await contar_vigentes(db, username, label_id)
     offset = (page - 1) * per_page
     rows = await db.fetch(
-        "SELECT folder, message_uid FROM message_labels WHERE label_id = $1 AND owner = $2 ORDER BY created_at DESC LIMIT $3 OFFSET $4",
+        "SELECT folder, message_uid FROM message_labels WHERE label_id = $1 AND owner = $2 AND faltante_desde IS NULL ORDER BY created_at DESC LIMIT $3 OFFSET $4",
         label_id,
         username,
         per_page,

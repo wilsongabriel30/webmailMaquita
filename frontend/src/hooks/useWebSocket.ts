@@ -119,6 +119,16 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'correo_recuperado': {
+              // El remitente recuperó un correo de este buzón: la lista debe refrescarse al
+              // instante, sin aviso ni sonido de «correo nuevo» (incidente 09/11/2026).
+              const carpetas: string[] = Array.isArray(data.folders) ? data.folders : ['INBOX'];
+              if (carpetas.includes(useMailStore.getState().currentFolder)) {
+                window.dispatchEvent(new CustomEvent('refresh-messages'));
+              }
+              break;
+            }
+
             case 'new_mail_cuenta': {
               // Correo nuevo en una cuenta asignada (multicuenta, fase 5).
               const cuenta = String(data.cuenta || '').toLowerCase();

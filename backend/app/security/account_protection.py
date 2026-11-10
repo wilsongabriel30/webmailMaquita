@@ -18,13 +18,10 @@ from datetime import datetime
 
 logger = logging.getLogger("account_protection")
 
-# ─── Dominios del organización (forwarding permitido sin restricción) ───
-INTERNAL_DOMAINS = frozenset(
-    {
-        "ejemplo.com",
-        "ejemplo.com",
-    }
-)
+# Dominios de la organización (reenvío permitido sin aprobación): salen de
+# `app.sieve.dominios` (fichero de la organización + tabla `domain`), no de una lista fija.
+# Hasta el 09/11/2026 aquí había una lista de ejemplo y todo reenvío recibía 403.
+from app.sieve.dominios import dominios_internos
 
 # ─── Umbrales de detección ───
 # Si un usuario envía más de esto en ventana corta → cuenta bloqueada
@@ -113,7 +110,7 @@ async def check_forward_policy(
     """Verificar si un forwarding externo está permitido.
 
     Política:
-    - Forward a dominios internos (ejemplo.com, ejemplo.com): PERMITIDO
+    - Forward a dominios internos (los de la organización): PERMITIDO
     - Forward a dominios externos: REQUIERE APROBACIÓN ADMIN
 
     Returns:
@@ -126,7 +123,7 @@ async def check_forward_policy(
     domain = forward_address.lower().split("@")[1]
 
     # Dominios internos: siempre permitido
-    if domain in INTERNAL_DOMAINS:
+    if domain in await dominios_internos(db):
         return {"allowed": True}
 
     # Verificar si este forward fue aprobado por admin

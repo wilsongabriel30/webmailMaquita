@@ -80,6 +80,8 @@ export function SettingsView() {
   const [filtersLoaded, setFiltersLoaded] = useState(false);
   // Error al cargar las reglas: distinto de «no hay reglas», para no decir que hay cero cuando no se sabe.
   const [filtersError, setFiltersError] = useState(false);
+  // Motivo que manda el servidor (p. ej. «No se pudo conectar con el servicio de reglas de correo…»).
+  const [filtersErrorDetail, setFiltersErrorDetail] = useState('');
   const [newFilter, setNewFilter] = useState<FilterRule>({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
   const [showAddFilter, setShowAddFilter] = useState(false);
   const [editingFilter, setEditingFilter] = useState<number | null>(null);
@@ -100,17 +102,25 @@ export function SettingsView() {
     }
   }, [location.search]);
 
+  // El servidor explica los fallos en español (422, 424, 500); un «HTTP 500» pelado no se muestra.
+  const motivoServidor = (err: unknown): string => {
+    const m = err instanceof Error ? err.message : '';
+    return m && !/^HTTP \d+$/.test(m) && m !== 'Session expired' ? m : '';
+  };
+
   const fetchFilters = () => {
     setFiltersLoading(true);
     setFiltersError(false);
+    setFiltersErrorDetail('');
     api.get<FilterRule[]>('/sieve/filters')
       .then(data => {
         // API returns array directly
         const arr = Array.isArray(data) ? data : (data as { filters?: FilterRule[] }).filters || [];
         setFilters(arr);
       })
-      // Si falla, se conservan las reglas ya conocidas y se avisa del error.
-      .catch(() => setFiltersError(true))
+      // Si falla (p. ej. 424 porque ManageSieve rechazó la sesión), se conservan las reglas ya
+      // conocidas y se avisa del error con «Reintentar»; la sesión NO se cierra.
+      .catch((err) => { setFiltersError(true); setFiltersErrorDetail(motivoServidor(err)); })
       .finally(() => { setFiltersLoading(false); setFiltersLoaded(true); });
   };
 
@@ -163,7 +173,7 @@ export function SettingsView() {
       setPreviewResult(null);
       fetchFilters();
       showToast('Regla creada');
-    } catch (err) { console.error(err); showToast('No se pudo crear la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
+    } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo crear la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handleUpdateFilter = async (index: number) => {
@@ -178,7 +188,7 @@ export function SettingsView() {
       setEditFilter(null);
       fetchFilters();
       showToast('Regla guardada');
-    } catch (err) { console.error(err); showToast('No se pudo guardar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
+    } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo guardar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handleDeleteFilter = async (index: number) => {
@@ -186,7 +196,7 @@ export function SettingsView() {
       await api.del(`/sieve/filters/${index}`);
       fetchFilters();
       showToast('Regla eliminada');
-    } catch (err) { console.error(err); showToast('No se pudo eliminar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
+    } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo eliminar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
   };
 
   const handlePreview = async (condition: { field: string; operator: string; value: string }) => {
@@ -509,7 +519,7 @@ export function SettingsView() {
             ) : filtersError ? (
               <div role="alert" className="p-4 rounded border border-[#a4262c] bg-[#fde7e9] text-[#323130]">
                 <p className="text-sm font-semibold text-[#a4262c]">No se pudieron cargar sus reglas de correo</p>
-                <p className="text-sm mt-1">Sus reglas no se han borrado: solo no pudimos leerlas en este momento. Revise su conexión e inténtelo de nuevo.</p>
+                <p className="text-sm mt-1">{filtersErrorDetail || 'Sus reglas no se han borrado: solo no pudimos leerlas en este momento. Revise su conexión e inténtelo de nuevo.'}</p>
                 <button type="button" onClick={fetchFilters}
                   className="mt-3 px-4 py-2 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
                   Reintentar
