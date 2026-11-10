@@ -40,13 +40,13 @@ function destinatariosDe(msg: MessageFull): string[] {
 }
 
 /** Texto por destinatario en la comprobación previa. */
-export function textoComprobacion(r: EstadoRecuperacion): string {
+function textoComprobacion(r: EstadoRecuperacion): string {
   if (r.can_recall) return r.was_read ? 'Recuperable (ya lo leyó)' : 'Recuperable';
   return r.reason || 'No disponible';
 }
 
 /** Texto por destinatario tras ejecutar la recuperación. */
-export function textoResultado(r: EstadoRecuperacion): string {
+function textoResultado(r: EstadoRecuperacion): string {
   switch (r.status) {
     case 'recalled': return r.was_read ? 'Recuperado (ya lo había leído)' : 'Recuperado';
     case 'external_request_sent': return 'Externo: solicitud enviada';

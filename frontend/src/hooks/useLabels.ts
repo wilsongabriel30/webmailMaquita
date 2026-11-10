@@ -21,7 +21,7 @@ export const LABEL_COLORS = [
 ];
 
 let _labels: Label[] = [];
-let _listeners: Set<() => void> = new Set();
+const _listeners: Set<() => void> = new Set();
 let _supported: boolean | null = null;
 // Una cuenta sin ninguna etiqueta recibe las predeterminadas UNA vez por sesión del navegador:
 // el servidor ya no las crea en el GET (un GET no debe escribir, 09/11/2026).
@@ -129,12 +129,15 @@ export function useLabels() {
 export function useMessageLabels(folder: string, uids: number[]) {
   const [msgLabels, setMsgLabels] = useState<Record<string, Label[]>>({});
 
+  // La lista de uids llega como un arreglo nuevo en cada render: se compara por contenido.
+  const claveUids = uids.join(',');
   const fetchMsgLabels = useCallback(async () => {
     if (!folder || !uids.length) { setMsgLabels({}); return; }
     try {
       setMsgLabels(await cargarEtiquetasPorTandas<Label>(folder, uids));
     } catch { setMsgLabels({}); }
-  }, [folder, uids.join(',')]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [folder, claveUids]);
 
   useEffect(() => { fetchMsgLabels(); }, [fetchMsgLabels]);
 
