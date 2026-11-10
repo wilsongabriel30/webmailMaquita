@@ -64,7 +64,7 @@ export function TasksView() {
   const fetchLists = listas.recargar;
   const {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea,
+    fetchTasks, addTask, toggleTask: alternarTarea, toggleImportant, updateTask, deleteTask, moverTarea, cambiarEstado: moverEstado,
   } = useTareas(activeView, busqueda, fetchLists);
   // Una tarea de lista recién asignada pasa a Seguimiento: se recargan la lista y los números.
   const trasAsignar = () => { setSelectedTask(null); void fetchTasks(); recargarConteos(); };
@@ -77,6 +77,10 @@ export function TasksView() {
     const t = tasks.find(x => x.id === id);
     if (ajustes.sonido_completar && !t?.completed) sonarCompletada();
     return alternarTarea(id);
+  };
+  const cambiarEstado = (id: string, estado: Parameters<typeof moverEstado>[1]) => {
+    if (estado === 'completada' && ajustes.sonido_completar && !tasks.find(x => x.id === id)?.completed) sonarCompletada();
+    return moverEstado(id, estado);
   };
   const [compartiendo, setCompartiendo] = useState<string | null>(null);
   const cerrarCompartir = useCallback(() => setCompartiendo(null), []);
@@ -150,7 +154,7 @@ export function TasksView() {
       mostrarLista={mostrarLista} seleccionada={selectedTask?.id} vacio={vacio}
       onToggle={toggleTask} onToggleImportant={toggleImportant} onOpen={setSelectedTask} onUpdate={updateTask}
       onMenu={(task: Task, e: MouseEvent) => setMenu({ task, x: e.clientX, y: e.clientY })}
-      arrastre={arrastre} />
+      onCambiarEstado={cambiarEstado} arrastre={arrastre} />
   );
   // «Asignado a mí» y «Asignadas por mí» son las dos vistas de Seguimiento (unificación, 05/11/2026): toda tarea
   // asignada tiene seguimiento, venga de donde venga.
@@ -203,7 +207,7 @@ export function TasksView() {
           onCambiarLista={listaActiva ? c => { void listas.cambiarLista(listaActiva.id, c); } : undefined}
           onImprimir={listaActiva ? () => imprimir(listaActiva) : undefined}
           extra={buscando ? undefined : <>
-            <BotonGrupo valor={agrupar} onCambiar={cambiarAgrupacion} />
+            {modo !== 'tablero' && <BotonGrupo valor={agrupar} onCambiar={cambiarAgrupacion} />}
             {activeView === 'my-day' && (
               <button type="button" aria-pressed={verSugerencias} onClick={() => { setVerSugerencias(v => !v); setSelectedTask(null); }}
                 style={{
@@ -277,6 +281,7 @@ export function TasksView() {
           onRefrescar={() => { void fetchTasks(); }}
           onAsignada={trasAsignar}
           confirmar={ajustes.confirmar_eliminar}
+          onCambiarEstado={(id, e) => { void cambiarEstado(id, e); }}
         />
       )}
 

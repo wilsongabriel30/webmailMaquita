@@ -15,6 +15,8 @@ import { RepeticionTarea } from './RepeticionTarea';
 import { StepsList } from './StepsList';
 import { TarjetaPanel } from './TarjetaPanel';
 import { VencimientoTarea } from './VencimientoTarea';
+import { EstadoTarea } from './EstadoTarea';
+import type { EstadoLista } from './columnasLista';
 import { FONDO_PANEL, LINEA_TARJETA, filaSeccion, seccion } from './estiloPanel';
 import { hoyTexto } from './repeticion';
 import { diaVencimiento } from './fechaVencimiento';
@@ -32,6 +34,8 @@ interface Props {
   onAsignada: () => void;
   /** ⚙ «Confirmar antes de eliminar» (F6). */
   confirmar?: boolean;
+  /** Pendiente / En curso / Completada (como mover la tarjeta en la vista Tablero). */
+  onCambiarEstado?: (id: string, estado: EstadoLista) => void;
 }
 
 function fechaCorta(iso: string): string {
@@ -45,7 +49,7 @@ function fechaCorta(iso: string): string {
 
 const iconoPie = { display: 'flex', background: 'none', border: 'none', cursor: 'pointer', color: COLORS.secondary, padding: 4 };
 
-export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada, confirmar = true }: Props) {
+export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, onDelete, onClose, onRefrescar, onAsignada, confirmar = true, onCambiarEstado }: Props) {
   const [title, setTitle] = useState(task.title);
   const [verActividad, setVerActividad] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -150,6 +154,8 @@ export function TaskDetailPanel({ task, onUpdate, onToggle, onToggleImportant, o
             </button>
           </div>
         </TarjetaPanel>
+
+        {onCambiarEstado && <TarjetaPanel><EstadoTarea task={task} onCambiar={e => onCambiarEstado(task.id, e)} /></TarjetaPanel>}
 
         {task.correo?.origen !== 'marcado' && !task.seguimiento && <TarjetaPanel><AsignarTarea task={task} onAsignada={onAsignada} /></TarjetaPanel>}
 

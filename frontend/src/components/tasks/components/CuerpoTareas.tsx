@@ -1,11 +1,13 @@
 // Cuerpo de la vista de Tareas: las pendientes (agrupadas según «Grupo»; en «Planeado», por fecha) y, al final y
-// plegadas, las completadas. Igual en vista Lista y en Cuadrícula.
+// plegadas, las completadas. Igual en vista Lista y en Cuadrícula. En «Tablero», columnas por estado (TableroLista).
 import type { DragEvent, MouseEvent, ReactNode } from 'react';
 import type { Task } from '../types';
 import { COLORS } from '../types';
 import { agruparTareas, type Agrupacion } from './agruparTareas';
 import type { ModoVista } from './modoVista';
+import type { EstadoLista } from './columnasLista';
 import { SeccionCompletadas } from './SeccionCompletadas';
+import { TableroLista } from './TableroLista';
 import { TaskGrid } from './TaskGrid';
 import { TaskItem } from './TaskItem';
 
@@ -22,11 +24,17 @@ interface Props {
   onOpen: (task: Task) => void;
   onUpdate: (id: string, data: Partial<Task>) => void;
   onMenu: (task: Task, e: MouseEvent) => void;
+  /** Modo Tablero: mover la tarea a otra columna. */
+  onCambiarEstado: (id: string, estado: EstadoLista) => Promise<void>;
   arrastre: { sobre: string | null; props: (t: Task) => { draggable?: boolean; onDragStart?: (e: DragEvent) => void } };
 }
 
-export function CuerpoTareas({ tasks, modo, agrupar, mostrarLista, seleccionada, vacio, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, arrastre }: Props) {
+export function CuerpoTareas({ tasks, modo, agrupar, mostrarLista, seleccionada, vacio, onToggle, onToggleImportant, onOpen, onUpdate, onMenu, onCambiarEstado, arrastre }: Props) {
   if (tasks.length === 0) return <>{vacio}</>;
+  if (modo === 'tablero') return (
+    <TableroLista tasks={tasks} mostrarLista={mostrarLista} seleccionada={seleccionada} onToggle={onToggle}
+      onToggleImportant={onToggleImportant} onOpen={onOpen} onMenu={onMenu} onCambiarEstado={onCambiarEstado} />
+  );
   const pendientes = tasks.filter(t => !t.completed);
   const completadas = tasks.filter(t => t.completed);
   const grupos = agruparTareas(pendientes, agrupar);

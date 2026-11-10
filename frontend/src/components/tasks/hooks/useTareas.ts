@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../api/client';
 import type { ActiveView, Task } from '../types';
 import { hoyTexto } from '../components/repeticion';
+import { conEstado, type EstadoLista } from '../components/columnasLista';
 
 // Listas inteligentes: cada una tiene su ruta /tasks/views/<id> («tasks» es la bandeja por defecto).
 export const VISTAS_INTELIGENTES = ['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks'];
@@ -154,11 +155,27 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     }
   };
 
+  /** Modo Tablero: Pendiente, En curso o Completada. Con seguimiento, el servidor lo pasa por Seguimiento. */
+  const cambiarEstado = async (id: string, estado: EstadoLista) => {
+    const tarea = tasks.find(t => t.id === id);
+    cambiarLocal(id, t => conEstado(t, estado));
+    try {
+      const nueva = await api.patch<Task>(`/tasks/tasks/${id}/estado`, { estado });
+      cambiarLocal(id, t => ({ ...t, ...nueva, my_day: t.my_day }));
+      // Completar una tarea que se repite crea la siguiente: hay que traerla.
+      if (estado === 'completada' && tarea?.recurrence && !tarea.completed) fetchTasks();
+      alCambiar();
+    } catch (e) {
+      setError('No se pudo mover la tarea: ' + mensaje(e, 'desconocido'));
+      fetchTasks();
+    }
+  };
+
   /** La tarea volvió del servidor (p. ej. tras asignarla): se reemplaza tal cual. */
   const reemplazarTarea = (t: Task) => cambiarLocal(t.id, () => t);
 
   return {
     tasks, setTasks, selectedTask, setSelectedTask, loading, error, setError,
-    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea,
+    fetchTasks, addTask, toggleTask, toggleImportant, updateTask, deleteTask, moverTarea, reemplazarTarea, cambiarEstado,
   };
 }

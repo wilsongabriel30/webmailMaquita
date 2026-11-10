@@ -158,6 +158,8 @@ class CardOut(BaseModel):
     adjuntos: int = 0
     # Tarea de Seguimiento (T-34): se asigna desde Seguimiento, no con «Asignar tarea a».
     seguimiento: bool = False
+    # pendiente / en_curso (y, con seguimiento, espera / completada): columna del modo Tablero (09/11/2026).
+    estado: str = "pendiente"
 
 
 # Label
