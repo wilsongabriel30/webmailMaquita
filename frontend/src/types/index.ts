@@ -80,6 +80,8 @@ export interface MessageFull extends MessageSummary {
   } | null;
   references: string;
   in_reply_to: string;
+  /** El remitente pidió confirmación de lectura y aún no se contestó (09/11/2026). */
+  acuse_lectura?: { to: string; mismo_remitente: boolean } | null;
 }
 
 export interface UserInfo {

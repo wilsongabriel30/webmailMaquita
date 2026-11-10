@@ -59,6 +59,7 @@ from app.identities.router import router as identities_router
 from app.import_export.router import router as import_router
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.programados import procesar_programados
+from app.mail.routers.acuse_lectura import router as acuse_lectura_router  # 09/11/2026
 from app.mail.routers.adjunto_correo import router as adjunto_correo_router
 from app.mail.routers.archivo_en_correo_adjunto import (
     router as archivo_en_correo_adjunto_router,  # 06/11/2026
@@ -78,6 +79,7 @@ from app.mail.routers.envio_segundo_plano import (
     router as envio_segundo_plano_router,  # envío inmediato 06/11/2026
 )
 from app.mail.routers.export import router as export_router
+from app.mail.routers.firma_pdf import router as firma_pdf_router  # 09/11/2026
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.grandes import router as grandes_router
@@ -669,6 +671,12 @@ app.include_router(adjunto_correo_router)
 app.include_router(
     archivo_en_correo_adjunto_router
 )  # bajar archivos de un .eml adjunto
+app.include_router(
+    firma_pdf_router
+)  # Firmar PDF adjuntos con el certificado de Raíces (09/11/2026)
+app.include_router(
+    acuse_lectura_router
+)  # Responder confirmaciones de lectura (09/11/2026)
 app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
 app.include_router(stats_router)

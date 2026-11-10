@@ -8,6 +8,29 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Firmar un PDF: la persona dibuja dónde va la firma y puede «Firmar y responder».** El diálogo muestra la página
+  del PDF (el servidor la dibuja con pypdfium2: `GET /api/mail/firma-pdf/pagina`, `services/pdf_paginas.py`), se pasa de
+  hoja y se arrastra con el ratón o el dedo el rectángulo del sello, como en el Editor PDF de Raíces
+  (`components/mail/firma/SelectorAreaFirma.tsx`; `posicion=manual` con `x, y, ancho, alto` en puntos PDF). Opción «sin
+  sello visible». El botón principal «Firmar y responder» firma y abre enseguida la respuesta al mismo correo con
+  `nombre_firmado.pdf` adjunto y el texto automático editable; «Solo firmar» muestra el resultado para descargar o
+  reenviar. Además: aceptar los términos de la firma desde el correo y guardar el .p12 subido (con contraseña opcional).
+- **Confirmaciones de lectura y de entrega, como Outlook.** Al abrir un correo que pide confirmación de lectura
+  (`Disposition-Notification-To`) aparece el aviso «¿Desea enviarla?» con Enviar / No enviar y «no volver a preguntar»;
+  el acuse estándar «Leído: asunto» sale por SMTP como la persona y el correo queda marcado `$MDNSent`
+  (`services/acuse_lectura.py`, `routers/acuse_lectura.py`, `components/mail/AvisoAcuseLectura.tsx`). Preferencia
+  en Configuración → General (preguntar / siempre / nunca; columna `user_preferences.acuse_lectura`). La «confirmación
+  de entrega» de Opciones → Seguimiento ahora pide un DSN real al servidor (`NOTIFY=SUCCESS,FAILURE`).
+- **Firmar un PDF adjunto desde el correo.** En la vista previa de un PDF hay un botón «Firmar» que abre un diálogo
+  sencillo (apto para el celular): certificado guardado en Raíces o un .p12 del dispositivo, contraseña, página y
+  posición del sello. La firma la hace Raíces con el mismo motor del Editor PDF (`/api/pdf/firma-servicio/*`, token
+  de servicio `RAICES_FIRMA_TOKEN`); el correo solo lee el adjunto del IMAP y lo manda (`mail/routers/firma_pdf.py`,
+  `mail/services/firma_raices.py`). El PDF firmado se descarga o se adjunta a una respuesta o reenvío
+  («Responder con el PDF firmado»); el adjunto original no cambia (`components/mail/firma/*`, `lib/firmaPdf.ts`,
+  `lib/archivosParaRedaccion.ts`).
+- **Ventana emergente: «Cancelar y volver al correo».** Al responder o reenviar desde `/mensaje`, una barra con ese
+  botón permite abandonar la redacción y volver a leer el correo (guarda en Borradores si ya había algo escrito;
+  `components/mail/BarraVolverAlCorreo.tsx`, evento `compose-cerrar`).
 - **Tareas: vista «Tablero»** junto a «Cuadrícula» y «Lista», en cualquier lista (Mi día, Importante, Tareas, listas
   propias). Columnas Vencidas / Pendiente / En curso / Completada como en Seguimiento; arrastrar una tarea cambia su
   estado (`PATCH /api/tasks/tasks/{id}/estado`). Completar o reabrir pasa por el mismo camino que el círculo

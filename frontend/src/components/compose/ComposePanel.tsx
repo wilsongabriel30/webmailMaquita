@@ -13,6 +13,7 @@ import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { tomarArchivosParaRedaccion } from '../../lib/archivosParaRedaccion';
 import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';
 import { CitaMarcable } from './CitaMarcable';
 import { TIPO_ARRASTRE_CORREOS, correosArrastrados, descargarCorreosComoEml } from '../../lib/correosComoAdjunto';
@@ -133,6 +134,16 @@ export function ComposePanel({ win }: Props) {
         }
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Archivos que esperaban a esta ventana (p. ej. un PDF firmado desde el visor con «Responder con
+  // el PDF firmado», 09/11/2026): entran como adjuntos normales al montarse el editor.
+  useEffect(() => {
+    if (estadoPrevio) return;
+    const iniciales = tomarArchivosParaRedaccion();
+    if (!iniciales.length) return;
+    setAttachments(prev => [...prev, ...iniciales.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -472,6 +483,17 @@ export function ComposePanel({ win }: Props) {
     }
     cerrar();
   }, [to, subject, editor, attachments.length, saveDraft, win.id, closeCompose]);
+
+  // «Cancelar y volver al correo» de la ventana emergente (/mensaje, 09/11/2026): la barra está
+  // fuera de este componente y pide el cierre por evento; se cierra igual que la X (guarda si hay algo).
+  useEffect(() => {
+    const alCerrar = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id || id === win.id) void handleClose();
+    };
+    window.addEventListener('compose-cerrar', alCerrar);
+    return () => window.removeEventListener('compose-cerrar', alCerrar);
+  }, [handleClose, win.id]);
 
   // Papelera «Descartar» (07/11/2026): cierra SIN guardar y borra el borrador.
   // Revisión 07/11/2026: en vez de un cuadro de confirmación, aviso con «Deshacer» durante 5 s;

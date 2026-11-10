@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { imprimirAdjunto } from './imprimirAdjunto';
 import { showToast } from '../common/Toast';
 import VistaPreviaCorreo from './VistaPreviaCorreo';
+import { BotonFirmarPdf } from './firma/BotonFirmarPdf';
+import { DialogoFirmarPdf } from './firma/DialogoFirmarPdf';
 
 interface AttachmentInfo {
   filename: string;
@@ -19,6 +21,9 @@ interface AttachmentPreviewProps {
   allAttachments?: AttachmentInfo[];
   currentIndex?: number;
   onNavigate?: (index: number) => void;
+  /** Firmar PDF (09/11/2026): qué hacer con el PDF firmado además de descargarlo. */
+  onResponderCon?: (archivo: File) => void;
+  onReenviarCon?: (archivo: File) => void;
 }
 
 // Archivos de texto que suelen llegar como application/octet-stream (12/10/2026).
@@ -57,8 +62,11 @@ function buildUrl(folder: string, uid: number, partNumber: string, filename: str
 
 export function AttachmentPreview({
   open, onClose, folder, uid, attachment, allAttachments, currentIndex, onNavigate,
+  onResponderCon, onReenviarCon,
 }: AttachmentPreviewProps) {
   const [loading, setLoading] = useState(true);
+  // Diálogo «Firmar este PDF» (09/11/2026); mientras está abierto, las teclas del visor no actúan.
+  const [firmaAbierta, setFirmaAbierta] = useState(false);
   const [error, setError] = useState(false);
   const [textContent, setTextContent] = useState('');
   const modalRef = useRef<HTMLDivElement>(null);
@@ -159,7 +167,7 @@ export function AttachmentPreview({
   }, [open, attachment?.part_number, type, folder, uid]);
 
   const onKeyDown = useCallback((e: KeyboardEvent) => {
-    if (!open || !attachment) return;
+    if (!open || !attachment || firmaAbierta) return;
     if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); onClose(); }
     if (e.key === 'ArrowLeft' && hasNav) { e.preventDefault(); onNavigate!((idx - 1 + total) % total); }
     if (e.key === 'ArrowRight' && hasNav) { e.preventDefault(); onNavigate!((idx + 1) % total); }
@@ -169,7 +177,7 @@ export function AttachmentPreview({
       const a = document.createElement('a');
       a.href = url; a.download = attachment.filename; document.body.appendChild(a); a.click(); a.remove();
     }
-  }, [open, onClose, hasNav, onNavigate, idx, total, url, attachment]);
+  }, [open, onClose, hasNav, onNavigate, idx, total, url, attachment, firmaAbierta]);
 
   useEffect(() => {
     // captura: el Escape del visor no debe cerrar también el mensaje de fondo
@@ -208,11 +216,13 @@ export function AttachmentPreview({
             <span className="text-[14px] font-medium text-[#323130] dark:text-[#e0e0e0] truncate">
               {attachment.filename}
             </span>
-            <span className="text-[12px] text-[#605e5c] dark:text-[#999] ml-2 flex-shrink-0">
+            {/* En el celular no cabe junto a Firmar / Imprimir / Descargar (09/11/2026) */}
+            <span className="hidden sm:inline text-[12px] text-[#605e5c] dark:text-[#999] ml-2 flex-shrink-0">
               {formatSize(attachment.size)}
             </span>
           </div>
           <div className="flex items-center gap-2 ml-3">
+            {type === 'pdf' && <BotonFirmarPdf onClick={() => setFirmaAbierta(true)} />}
             {(type === 'pdf' || type === 'image' || type === 'text' || type === 'office') && (
               <button
                 onClick={imprimir}
@@ -223,18 +233,20 @@ export function AttachmentPreview({
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
                 </svg>
-                {imprimiendo ? 'Preparando…' : 'Imprimir'}
+                <span className="hidden sm:inline">{imprimiendo ? 'Preparando…' : 'Imprimir'}</span>
               </button>
             )}
             <a
               href={url}
               download={attachment.filename}
+              title="Descargar"
+              aria-label="Descargar"
               className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
               </svg>
-              Descargar
+              <span className="hidden sm:inline">Descargar</span>
             </a>
             <button
               onClick={onClose}
@@ -342,6 +354,18 @@ export function AttachmentPreview({
           </div>
         )}
       </div>
+      {type === 'pdf' && attachment && (
+        <DialogoFirmarPdf
+          open={firmaAbierta}
+          onClose={() => setFirmaAbierta(false)}
+          folder={folder}
+          uid={uid}
+          partNumber={attachment.part_number}
+          filename={attachment.filename}
+          onResponderCon={onResponderCon}
+          onReenviarCon={onReenviarCon}
+        />
+      )}
     </div>
   );
 }
