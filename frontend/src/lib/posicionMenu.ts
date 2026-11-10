@@ -55,13 +55,16 @@ export function colocarMenu(
     // Cabe arriba: se abre hacia arriba, con el borde de abajo en el cursor.
     top = y - menu.alto;
     maxAlto = huecoArriba;
-  } else if (huecoAbajo >= huecoArriba) {
-    // No cabe por ninguno: se usa el lado con más sitio y el menú se desplaza por dentro.
-    top = y;
-    maxAlto = huecoAbajo;
+  } else if (menu.alto <= ventana.alto - 2 * margen) {
+    // No cabe ni abajo ni arriba desde el cursor, pero sí en la pantalla: se desplaza lo justo
+    // para verse entero. Antes se quedaba en el cursor con scroll propio, y ese scroll recortaba
+    // los submenús («Mover a…» no se veía al hacer clic derecho en la parte baja; 10/11/2026).
+    top = ventana.alto - margen - menu.alto;
+    maxAlto = ventana.alto - 2 * margen;
   } else {
-    maxAlto = huecoArriba;
+    // Más alto que la pantalla: pegado arriba y el menú se desplaza por dentro.
     top = margen;
+    maxAlto = ventana.alto - 2 * margen;
   }
 
   // --- horizontal ---
