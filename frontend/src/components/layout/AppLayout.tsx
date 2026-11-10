@@ -12,6 +12,7 @@ import { useNombreApp } from "../../lib/marca";
 import { useMailStore } from "../../store/mailStore";
 import { api } from "../../api/client";
 import { CommandPalette } from "../common/CommandPalette";
+import { ModalReglaHost } from '../reglas/ModalRegla';
 import { useResponsive } from "../../hooks/useResponsive";
 import { OfflineBanner } from "../common/OfflineBanner";
 import { AvisoConexionLenta } from "../common/AvisoConexionLenta";
@@ -156,6 +157,7 @@ export function AppLayout() {
       <CommandPalette />
       <InstallPrompt />
       <ReminderPopup />
+      <ModalReglaHost />
     </div>
   );
 }

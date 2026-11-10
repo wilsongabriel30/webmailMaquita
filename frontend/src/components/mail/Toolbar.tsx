@@ -25,6 +25,9 @@ import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp } from '../../lib/marca';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
+import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
+import { reglaVacia } from '../../lib/reglas/tipos';
 
 
 function escapeHtml(str: string): string {
@@ -1004,8 +1007,8 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.rules} label="Reglas" hasDropdown
                         onClick={() => { closeAllDropdowns(); setRulesOpen(!rulesOpen); }} />
                       <Dropdown open={rulesOpen} onClose={() => setRulesOpen(false)}>
-                        <DropdownItem label="Crear regla..." icon={ICONS.rules}
-                          onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
+                        <DropdownItem label={msg ? 'Crear regla con este correo...' : 'Crear regla...'} icon={ICONS.rules}
+                          onClick={() => { abrirModalRegla({ regla: msg ? reglaDesdeCorreo(msg, currentFolder) : reglaVacia() }); setRulesOpen(false); }} />
                         <DropdownItem label="Administrar reglas" icon={ICONS.settings}
                           onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
                       </Dropdown>

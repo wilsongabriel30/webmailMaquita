@@ -9,6 +9,8 @@ import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
+import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 import { accionDeshacer, loteDeRespuesta, type LoteMovido, type RespuestaMover } from '../../lib/deshacerMover';
 import { showToast } from '../common/Toast';
@@ -172,6 +174,7 @@ const replyIcon = 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6';
 const forwardIcon = 'M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6';
 const nuevaPestanaIcon = 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14';
 const moveIcon = 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z';
+const reglaIcon = 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z';
 
 /* ---- Thread grouping helper ---- */
 interface ThreadGroup {
@@ -922,6 +925,8 @@ export function MessageList() {
           onElegir={(nombre) => { quickAction(msg.uid, 'move', nombre); setCtxMenu(null); }} />
       ),
     },
+    // Ventana de regla precargada con el remitente y el asunto de este correo (10/11/2026)
+    { label: 'Crear regla con este correo...', icon: reglaIcon, onClick: () => abrirModalRegla({ regla: reglaDesdeCorreo(msg, currentFolder) }) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     (currentFolder === 'Junk' || currentFolder === 'Spam')
       ? { label: 'No es spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, true) }

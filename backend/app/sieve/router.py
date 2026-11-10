@@ -356,25 +356,26 @@ async def create_filter(
     username: str = Depends(get_current_user),
 ):
     """Create a new filter rule."""
-    MAX_FILTERS = 20
+    MAX_FILTERS = 50
     password: str = await get_user_password(request, username)
 
     # ── Protección: forwarding externo requiere aprobación admin ──
-    if rule.action.type == "forward" and rule.action.value:
-        fwd_check = await check_forward_policy(
-            request.app.state.redis,
-            username,
-            rule.action.value,
-            request.app.state.db_pool,
-        )
-        if not fwd_check["allowed"]:
-            raise HTTPException(status_code=403, detail=fwd_check["reason"])
-        await audit_sieve_change(
-            request.app.state.redis,
-            username,
-            "forward_created",
-            f"Forward to {rule.action.value}",
-        )
+    for accion in rule.actions:
+        if accion.type in ("forward", "forward_copy") and accion.value:
+            fwd_check = await check_forward_policy(
+                request.app.state.redis,
+                username,
+                accion.value,
+                request.app.state.db_pool,
+            )
+            if not fwd_check["allowed"]:
+                raise HTTPException(status_code=403, detail=fwd_check["reason"])
+            await audit_sieve_change(
+                request.app.state.redis,
+                username,
+                "forward_created",
+                f"Forward to {accion.value}",
+            )
 
     current_script = await _get_current_script(username, password)
     vacation = parse_vacation_from_script(current_script)
@@ -405,15 +406,16 @@ async def update_filter(
     password: str = await get_user_password(request, username)
 
     # ── Protección: forwarding externo requiere aprobación admin ──
-    if rule.action.type == "forward" and rule.action.value:
-        fwd_check = await check_forward_policy(
-            request.app.state.redis,
-            username,
-            rule.action.value,
-            request.app.state.db_pool,
-        )
-        if not fwd_check["allowed"]:
-            raise HTTPException(status_code=403, detail=fwd_check["reason"])
+    for accion in rule.actions:
+        if accion.type in ("forward", "forward_copy") and accion.value:
+            fwd_check = await check_forward_policy(
+                request.app.state.redis,
+                username,
+                accion.value,
+                request.app.state.db_pool,
+            )
+            if not fwd_check["allowed"]:
+                raise HTTPException(status_code=403, detail=fwd_check["reason"])
 
     current_script = await _get_current_script(username, password)
     vacation = parse_vacation_from_script(current_script)
@@ -525,7 +527,7 @@ async def create_filter_from_message(
     username: str = Depends(get_current_user),
 ):
     """Create a filter based on an existing message's From/Subject headers."""
-    MAX_FILTERS = 20
+    MAX_FILTERS = 50
     password: str = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
 
@@ -583,7 +585,7 @@ async def create_filter_from_message(
     # Build filter rule based on the message
     condition = FilterCondition(field="from", operator="contains", value=from_addr)
     action = FilterAction(type=body.action_type, value=body.action_value)
-    rule = FilterRule(name=filter_name, condition=condition, action=action)
+    rule = FilterRule(name=filter_name, conditions=[condition], actions=[action])
 
     # Get current script and add filter
     current_script = await _get_current_script(username, password)
