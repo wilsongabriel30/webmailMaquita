@@ -15,6 +15,14 @@ from app.websocket.resumen_correo_nuevo import textos_aviso
 logger = logging.getLogger("maquita.webmail.avisos_subcarpeta")
 
 
+def nombre_visible(carpeta: str) -> str:
+    """«INBOX.2_ Financiero.Contabilidad» → «2_ Financiero / Contabilidad» (lo que ve la persona)."""
+    partes = [p for p in carpeta.split(".") if p]
+    if partes and partes[0].upper() == "INBOX":
+        partes = partes[1:]
+    return " / ".join(partes) or carpeta
+
+
 async def avisar(
     db,
     usuario: str,
@@ -39,7 +47,7 @@ async def avisar(
         titulo, texto = textos_aviso(nuevos, resumen)
         url = "/webmail/?folder=%s" % carpeta + ("&uid=%d" % uid if uid else "")
         await _push.enviar_a_usuario(
-            db, usuario, titulo, "En «%s»: %s" % (carpeta, texto), url
+            db, usuario, titulo, "En «%s»: %s" % (nombre_visible(carpeta), texto), url
         )
     except Exception as exc:
         logger.debug("push por %s de %s: %s", carpeta, usuario, exc)
