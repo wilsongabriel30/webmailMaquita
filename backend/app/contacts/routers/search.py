@@ -37,6 +37,9 @@ async def search_contacts(
     query_like = f"%{q}%"
     contacts = []
     seen_emails: set[str] = set()
+    fotos_por_correo: dict[str, str] = (
+        {}
+    )  # correo → foto efectiva del perfil (09/11/2026)
 
     # Fuente 1: Contactos personales (favoritos primero, luego uso frecuente)
     rows = await db.fetch(
@@ -105,7 +108,7 @@ async def search_contacts(
         org_rows = await db.fetch(
             """
             SELECT display_name, email, job_title, department, company,
-                   'org_directory' AS source
+                   COALESCE(photo_url, '') AS photo_url, 'org_directory' AS source
             FROM org_contacts
             WHERE domain = $1 AND (
                 LOWER(email) LIKE LOWER($2)
@@ -123,6 +126,8 @@ async def search_contacts(
             remaining,
         )
         for row in org_rows:
+            if row["photo_url"]:
+                fotos_por_correo.setdefault(row["email"].lower(), row["photo_url"])
             if row["email"] not in seen_emails:
                 subtitle_parts = [p for p in [row["job_title"], row["department"]] if p]
                 contacts.append(
@@ -133,6 +138,7 @@ async def search_contacts(
                         "subtitle": (
                             " - ".join(subtitle_parts) if subtitle_parts else ""
                         ),
+                        "photo_url": row["photo_url"],
                     }
                 )
                 seen_emails.add(row["email"])
@@ -147,7 +153,8 @@ async def search_contacts(
             SELECT COALESCE(p.display_name, m.name, SPLIT_PART(m.username, '@', 1)) AS display_name,
                    m.username AS email, 'directory' AS source,
                    COALESCE(p.title, '') AS title,
-                   COALESCE(p.department, '') AS department
+                   COALESCE(p.department, '') AS department,
+                   COALESCE(p.photo_url, '') AS photo_url
             FROM mailbox m
             LEFT JOIN user_profiles p ON p.user_email = m.username
             WHERE m.active = true AND (
@@ -163,6 +170,9 @@ async def search_contacts(
         )
         for row in rows:
             activos.add(row["email"])
+            if row["photo_url"]:
+                # La foto efectiva del perfil (Raíces o propia) manda sobre la del directorio de la organización.
+                fotos_por_correo[row["email"].lower()] = row["photo_url"]
             if row["email"] not in seen_emails:
                 subtitle_parts = [p for p in [row["title"], row["department"]] if p]
                 contacts.append(
@@ -173,6 +183,7 @@ async def search_contacts(
                         "subtitle": (
                             " - ".join(subtitle_parts) if subtitle_parts else ""
                         ),
+                        "photo_url": row["photo_url"],
                     }
                 )
                 seen_emails.add(row["email"])
@@ -232,6 +243,13 @@ async def search_contacts(
                     }
                 )
                 seen_emails.add(row["email"])
+
+    # 09/11/2026: la foto del perfil acompaña a la persona aunque la sugerencia venga de la agenda
+    # personal o del historial (la deduplicación por correo se queda con la primera fuente).
+    for c in contacts:
+        foto = fotos_por_correo.get((c.get("email") or "").lower(), "")
+        if foto and not c.get("photo_url"):
+            c["photo_url"] = foto
 
     # 06/11/2026: dirección oficial primero (orden_sugerencias.py)
     return {"contacts": ordenar_sugerencias(contacts, activos, limit, username)}
