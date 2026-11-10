@@ -9,6 +9,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { accionDeshacer, loteDeRespuesta, type RespuestaMover } from '../../lib/deshacerMover';
 import { marcarCarpetaLeida } from './marcarCarpetaLeida';
 import { ContextMenu } from '../common/ContextMenu';
 import type { Folder } from '../../types';
@@ -405,8 +406,10 @@ export function MailSidebar() {
           if (uidsJson && srcFolder && srcFolder !== f.name) {
             const uids = JSON.parse(uidsJson);
             try {
-              await api.post(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, { uids, action: 'move', dest_folder: f.name });
-              showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName}`);
+              const r = await api.post<RespuestaMover>(`/mail/bulk-action/${encodeURIComponent(srcFolder)}`, { uids, action: 'move', dest_folder: f.name });
+              const movido = loteDeRespuesta(srcFolder, f.name, r);
+              showToast(`${uids.length} mensaje${uids.length > 1 ? 's' : ''} movido${uids.length > 1 ? 's' : ''} a ${displayName}`,
+                movido ? accionDeshacer([movido]) : undefined);
               useMailStore.getState().clearSelection();
               useMailStore.getState().setSelectedMessage(null);
               window.dispatchEvent(new CustomEvent('refresh-messages'));

@@ -87,3 +87,4 @@ panel-dominio/backend/venv/
 # Datos locales del servidor (07/11/2026): firmas de personas (las sirve nginx) y capturas de pruebas.
 firmas-publicas/
 pruebas-navegador/informe/
+respaldos-src/

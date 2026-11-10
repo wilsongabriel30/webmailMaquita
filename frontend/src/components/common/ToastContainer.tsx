@@ -29,8 +29,10 @@ export function ToastContainer() {
         // (p. ej. un error al enviar). Los avisos con acción (Deshacer) duran lo mismo o son fijos.
         if (!t.fijo) programarCierre(t.id);
       },
-      actualizar: (id, message) => {
-        setToasts(prev => prev.map(x => x.id === id ? { ...x, message } : x));
+      actualizar: (id, message, action) => {
+        setToasts(prev => prev.map(x => x.id === id ? { ...x, message, action: action ?? x.action } : x));
+        // Si llega una acción (Deshacer), el aviso vuelve a contar su tiempo para que dé tiempo a pulsarla
+        if (action) programarCierre(id);
       },
       cerrar: (id) => {
         setToasts(prev => prev.filter(x => x.id !== id));

@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { getFolderDisplayName } from '../../folders';
 import type { Folder } from '../../types';
+import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 
 /* Opciones «Recuperar» y «Mover a…» del menú «Más acciones» de la barra móvil.
    En la Papelera, «Recuperar» devuelve el mensaje a la Bandeja de entrada.
@@ -28,9 +28,6 @@ export function AccionesMoverMovil({ carpetaActual, carpetas, hayMensaje, onMove
   const [listaAbierta, setListaAbierta] = useState(false);
   if (!hayMensaje) return null;
   const enPapelera = carpetaActual === 'Trash';
-  const destinos = (carpetas || [])
-    .map(f => (typeof f === 'string' ? f : f.name))
-    .filter(n => n && n !== carpetaActual);
 
   return (
     <>
@@ -50,12 +47,8 @@ export function AccionesMoverMovil({ carpetaActual, carpetas, hayMensaje, onMove
       {listaAbierta && (
         <div id="lista-mover-movil" role="group" aria-label="Elegir carpeta de destino"
           className="max-h-[45vh] overflow-y-auto bg-[#faf9f8] border-y border-[#edebe9]">
-          {destinos.map(nombre => (
-            <button key={nombre} type="button" className={`${claseOpcion} pl-10`}
-              onClick={() => { onMover(nombre); onCerrar(); }}>
-              {getFolderDisplayName(nombre)}
-            </button>
-          ))}
+          <ArbolMoverCarpetas carpetas={carpetas || []} carpetaActual={carpetaActual} compacto={false}
+            onElegir={(nombre) => { onMover(nombre); onCerrar(); }} />
         </div>
       )}
       <div className="h-px bg-[#edebe9] my-1" />

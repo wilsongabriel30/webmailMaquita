@@ -9,6 +9,10 @@ import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
+import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
+import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
+import { accionDeshacer, loteDeRespuesta, type LoteMovido, type RespuestaMover } from '../../lib/deshacerMover';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
 import { eliminarSeleccion, hayEliminacionDefinitiva } from '../../lib/eliminarSeleccion';
@@ -58,19 +62,22 @@ const quickBatches = new Map<string, { uids: number[]; timer: ReturnType<typeof 
 // Un solo aviso que va contando («Enviados a la papelera: 3») en vez de un aviso por cada correo
 // borrado seguido, que apilaba avisos hasta tapar la pantalla (reporte 06/11/2026).
 const CONTADOR_AVISO_MS = 20000;
-const contadoresAviso = new Map<string, { n: number; desde: number }>();
-function avisoAcumulado(key: string, action: string, dest: string, n: number) {
+const contadoresAviso = new Map<string, { n: number; desde: number; lotes: LoteMovido[] }>();
+function avisoAcumulado(key: string, action: string, dest: string, n: number, lote: LoteMovido | null = null) {
   const ahora = Date.now();
   const previo = contadoresAviso.get(key);
-  const total = previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.n + n : n;
-  contadoresAviso.set(key, { n: total, desde: previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.desde : ahora });
+  const sigue = !!previo && ahora - previo.desde < CONTADOR_AVISO_MS;
+  const total = sigue ? previo.n + n : n;
+  // Los lotes movidos se acumulan con el contador: «Deshacer» devuelve todos los del aviso (10/11/2026)
+  const lotes = [...(sigue ? previo.lotes : []), ...(lote ? [lote] : [])];
+  contadoresAviso.set(key, { n: total, desde: sigue ? previo.desde : ahora, lotes });
   const destino = getFolderDisplayName(dest);
   const texto =
     action === 'move' ? (total > 1 ? `Enviados a ${destino}: ${total}` : `Movido a ${destino}`)
       : action === 'delete' ? (total > 1 ? `Eliminados: ${total}` : 'Eliminado')
       : action === 'archive' ? (total > 1 ? `Archivados: ${total}` : 'Archivado')
       : 'Hecho';
-  showToast(texto, undefined, { clave: `rapida:${key}` });
+  showToast(texto, accionDeshacer(lotes), { clave: `rapida:${key}` });
 }
 
 function flushQuickAction(key: string, folder: string, action: string, dest: string) {
@@ -78,9 +85,9 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
   if (!batch) return;
   quickBatches.delete(key);
   const uids = batch.uids;
-  api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
-    .then(() => {
-      avisoAcumulado(key, action, dest, uids.length);
+  api.post<RespuestaMover>(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
+    .then((r) => {
+      avisoAcumulado(key, action, dest, uids.length, loteDeRespuesta(folder, action === 'archive' ? 'Archive' : dest, r));
       const sel = useMailStore.getState().selectedMessage;
       if (sel && uids.includes(sel.uid)) {
         useMailStore.getState().setSelectedMessage(null);
@@ -167,6 +174,7 @@ const replyIcon = 'M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6';
 const forwardIcon = 'M21 10h-10a8 8 0 00-8 8v2M21 10l-6 6m6-6l-6-6';
 const nuevaPestanaIcon = 'M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14';
 const moveIcon = 'M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z';
+const reglaIcon = 'M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z';
 
 /* ---- Thread grouping helper ---- */
 interface ThreadGroup {
@@ -911,16 +919,14 @@ export function MessageList() {
       label: 'Mover a...',
       icon: moveIcon,
       onClick: () => {},
-      children: (folders || []).map((folder) => {
-        const folderName = typeof folder === 'string' ? folder : folder.name;
-        return {
-          label: getFolderDisplayName(folderName),
-          icon: moveIcon,
-          disabled: folderName === currentFolder,
-          onClick: () => quickAction(msg.uid, 'move', folderName),
-        };
-      }),
+      // Árbol madre → hijas con buscador: con 60 carpetas la lista plana no cabía ni se entendía (10/11/2026)
+      contenido: (
+        <ArbolMoverCarpetas carpetas={folders || []} carpetaActual={currentFolder}
+          onElegir={(nombre) => { quickAction(msg.uid, 'move', nombre); setCtxMenu(null); }} />
+      ),
     },
+    // Ventana de regla precargada con el remitente y el asunto de este correo (10/11/2026)
+    { label: 'Crear regla con este correo...', icon: reglaIcon, onClick: () => abrirModalRegla({ regla: reglaDesdeCorreo(msg, currentFolder) }) },
     { label: '', icon: '', onClick: () => {}, divider: true },
     (currentFolder === 'Junk' || currentFolder === 'Spam')
       ? { label: 'No es spam', icon: moveIcon, onClick: () => marcarNoDeseadoCtx(msg, true) }

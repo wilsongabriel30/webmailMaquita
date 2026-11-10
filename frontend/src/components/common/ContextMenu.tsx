@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 
 import { colocarMenu, colocarSubmenu, type Colocacion, type ColocacionSubmenu } from '../../lib/posicionMenu';
@@ -11,6 +11,8 @@ export interface MenuItem {
   divider?: boolean;
   disabled?: boolean;
   children?: MenuItem[];
+  /** Panel propio como submenú (p. ej. el árbol de carpetas de «Mover a…»); tiene prioridad sobre children. */
+  contenido?: ReactNode;
 }
 
 interface Props {
@@ -21,7 +23,7 @@ interface Props {
 }
 
 /** Submenú de un elemento: se abre al lado que tenga sitio y sube si se saldría por abajo. */
-function Submenu({ items, onClose }: { items: MenuItem[]; onClose: () => void }) {
+function Submenu({ items, contenido, onClose }: { items: MenuItem[]; contenido?: ReactNode; onClose: () => void }) {
   const ref = useRef<HTMLDivElement>(null);
   const [sitio, setSitio] = useState<ColocacionSubmenu | null>(null);
 
@@ -37,7 +39,7 @@ function Submenu({ items, onClose }: { items: MenuItem[]; onClose: () => void })
         { ancho: window.innerWidth, alto: window.innerHeight },
       ),
     );
-  }, [items]);
+  }, [items, contenido]);
 
   const estilo: React.CSSProperties = sitio
     ? {
@@ -51,7 +53,8 @@ function Submenu({ items, onClose }: { items: MenuItem[]; onClose: () => void })
   return (
     <div ref={ref} style={estilo}
       className="absolute min-w-[220px] bg-white rounded-md shadow-xl border border-[#e1dfdd] py-1 z-[10000]">
-      {items.map((child, childIndex) => {
+      {contenido}
+      {!contenido && items.map((child, childIndex) => {
         if (child.divider) return <div key={childIndex} className="h-px bg-[#edebe9] my-1" />;
         return (
           <button
@@ -122,8 +125,11 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
     const el = ref.current;
     if (!el) return;
     const medir = () => {
-      // offsetHeight ya viene recortado si hay maxHeight puesto; scrollHeight es el alto real.
-      const alto = Math.max(el.offsetHeight, el.scrollHeight);
+      // Alto propio = suma de las filas (py-1 arriba y abajo). No vale scrollHeight: incluía el
+      // submenú abierto (el árbol de «Mover a…» mide 2000 px antes de recortarse) y el menú se
+      // ponía scroll a sí mismo, lo que ocultaba el submenú (10/11/2026).
+      const filas = Array.from(el.children).reduce((suma, hijo) => suma + (hijo as HTMLElement).offsetHeight, 0);
+      const alto = Math.max(el.offsetHeight, filas + 8);
       const colocacion = colocarMenu(x, y, { ancho: el.offsetWidth, alto },
         { ancho: window.innerWidth, alto: window.innerHeight });
       setSitio(colocacion);
@@ -153,7 +159,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
       className="min-w-[200px] bg-white rounded-md shadow-xl border border-[#e1dfdd] py-1 animate-in fade-in duration-100">
       {items.map((item, i) => {
         if (item.divider) return <div key={i} className="h-px bg-[#edebe9] my-1" />;
-        const hasChildren = !!item.children?.length;
+        const hasChildren = !!item.children?.length || !!item.contenido;
         return (
           <div
             key={i}
@@ -203,7 +209,7 @@ export function ContextMenu({ x, y, items, onClose }: Props) {
               )}
             </button>
             {hasChildren && openSubmenu === i && (
-              <Submenu items={item.children!} onClose={onClose} />
+              <Submenu items={item.children || []} contenido={item.contenido} onClose={onClose} />
             )}
           </div>
         );

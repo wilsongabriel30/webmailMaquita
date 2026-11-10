@@ -8,6 +8,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Reglas de correo avanzadas y «Crear regla con este correo…».** Clic derecho en un correo (o Reglas → Crear
+  regla en la barra) abre una ventana con el remitente y el asunto ya cargados. Una regla admite varias condiciones
+  («todas» o «alguna»), negaciones, cuerpo del mensaje, tamaño, cualquier encabezado, expresiones regulares y «Para o
+  Cc»; y varias acciones: mover, copiar, marcar, marcar como leído, eliminar, reenviar o reenviar una copia, con
+  «no aplicar más reglas» y «regla activa». La misma ventana sirve en Ajustes → Reglas de correo. La API acepta
+  `conditions`/`actions` (y sigue aceptando `condition`/`action`); el script Sieve se relee con un analizador propio
+  (`backend/app/sieve/analizador.py`). Documentación: `docs/REGLAS-DE-CORREO.md`.
+- **«Mover a…» en árbol con buscador.** En la barra superior, el clic derecho y el menú móvil, las carpetas se muestran
+  como madre → hijas desplegables, con un cuadro «Buscar carpeta…» (Intro mueve si hay una sola coincidencia). Con 60
+  o más carpetas la lista plana se salía de la pantalla (`components/mail/ArbolMoverCarpetas.tsx`, `lib/arbolCarpetas.ts`).
+- **«Deshacer» al mover.** El aviso «Movido a X» (barra, clic derecho, icono de eliminar, arrastrar a una carpeta)
+  lleva un botón «Deshacer» que devuelve los correos a su carpeta. El servidor responde a `/api/mail/bulk-action` y
+  `/api/mail/move` con `movidos` = {uid origen: uid destino} (COPYUID) (`lib/deshacerMover.ts`).
 - **Firmar un PDF: la persona dibuja dónde va la firma y puede «Firmar y responder».** El diálogo muestra la página
   del PDF (el servidor la dibuja con pypdfium2: `GET /api/mail/firma-pdf/pagina`, `services/pdf_paginas.py`), se pasa de
   hoja y se arrastra con el ratón o el dedo el rectángulo del sello, como en el Editor PDF de Raíces
@@ -59,6 +72,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- Los desplegables de la barra superior se limitan al alto de la pantalla y se desplazan (antes el de «Mover» se
+  cortaba con muchas carpetas). El menú contextual ya no se recorta a sí mismo cuando un submenú es más alto que él.
 - **Recuperar correo: el destinatario lo seguía viendo hasta 5 minutos** (incidente 09/11/2026). Tras cada
   `doveadm expunge` se invalida la caché Redis del destinatario (INBOX y la carpeta real donde estaba, que ahora se
   lee de `doveadm fetch mailbox`) y se le publica `correo_recuperado` por el canal WebSocket de correo nuevo: su

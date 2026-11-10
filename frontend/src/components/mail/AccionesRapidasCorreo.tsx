@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuTeclado } from '../../lib/menuTeclado';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { accionDeshacer, loteDeRespuesta, type RespuestaMover } from '../../lib/deshacerMover';
 import { useMailStore } from '../../store/mailStore';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
@@ -92,7 +93,7 @@ export function AccionesRapidasCorreo({
   const accion = (fn: () => void | Promise<void>) => () => { setAbierto(false); void fn(); };
 
   const lote = async (action: string, dest = '') =>
-    api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids: [uid], action, dest_folder: dest });
+    api.post<RespuestaMover>(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids: [uid], action, dest_folder: dest });
 
   const eliminar = async () => {
     try {
@@ -101,8 +102,9 @@ export function AccionesRapidasCorreo({
         await lote('delete');
         showToast('Eliminado permanentemente');
       } else {
-        await lote('move', 'Trash');
-        showToast('Movido a Papelera');
+        const r = await lote('move', 'Trash');
+        const movido = loteDeRespuesta(folder, 'Trash', r);
+        showToast('Movido a Papelera', movido ? accionDeshacer([movido]) : undefined);
       }
       refrescar(true);
     } catch { showToast('No se pudo eliminar'); }

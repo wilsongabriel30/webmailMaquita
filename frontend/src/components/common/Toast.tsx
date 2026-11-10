@@ -13,7 +13,7 @@ export interface ToastData {
 
 interface Oyentes {
   mostrar: (t: ToastData) => void;
-  actualizar: (id: string, message: string) => void;
+  actualizar: (id: string, message: string, action?: ToastData['action']) => void;
   cerrar: (id: string) => void;
 }
 
@@ -31,8 +31,8 @@ export function showToast(message: string, action?: { label: string; onClick: ()
   return id;
 }
 
-export function updateToast(id: string, message: string) {
-  oyentes?.actualizar(id, message);
+export function updateToast(id: string, message: string, action?: ToastData['action']) {
+  oyentes?.actualizar(id, message, action);
 }
 
 export function dismissToast(id: string) {

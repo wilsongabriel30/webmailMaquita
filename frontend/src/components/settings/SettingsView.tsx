@@ -11,7 +11,9 @@ import { ContrasenasAplicacion } from './ContrasenasAplicacion';
 import { MiEquipo } from './MiEquipo';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
-import { getFolderDisplayName } from '../../folders';
+import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { resumenRegla } from '../../lib/reglas/resumenRegla';
+import { ETIQUETA_ACCION, normalizarRegla, reglaVacia, type Regla } from '../../lib/reglas/tipos';
 import { showToast } from '../common/Toast';
 import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché cifrado en el equipo
 import SmimeSettings from './SmimeSettings';   // Certificados S/MIME (por usuario)
@@ -41,22 +43,13 @@ interface VacationSettings {
   end_date: string;
 }
 
-interface FilterRule {
-  index?: number;
-  name: string;
-  condition: { field: string; operator: string; value: string };
-  action: { type: string; value: string | null };
-}
+type FilterRule = Regla;
 
 type Tab = 'general' | 'foto' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'bloqueados' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
 
-const FIELD_LABELS: Record<string, string> = { from: 'De', to: 'Para', subject: 'Asunto' };
-const OP_LABELS: Record<string, string> = { contains: 'contiene', is: 'es exactamente', matches: 'coincide con' };
-const ACTION_LABELS: Record<string, string> = { move: 'Mover a', flag: 'Marcar', delete: 'Eliminar', forward: 'Reenviar a' };
 
 export function SettingsView() {
   const location = useLocation();
-  const folders = useMailStore(s => s.folders);
   useEffect(() => {
     if (useMailStore.getState().folders.length === 0) {
       api.get<{ folders: { name: string }[] }>('/mail/folders')
@@ -82,12 +75,6 @@ export function SettingsView() {
   const [filtersError, setFiltersError] = useState(false);
   // Motivo que manda el servidor (p. ej. «No se pudo conectar con el servicio de reglas de correo…»).
   const [filtersErrorDetail, setFiltersErrorDetail] = useState('');
-  const [newFilter, setNewFilter] = useState<FilterRule>({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
-  const [showAddFilter, setShowAddFilter] = useState(false);
-  const [editingFilter, setEditingFilter] = useState<number | null>(null);
-  const [editFilter, setEditFilter] = useState<FilterRule | null>(null);
-  const [previewResult, setPreviewResult] = useState<{ matching_count: number; sample_subjects: string[] } | null>(null);
-  const [previewLoading, setPreviewLoading] = useState(false);
 
   useEffect(() => {
     api.get<Settings>('/settings').then(setSettings).catch(console.error);
@@ -116,7 +103,7 @@ export function SettingsView() {
       .then(data => {
         // API returns array directly
         const arr = Array.isArray(data) ? data : (data as { filters?: FilterRule[] }).filters || [];
-        setFilters(arr);
+        setFilters(arr.map(normalizarRegla));
       })
       // Si falla (p. ej. 424 porque ManageSieve rechazó la sesión), se conservan las reglas ya
       // conocidas y se avisa del error con «Reintentar»; la sesión NO se cierra.
@@ -164,51 +151,12 @@ export function SettingsView() {
     finally { setSaving(false); }
   };
 
-  const handleAddFilter = async () => {
-    if (!newFilter.name || !newFilter.condition.value) return;
-    try {
-      await api.post('/sieve/filters', newFilter);
-      setNewFilter({ name: '', condition: { field: 'from', operator: 'contains', value: '' }, action: { type: 'move', value: '' } });
-      setShowAddFilter(false);
-      setPreviewResult(null);
-      fetchFilters();
-      showToast('Regla creada');
-    } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo crear la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
-  };
-
-  const handleUpdateFilter = async (index: number) => {
-    if (!editFilter || !editFilter.name || !editFilter.condition.value) return;
-    try {
-      await api.put(`/sieve/filters/${index}`, {
-        name: editFilter.name,
-        condition: editFilter.condition,
-        action: editFilter.action,
-      });
-      setEditingFilter(null);
-      setEditFilter(null);
-      fetchFilters();
-      showToast('Regla guardada');
-    } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo guardar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
-  };
-
   const handleDeleteFilter = async (index: number) => {
     try {
       await api.del(`/sieve/filters/${index}`);
       fetchFilters();
       showToast('Regla eliminada');
     } catch (err) { console.error(err); showToast(motivoServidor(err) || 'No se pudo eliminar la regla. Inténtelo de nuevo.', undefined, { fijo: true }); }
-  };
-
-  const handlePreview = async (condition: { field: string; operator: string; value: string }) => {
-    if (!condition.value) return;
-    setPreviewLoading(true);
-    try {
-      const res = await api.get<{ matching_count: number; sample_subjects: string[] }>(
-        `/sieve/filters/preview?field=${condition.field}&operator=${condition.operator}&value=${encodeURIComponent(condition.value)}`
-      );
-      setPreviewResult(res);
-    } catch { setPreviewResult(null); }
-    finally { setPreviewLoading(false); }
   };
 
   if (!settings) return (
@@ -236,117 +184,6 @@ export function SettingsView() {
     { id: 'mailsetup', label: 'Configurar mi correo' },
     { id: 'espacio', label: 'Espacio en el equipo' },
   ];
-
-  const folderOptions = folders.map(f => f.name);
-
-  const renderFilterForm = (
-    filter: FilterRule,
-    setFilter: (f: FilterRule) => void,
-    onSave: () => void,
-    onCancel: () => void,
-    saveLabel: string,
-  ) => (
-    <div className="p-4 bg-[#faf9f8] border border-[#edebe9] rounded space-y-3">
-      <Field label="Nombre de la regla">
-        <input value={filter.name} onChange={e => setFilter({ ...filter, name: e.target.value })}
-          className="w-full px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
-          placeholder="Ej: Correos de proveedores" />
-      </Field>
-
-      <div className="bg-white p-3 rounded border border-[#edebe9]">
-        <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Condición</div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Si el campo">
-            <select aria-label="Campo de la condición" value={filter.condition.field}
-              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, field: e.target.value } })}
-              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-              <option value="from">De (remitente)</option>
-              <option value="to">Para (destinatario)</option>
-              <option value="subject">Asunto</option>
-            </select>
-          </Field>
-          <Field label="">
-            <select aria-label="Operador de la condición" value={filter.condition.operator}
-              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, operator: e.target.value } })}
-              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-              <option value="contains">contiene</option>
-              <option value="is">es exactamente</option>
-              <option value="matches">coincide con patrón</option>
-            </select>
-          </Field>
-          <Field label="">
-            <input value={filter.condition.value}
-              onChange={e => setFilter({ ...filter, condition: { ...filter.condition, value: e.target.value } })}
-              className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none min-w-[200px]"
-              placeholder="valor..." />
-          </Field>
-          <button onClick={() => handlePreview(filter.condition)}
-            disabled={!filter.condition.value || previewLoading}
-            className="px-3 py-2 text-xs text-[#0078d4] border border-[#0078d4] rounded hover:bg-[#deecf9] disabled:opacity-50">
-            {previewLoading ? '...' : 'Vista previa'}
-          </button>
-        </div>
-        {previewResult && (
-          <div className="mt-2 p-2 bg-[#deecf9] rounded text-xs text-[#323130]">
-            <b>{previewResult.matching_count}</b> mensaje{previewResult.matching_count !== 1 ? 's' : ''} coinciden en Bandeja de entrada
-            {previewResult.sample_subjects.length > 0 && (
-              <ul className="mt-1 space-y-0.5 text-[#605e5c]">
-                {previewResult.sample_subjects.map((s, i) => <li key={i} className="truncate">- {s}</li>)}
-              </ul>
-            )}
-          </div>
-        )}
-      </div>
-
-      <div className="bg-white p-3 rounded border border-[#edebe9]">
-        <div className="text-xs font-semibold text-[#605e5c] uppercase tracking-wider mb-2">Acción</div>
-        <div className="flex gap-2 items-end flex-wrap">
-          <Field label="Entonces">
-            <select aria-label="Tipo de acción" value={filter.action.type}
-              onChange={e => setFilter({ ...filter, action: { ...filter.action, type: e.target.value } })}
-              className="px-2 py-2 border border-[#8a8886] rounded text-sm">
-              <option value="move">Mover a carpeta</option>
-              <option value="flag">Marcar con bandera</option>
-              <option value="delete">Eliminar</option>
-              <option value="forward">Reenviar a</option>
-            </select>
-          </Field>
-          {filter.action.type === 'move' && (
-            <Field label="Carpeta destino">
-              <select aria-label="Carpeta destino" value={filter.action.value || ''}
-                onChange={e => setFilter({ ...filter, action: { ...filter.action, value: e.target.value } })}
-                className="px-2 py-2 border border-[#8a8886] rounded text-sm min-w-[180px]">
-                <option value="">-- Seleccionar --</option>
-                {folderOptions.map(f => (
-                  <option key={f} value={f}>{getFolderDisplayName(f)}</option>
-                ))}
-              </select>
-            </Field>
-          )}
-          {filter.action.type === 'forward' && (
-            <Field label="Reenviar a">
-              <input value={filter.action.value || ''}
-                onChange={e => setFilter({ ...filter, action: { ...filter.action, value: e.target.value } })}
-                className="px-3 py-2 border border-[#8a8886] rounded text-sm focus:border-[#0078d4] outline-none"
-                placeholder="email@ejemplo.com" />
-            </Field>
-          )}
-        </div>
-      </div>
-
-      <div className="flex gap-2 pt-1">
-        <button onClick={onSave}
-          disabled={!filter.name || !filter.condition.value || ((filter.action.type === 'move' || filter.action.type === 'forward') && !filter.action.value)}
-          className="px-4 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe] disabled:opacity-50">
-          {saveLabel}
-        </button>
-        <button onClick={onCancel}
-          className="px-4 py-1.5 text-sm text-[#605e5c] hover:bg-[#e1dfdd] rounded">
-          Cancelar
-        </button>
-      </div>
-    </div>
-  );
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
@@ -497,7 +334,7 @@ export function SettingsView() {
 
             <div className="flex items-center justify-between">
               <span className="text-sm text-[#605e5c]">{filtersError ? '' : <>{filters.length} regla{filters.length !== 1 ? 's' : ''} configurada{filters.length !== 1 ? 's' : ''}</>}</span>
-              <button onClick={() => { setShowAddFilter(!showAddFilter); setPreviewResult(null); }}
+              <button onClick={() => abrirModalRegla({ regla: reglaVacia(), alGuardar: fetchFilters })}
                 className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0078d4] text-white text-sm rounded hover:bg-[#106ebe]">
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -505,14 +342,6 @@ export function SettingsView() {
                 Nueva regla
               </button>
             </div>
-
-            {showAddFilter && renderFilterForm(
-              newFilter,
-              setNewFilter,
-              handleAddFilter,
-              () => { setShowAddFilter(false); setPreviewResult(null); },
-              'Crear regla',
-            )}
 
             {filtersLoading ? (
               <div className="text-sm text-[#605e5c]" role="status">Cargando reglas...</div>
@@ -525,7 +354,7 @@ export function SettingsView() {
                   Reintentar
                 </button>
               </div>
-            ) : filters.length === 0 && !showAddFilter ? (
+            ) : filters.length === 0 ? (
               <div className="text-center py-12 text-[#a19f9d]">
                 <svg className="w-12 h-12 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -538,39 +367,27 @@ export function SettingsView() {
               <div className="space-y-2">
                 {filters.map((f, i) => (
                   <div key={i}>
-                    {editingFilter === i && editFilter ? (
-                      renderFilterForm(
-                        editFilter,
-                        setEditFilter,
-                        () => handleUpdateFilter(i),
-                        () => { setEditingFilter(null); setEditFilter(null); setPreviewResult(null); },
-                        'Guardar cambios',
-                      )
-                    ) : (
-                      <div className="flex items-center justify-between p-3 bg-[#faf9f8] border border-[#edebe9] rounded hover:border-[#8a8886] transition-colors group">
+                    {(
+                      <div className={`flex items-center justify-between p-3 bg-[#faf9f8] border border-[#edebe9] rounded hover:border-[#8a8886] transition-colors group ${f.enabled ? '' : 'opacity-60'}`}>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <span className="text-sm font-medium text-[#323130]">{f.name}</span>
                             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                              f.action.type === 'move' ? 'bg-blue-100 text-blue-700' :
-                              f.action.type === 'flag' ? 'bg-yellow-100 text-yellow-700' :
-                              f.action.type === 'delete' ? 'bg-red-100 text-red-700' :
+                              f.actions[0].type === 'move' || f.actions[0].type === 'copy' ? 'bg-blue-100 text-blue-700' :
+                              f.actions[0].type === 'flag' || f.actions[0].type === 'read' ? 'bg-yellow-100 text-yellow-700' :
+                              f.actions[0].type === 'delete' ? 'bg-red-100 text-red-700' :
                               'bg-green-100 text-green-700'
                             }`}>
-                              {ACTION_LABELS[f.action.type] || f.action.type}
+                              {ETIQUETA_ACCION[f.actions[0].type]}{f.actions.length > 1 ? ` +${f.actions.length - 1}` : ''}
                             </span>
+                            {!f.enabled && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#edebe9] text-[#605e5c]">desactivada</span>}
                           </div>
                           <p className="text-xs text-[#605e5c] mt-0.5">
-                            Si <b>{FIELD_LABELS[f.condition.field] || f.condition.field}</b>{' '}
-                            {OP_LABELS[f.condition.operator] || f.condition.operator}{' '}
-                            &quot;<span className="text-[#323130]">{f.condition.value}</span>&quot;
-                            {f.action.value && (
-                              <> → <span className="text-[#323130]">{f.action.type === 'move' ? getFolderDisplayName(f.action.value) : f.action.value}</span></>
-                            )}
+                            {resumenRegla(f).condiciones} → <span className="text-[#323130]">{resumenRegla(f).acciones}</span>
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => { setEditingFilter(i); setEditFilter({ ...f }); setPreviewResult(null); }}
+                          <button onClick={() => abrirModalRegla({ regla: f, indice: i, alGuardar: fetchFilters })}
                             className="text-[13px] text-[#0078d4] hover:bg-[#deecf9] px-2 py-1 rounded" title="Editar">
                             Editar
                           </button>

@@ -24,6 +24,10 @@ import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp } from '../../lib/marca';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
+import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
+import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
+import { reglaVacia } from '../../lib/reglas/tipos';
 
 
 function escapeHtml(str: string): string {
@@ -101,7 +105,8 @@ function Dropdown({ open, onClose, children, align = 'left' }: {
 }) {
   const menuRef = useRef<HTMLDivElement>(null);
   const anchorRef = useRef<HTMLSpanElement>(null);
-  const [pos, setPos] = useState<{ top: number; left: number }>({ top: -9999, left: -9999 });
+  // maxAlto: alto disponible en pantalla; con muchas carpetas («Mover») el menú se desplaza en vez de salirse
+  const [pos, setPos] = useState<{ top: number; left: number; maxAlto: number }>({ top: -9999, left: -9999, maxAlto: 0 });
 
   useEffect(() => {
     if (!open) return;
@@ -124,11 +129,17 @@ function Dropdown({ open, onClose, children, align = 'left' }: {
     let left = align === 'right' ? rect.right - menuWidth : rect.left;
     if (left + menuWidth > window.innerWidth) left = window.innerWidth - menuWidth - 8;
     if (left < 4) left = 4;
+    const MARGEN = 8;
+    const altoMenu = menuRef.current?.scrollHeight || 300;
     let top = rect.bottom + 2;
-    // If menu would go below viewport, show above
-    if (top + 300 > window.innerHeight) top = rect.top - 300;
+    let maxAlto = window.innerHeight - top - MARGEN;
+    // Si abajo no cabe ni una parte razonable y arriba hay más sitio, se abre hacia arriba
+    if (maxAlto < Math.min(altoMenu, 240) && rect.top - 2 - MARGEN > maxAlto) {
+      maxAlto = rect.top - 2 - MARGEN;
+      top = Math.max(MARGEN, rect.top - 2 - Math.min(altoMenu, maxAlto));
+    }
     // eslint-disable-next-line react-hooks/set-state-in-effect -- la posición depende de medir el menú ya pintado
-    setPos({ top, left });
+    setPos({ top, left, maxAlto });
   }, [open, align]);
 
 
@@ -136,7 +147,9 @@ function Dropdown({ open, onClose, children, align = 'left' }: {
     <>
       <span ref={anchorRef} style={{ position: 'absolute', top: 0, left: 0, width: 0, height: 0, overflow: 'hidden' }} />
       {open && ReactDOM.createPortal(
-        <div ref={menuRef} style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999 }}
+        <div ref={menuRef}
+          style={{ position: 'fixed', top: pos.top, left: pos.left, zIndex: 9999,
+            maxHeight: pos.maxAlto > 0 ? pos.maxAlto : undefined, overflowY: 'auto' }}
           className="bg-white border border-[#e1dfdd] rounded shadow-lg min-w-[180px] py-1 ">
           {children}
         </div>,
@@ -983,19 +996,19 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.move} label="Mover" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setMoveOpen(!moveOpen); }} />
                       <Dropdown open={moveOpen} onClose={() => setMoveOpen(false)}>
-                        {(folders || []).map((f: Folder | string) => (
-                          <DropdownItem key={typeof f === 'string' ? f : f.name}
-                            label={getFolderDisplayName(typeof f === 'string' ? f : f.name)} icon={ICONS.move}
-                            onClick={() => { moveToFolder(typeof f === 'string' ? f : f.name); setMoveOpen(false); }} />
-                        ))}
+                        {/* Árbol madre → hijas con buscador (10/11/2026) */}
+                        {moveOpen && (
+                          <ArbolMoverCarpetas carpetas={folders || []} carpetaActual={currentFolder}
+                            onElegir={(nombre) => { moveToFolder(nombre); setMoveOpen(false); }} />
+                        )}
                       </Dropdown>
                     </div>
                     <div className="relative">
                       <ToolbarButton icon={ICONS.rules} label="Reglas" hasDropdown
                         onClick={() => { closeAllDropdowns(); setRulesOpen(!rulesOpen); }} />
                       <Dropdown open={rulesOpen} onClose={() => setRulesOpen(false)}>
-                        <DropdownItem label="Crear regla..." icon={ICONS.rules}
-                          onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
+                        <DropdownItem label={msg ? 'Crear regla con este correo...' : 'Crear regla...'} icon={ICONS.rules}
+                          onClick={() => { abrirModalRegla({ regla: msg ? reglaDesdeCorreo(msg, currentFolder) : reglaVacia() }); setRulesOpen(false); }} />
                         <DropdownItem label="Administrar reglas" icon={ICONS.settings}
                           onClick={() => { goToSettings('filters'); setRulesOpen(false); }} />
                       </Dropdown>
