@@ -9,6 +9,8 @@ import { usePolling } from '../../hooks/usePolling';
 import { api } from '../../api/client';
 import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
+import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
+import { accionDeshacer, loteDeRespuesta, type LoteMovido, type RespuestaMover } from '../../lib/deshacerMover';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
 import { eliminarSeleccion, hayEliminacionDefinitiva } from '../../lib/eliminarSeleccion';
@@ -58,19 +60,22 @@ const quickBatches = new Map<string, { uids: number[]; timer: ReturnType<typeof 
 // Un solo aviso que va contando («Enviados a la papelera: 3») en vez de un aviso por cada correo
 // borrado seguido, que apilaba avisos hasta tapar la pantalla (reporte 06/11/2026).
 const CONTADOR_AVISO_MS = 20000;
-const contadoresAviso = new Map<string, { n: number; desde: number }>();
-function avisoAcumulado(key: string, action: string, dest: string, n: number) {
+const contadoresAviso = new Map<string, { n: number; desde: number; lotes: LoteMovido[] }>();
+function avisoAcumulado(key: string, action: string, dest: string, n: number, lote: LoteMovido | null = null) {
   const ahora = Date.now();
   const previo = contadoresAviso.get(key);
-  const total = previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.n + n : n;
-  contadoresAviso.set(key, { n: total, desde: previo && ahora - previo.desde < CONTADOR_AVISO_MS ? previo.desde : ahora });
+  const sigue = !!previo && ahora - previo.desde < CONTADOR_AVISO_MS;
+  const total = sigue ? previo.n + n : n;
+  // Los lotes movidos se acumulan con el contador: «Deshacer» devuelve todos los del aviso (10/11/2026)
+  const lotes = [...(sigue ? previo.lotes : []), ...(lote ? [lote] : [])];
+  contadoresAviso.set(key, { n: total, desde: sigue ? previo.desde : ahora, lotes });
   const destino = getFolderDisplayName(dest);
   const texto =
     action === 'move' ? (total > 1 ? `Enviados a ${destino}: ${total}` : `Movido a ${destino}`)
       : action === 'delete' ? (total > 1 ? `Eliminados: ${total}` : 'Eliminado')
       : action === 'archive' ? (total > 1 ? `Archivados: ${total}` : 'Archivado')
       : 'Hecho';
-  showToast(texto, undefined, { clave: `rapida:${key}` });
+  showToast(texto, accionDeshacer(lotes), { clave: `rapida:${key}` });
 }
 
 function flushQuickAction(key: string, folder: string, action: string, dest: string) {
@@ -78,9 +83,9 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
   if (!batch) return;
   quickBatches.delete(key);
   const uids = batch.uids;
-  api.post(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
-    .then(() => {
-      avisoAcumulado(key, action, dest, uids.length);
+  api.post<RespuestaMover>(`/mail/bulk-action/${encodeURIComponent(folder)}`, { uids, action, dest_folder: dest })
+    .then((r) => {
+      avisoAcumulado(key, action, dest, uids.length, loteDeRespuesta(folder, action === 'archive' ? 'Archive' : dest, r));
       const sel = useMailStore.getState().selectedMessage;
       if (sel && uids.includes(sel.uid)) {
         useMailStore.getState().setSelectedMessage(null);
@@ -911,15 +916,11 @@ export function MessageList() {
       label: 'Mover a...',
       icon: moveIcon,
       onClick: () => {},
-      children: (folders || []).map((folder) => {
-        const folderName = typeof folder === 'string' ? folder : folder.name;
-        return {
-          label: getFolderDisplayName(folderName),
-          icon: moveIcon,
-          disabled: folderName === currentFolder,
-          onClick: () => quickAction(msg.uid, 'move', folderName),
-        };
-      }),
+      // Árbol madre → hijas con buscador: con 60 carpetas la lista plana no cabía ni se entendía (10/11/2026)
+      contenido: (
+        <ArbolMoverCarpetas carpetas={folders || []} carpetaActual={currentFolder}
+          onElegir={(nombre) => { quickAction(msg.uid, 'move', nombre); setCtxMenu(null); }} />
+      ),
     },
     { label: '', icon: '', onClick: () => {}, divider: true },
     (currentFolder === 'Junk' || currentFolder === 'Spam')

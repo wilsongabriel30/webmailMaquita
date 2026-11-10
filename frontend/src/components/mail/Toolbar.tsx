@@ -24,6 +24,7 @@ import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp } from '../../lib/marca';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
+import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 
 
 function escapeHtml(str: string): string {
@@ -992,11 +993,11 @@ export function Toolbar() {
                       <ToolbarButton icon={ICONS.move} label="Mover" hasDropdown disabled={noSel}
                         onClick={() => { closeAllDropdowns(); setMoveOpen(!moveOpen); }} />
                       <Dropdown open={moveOpen} onClose={() => setMoveOpen(false)}>
-                        {(folders || []).map((f: Folder | string) => (
-                          <DropdownItem key={typeof f === 'string' ? f : f.name}
-                            label={getFolderDisplayName(typeof f === 'string' ? f : f.name)} icon={ICONS.move}
-                            onClick={() => { moveToFolder(typeof f === 'string' ? f : f.name); setMoveOpen(false); }} />
-                        ))}
+                        {/* Árbol madre → hijas con buscador (10/11/2026) */}
+                        {moveOpen && (
+                          <ArbolMoverCarpetas carpetas={folders || []} carpetaActual={currentFolder}
+                            onElegir={(nombre) => { moveToFolder(nombre); setMoveOpen(false); }} />
+                        )}
                       </Dropdown>
                     </div>
                     <div className="relative">

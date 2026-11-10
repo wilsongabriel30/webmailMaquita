@@ -330,7 +330,8 @@ async def move(
             detail="Message not found or destination folder invalid",
         )
     await invalidar_uids(request.app.state.redis, username, folder, body.dest_folder)
-    return {"status": "moved"}
+    movidos = {str(k): v for k, v in (mapa or {}).items()}
+    return {"status": "moved", "movidos": movidos}
 
 
 @router.post("/flags/{folder}/{uid}")
@@ -422,4 +423,6 @@ async def bulk_action(
     await rag_eliminar.tras_accion(
         request.app.state.db_pool, username, folder, body.uids, body.action
     )
-    return {"status": "ok", "count": len(body.uids)}
+    # «Deshacer» del webmail: con el mapa COPYUID devuelve los correos a su carpeta (10/11/2026).
+    movidos = {str(k): v for k, v in (mapa or {}).items()} if ok else {}
+    return {"status": "ok", "count": len(body.uids), "movidos": movidos}
