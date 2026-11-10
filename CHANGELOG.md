@@ -76,6 +76,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- **El correo no cabía en pantallas de 1366×768.** Más de quince personas reclamaron que, a diferencia de Zimbra, el
+  correo con su firma no se veía entero sin desplazarse: la cinta, la cabecera, los adjuntos y el pie se llevaban más de
+  la mitad de la ventana. Con poca altura de ventana (hasta 819 px) la cinta usa iconos más pequeños sin nombre de
+  grupo, el asunto es más pequeño, la fecha va junto a las acciones, «Para» y «Más detalles» comparten línea, los
+  adjuntos y el cuerpo tienen menos margen y el pie de acciones es una fila baja (`estilos/lectura-compacta.css`).
+  La cinta recuerda si la persona la contrajo (`lib/cintaContraida.ts`). En pantallas altas nada cambia.
+- **«Conversaciones agrupadas» parecía no hacer nada.** Al cambiar la vista con un correo ya abierto no se cargaba su
+  hilo (solo al hacer clic en otro correo después), y al recargar volvía a «Mensajes individuales». Ahora el hilo se
+  carga al cambiar la vista (`hooks/useHiloAlCambiarVista.ts`) y la vista elegida se recuerda.
 - **Pestaña «Otros» escondía correos importantes.** Un correo externo dirigido directamente a la persona (su
   dirección en Para) y con adjuntos va siempre a Prioritarios aunque la clasificación automática lo marque bajo
   (`lib/pestanaPrioritarios.ts`). Caso: un acta de finiquito de una contraparte quedó en «Otros» y no aparecía ni

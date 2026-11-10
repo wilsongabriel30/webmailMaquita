@@ -1,0 +1,28 @@
+/* Pantallas bajas (portátiles 1366×768 y la app de escritorio): el correo debe verse con su firma
+   sin desplazarse, como en Zimbra. Quince personas lo reclamaron el 10/11/2026: cabecera, adjuntos,
+   cinta y pie se llevaban más de la mitad de la ventana. Solo actúa con poca altura; en pantallas
+   altas nada cambia. Las reglas llevan !important porque los componentes usan estilos en línea. */
+@media (max-height: 819px) {
+  /* Cinta de opciones: iconos más pequeños y sin el nombre del grupo (≈25 px menos). */
+  .cinta-boton { padding-top: 2px !important; padding-bottom: 2px !important; min-width: 44px !important; }
+  .cinta-boton > svg { width: 22px !important; height: 22px !important; }
+  .cinta-boton-texto { font-size: 11px !important; }
+  .cinta-grupo-etiqueta { display: none !important; }
+  .cinta-separador { height: 40px !important; }
+
+  /* Cabecera del correo: asunto más pequeño, fecha junto a las acciones, «Para» y «Más detalles» en una línea. */
+  .lectura-cabecera { padding-top: 8px !important; padding-left: 20px !important; padding-right: 20px !important; }
+  .lectura-asunto { font-size: 16px !important; margin-bottom: 6px !important; }
+  .lectura-acciones-fecha { flex-direction: row-reverse !important; align-items: center !important; gap: 10px !important; }
+  .lectura-para { display: inline !important; }
+  .lectura-mas-detalles { margin-left: 10px !important; margin-top: 0 !important; }
+  .lectura-separador { margin-top: 8px !important; }
+  .lectura-adjuntos { padding: 6px 20px !important; }
+  .lectura-cuerpo { padding: 10px 20px !important; }
+  .lectura-hilo-cabecera { padding: 8px 20px 6px !important; }
+  .lectura-hilo-cabecera h2 { font-size: 16px !important; margin-bottom: 4px !important; }
+
+  /* Pie de acciones: una sola fila baja. */
+  .barra-acciones-correo { padding: 4px 48px 5px 20px !important; }
+  .barra-acciones-correo button { min-height: 28px !important; padding: 3px 8px !important; font-size: 13px !important; }
+}

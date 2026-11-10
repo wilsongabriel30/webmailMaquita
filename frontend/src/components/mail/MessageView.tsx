@@ -1053,7 +1053,7 @@ const MessageView: React.FC = () => {
         )}
 
         {/* Thread header */}
-        <div style={{ padding: '16px 20px 12px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
+        <div className="lectura-hilo-cabecera" style={{ padding: '16px 20px 12px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
           <h2 style={{ fontSize: 20, fontWeight: 600, margin: '0 0 6px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
             <BotonCerrarCorreo />
             <span style={{ flex: 1, minWidth: 0 }}>{subject}</span>
@@ -1226,8 +1226,8 @@ const MessageView: React.FC = () => {
       )}
 
       {/* Header */}
-      <div style={{ padding: cabecera.plegada ? '8px 24px 8px' : '14px 24px 0', flexShrink: 0, borderBottom: cabecera.plegada ? '1px solid #edebe9' : 'none', transition: 'padding 120ms' }}>
-        <h2 style={{ fontSize: cabecera.plegada ? 15 : 20, fontWeight: 600, margin: cabecera.plegada ? 0 : '0 0 12px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
+      <div className="lectura-cabecera" style={{ padding: cabecera.plegada ? '8px 24px 8px' : '14px 24px 0', flexShrink: 0, borderBottom: cabecera.plegada ? '1px solid #edebe9' : 'none', transition: 'padding 120ms' }}>
+        <h2 className={cabecera.plegada ? undefined : 'lectura-asunto'} style={{ fontSize: cabecera.plegada ? 15 : 20, fontWeight: 600, margin: cabecera.plegada ? 0 : '0 0 12px', color: '#323130', lineHeight: 1.3, display: 'flex', alignItems: 'center', gap: 8 }}>
           <BotonCerrarCorreo />
           <span style={cabecera.plegada ? { flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' } : { flex: 1, minWidth: 0 }} title={msg.subject}>
           {msg.subject}
@@ -1269,7 +1269,7 @@ const MessageView: React.FC = () => {
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
               <AddToContactBtn name={senderName} email={senderEmail} />
               {/* Como Outlook (07/11/2026): acciones rápidas arriba a la derecha y la fecha debajo */}
-              <span style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+              <span className="lectura-acciones-fecha" style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <AccionesRapidasCorreo folder={msg.folder || currentFolder} uid={msg.uid} from={msg.from || ''}
                   seen={msg.seen} flagged={msg.flagged} enVentana={window.location.pathname.endsWith('/mensaje')}
                   onResponder={handleReply} onResponderTodos={handleReplyAll} onReenviar={handleForward}
@@ -1280,11 +1280,12 @@ const MessageView: React.FC = () => {
                 </span>
               </span>
             </div>
-            <div style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
+            <div className="lectura-para" style={{ fontSize: 12, color: '#605e5c', marginTop: 2 }}>
               Para: <EmailsWithContacts raw={msg.to} />
             </div>
 
             <button
+              className="lectura-mas-detalles"
               onClick={() => setShowDetails((v) => !v)}
               style={{
                 background: 'none', border: 'none', padding: 0, marginTop: 4,
@@ -1360,12 +1361,12 @@ const MessageView: React.FC = () => {
           markingSpam={markingSpam}
         />
 
-        <div style={{ borderBottom: '1px solid #edebe9', marginTop: 16 }} />
+        <div className="lectura-separador" style={{ borderBottom: '1px solid #edebe9', marginTop: 16 }} />
       </div>
 
       {/* Attachments (dos filas como mucho; «Ver los N adjuntos» despliega el resto) */}
       {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
-        <div style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
+        <div className="lectura-adjuntos" style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
           <ListaAdjuntos folder={msg.folder} uid={msg.uid} attachments={msg.attachments}
             onAbrir={i => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)} />
         </div>
@@ -1378,7 +1379,7 @@ const MessageView: React.FC = () => {
             <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
           </div>
         )}
-        <div style={{ padding: '16px 24px' }}>
+        <div className="lectura-cuerpo" style={{ padding: '16px 24px' }}>
           {displayMsg!.html_body ? (
             <SafeEmailViewer
               htmlBody={displayMsg!.html_body}

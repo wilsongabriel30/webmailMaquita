@@ -174,7 +174,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   filter: 'all',
   etiquetaFiltro: null,
   filterChanging: false,
-  viewMode: "messages",
+  // La vista (mensajes o conversaciones) se recuerda entre cargas (10/11/2026).
+  viewMode: (() => { try { return localStorage.getItem('maquita_vista') === 'conversations' ? 'conversations' : 'messages'; } catch { return 'messages'; } })(),
   readingPane: 'right',
   pageSize: 50,
   blockRemoteImages: false,
@@ -245,7 +246,7 @@ export const useMailStore = create<MailState>((set, get) => ({
     loadingMessages: !!e,
   }),
   setFilter: (f) => { if (f === get().filter) return; set({ filter: f, currentPage: 1, filterChanging: true }); },
-  setViewMode: (m) => set({ viewMode: m }),
+  setViewMode: (m) => { try { localStorage.setItem('maquita_vista', m); } catch { /* ignore */ } set({ viewMode: m }); },
   toggleSelection: (uid) => {
     const s = new Set(get().selectedUids);
     if (s.has(uid)) s.delete(uid); else s.add(uid);
