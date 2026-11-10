@@ -7,8 +7,10 @@
  *   al adjuntar, con aviso. El servidor aplica la misma lista al guardar y al enviar.
  */
 import type { AttachmentInfo } from '../types';
+import type { OrigenCorreoAdjunto } from './origenCorreoAdjunto';
 
-export interface ArchivoAdjunto { name: string; size: number; type: string; file?: File; }
+/** `correo`: solo en los adjuntos .eml que salieron de un correo del buzón (lib/origenCorreoAdjunto.ts). */
+export interface ArchivoAdjunto { name: string; size: number; type: string; file?: File; correo?: OrigenCorreoAdjunto; }
 
 export const EXTENSIONES_PELIGROSAS = new Set([
   'exe', 'dll', 'com', 'scr', 'pif', 'msi', 'msp', 'cpl', 'sys', 'drv',

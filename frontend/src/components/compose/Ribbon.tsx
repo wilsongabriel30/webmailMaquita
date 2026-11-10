@@ -6,6 +6,9 @@ import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
 import { GrupoParrafo } from './GrupoParrafo';
 import { GrupoAsistenteIA } from './asistente-redaccion';
+import { LargeBtn, MedBtn } from './BotonesCinta';
+import { MenuInsertar } from './MenuInsertar';
+import { EVENTO_ADJUNTAR_CORREO } from '../../lib/correosComoAdjunto';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
 
@@ -79,8 +82,8 @@ export function Ribbon({ editor, onAttach, onAttachCloud, onShowCc, onShowBcc, s
         </div>
       ) : (
         <div className="flex items-stretch border-b border-[#edebe9] bg-[#f8f8f8] " style={{ height: '84px', overflow: 'visible' }}>
-          {tab === 'message' && <MessageTab editor={editor} onAttach={onAttach} onImportanceChange={onImportanceChange} importance={importance} onSaveDraft={onSaveDraft} onInsertSignature={onInsertSignature} onDownloadDraft={onDownloadDraft} onDictate={onDictate} onOpenApps={onOpenApps} onReviewEditor={onReviewEditor} onCheckAccessibility={onCheckAccessibility} onImproveWriting={onImproveWriting} />}
-          {tab === 'insert' && <InsertTab editor={editor} onAttach={onAttach} onAttachCloud={onAttachCloud} onInsertSignature={onInsertSignature} onOpenApps={onOpenApps} />}
+          {tab === 'message' && <MessageTab editor={editor} onImportanceChange={onImportanceChange} importance={importance} onSaveDraft={onSaveDraft} onInsertSignature={onInsertSignature} onDownloadDraft={onDownloadDraft} onDictate={onDictate} onOpenApps={onOpenApps} onReviewEditor={onReviewEditor} onCheckAccessibility={onCheckAccessibility} onImproveWriting={onImproveWriting} />}
+          {tab === 'insert' && <InsertTab editor={editor} onAttachCloud={onAttachCloud} onInsertSignature={onInsertSignature} onOpenApps={onOpenApps} />}
           {tab === 'format' && <FormatTab editor={editor} onFormatPaint={onFormatPaint} />}
           {tab === 'options' && <OptionsTab editor={editor} onShowCc={onShowCc} onShowBcc={onShowBcc} showCc={showCc} showBcc={showBcc} onImportanceChange={onImportanceChange} importance={importance} onSaveDraft={onSaveDraft} onDownloadDraft={onDownloadDraft} onScheduleSend={onScheduleSend} onReviewEditor={onReviewEditor} onCheckAccessibility={onCheckAccessibility} onTrackingChange={onTrackingChange} />}
         </div>
@@ -442,7 +445,7 @@ function SignatureMenu({ onSelect, size }: { onSelect?: (html?: string) => void;
   );
 }
 
-function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDraft, onInsertSignature, onDownloadDraft, onDictate, onOpenApps, ...rest }: {
+function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onInsertSignature, onDownloadDraft, onDictate, onOpenApps, ...rest }: {
   editor: Editor; onAttach?: () => void;
   onImportanceChange?: (v: 'normal' | 'high' | 'low') => void; importance?: string;
   onSaveDraft?: () => void; onInsertSignature?: (html?: string) => void; onDownloadDraft?: () => void;
@@ -519,7 +522,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
       <RGroup label="Insertar">
         <div className="flex flex-col gap-[1px] py-[2px]">
           <div className="flex items-center gap-[2px]">
-            <MedBtn icon={<SvgI d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" s={16} />} label="Adjuntar" onClick={() => onAttach?.()} hasDropdown />
+            <MenuInsertar size="med" />
             <MedBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={16} />} label="Vincular" onClick={() => doLink(editor)} />
             <SignatureMenu onSelect={onInsertSignature} size="med" />
           </div>
@@ -596,7 +599,7 @@ function MessageTab({ editor, onAttach, onImportanceChange, importance, onSaveDr
 }
 
 /* ========== INSERT TAB ========== */
-function InsertTab({ editor, onAttach, onAttachCloud, onInsertSignature, onOpenApps }: { editor: Editor; onAttach?: () => void; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
+function InsertTab({ editor, onAttachCloud, onInsertSignature, onOpenApps }: { editor: Editor; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
   const tblAnchorRef = useRef<HTMLDivElement>(null);
 
   const [tblAncla, setTblAncla] = useState<HTMLElement | null>(null);
@@ -609,8 +612,9 @@ function InsertTab({ editor, onAttach, onAttachCloud, onInsertSignature, onOpenA
     <>
       <RGroup label="Incluir">
         <div className="flex items-center gap-[3px]">
-          <LargeBtn icon={<SvgI d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" s={22} />} label={"Adjuntar\narchivo"} onClick={() => onAttach?.()} hasDropdown />
+          <MenuInsertar size="large" onImagen={() => imgRef.current?.click()} onEnlace={() => doLink(editor)} />
           <LargeBtn icon={<SvgI d="M7 16a4 4 0 01-.88-7.9A5 5 0 0115.9 6.1 4.5 4.5 0 0117 15h-1m-4-1v6m0-6l-2 2m2-2l2 2" s={22} />} label={"Desde la\nNube"} onClick={() => onAttachCloud?.()} />
+          <LargeBtn icon={<SvgI d="M3 8l9 6 9-6M4 6h16a1 1 0 011 1v10a1 1 0 01-1 1H4a1 1 0 01-1-1V7a1 1 0 011-1z" s={22} />} label={"Correo\nadjunto"} onClick={() => window.dispatchEvent(new CustomEvent(EVENTO_ADJUNTAR_CORREO))} />
           <LargeBtn icon={<SvgI d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" s={22} />} label="Vincular" onClick={() => doLink(editor)} />
           <SignatureMenu onSelect={onInsertSignature} size="large" />
           <LargeBtn icon={<SvgI d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" s={22} />} label="Imágenes" onClick={() => imgRef.current?.click()} />
@@ -866,35 +870,6 @@ function RGroup({ label, children }: { label: string; children: ReactNode }) {
 }
 function GSep() { return <div className="w-px bg-[#e1dfdd] my-[6px] shrink-0" />; }
 function CSep() { return <div className="w-px h-[20px] bg-[#e1dfdd] mx-[3px] shrink-0" />; }
-
-function LargeBtn({ icon, label, onClick, disabled, active, hasDropdown }: {
-  icon: ReactNode; label: string; onClick: () => void; disabled?: boolean; active?: boolean; hasDropdown?: boolean;
-}) {
-  const lines = label.split('\n');
-  return (
-    <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} disabled={disabled} title={lines.join(' ')}
-      className={`flex flex-col items-center justify-center min-w-[44px] px-[4px] rounded-[3px] transition-colors h-[62px] ${
-        active ? 'bg-[#c7e0f4]' : disabled ? 'opacity-40 cursor-not-allowed' : 'hover:bg-[#e1dfdd]'
-      }`}>
-      <div className="h-[24px] flex items-center justify-center">{icon}</div>
-      <div className="flex items-center gap-[1px] mt-[1px]">
-        <span className="text-[12px] leading-[14px] text-[#323130] text-center whitespace-pre-line">{lines.join('\n')}</span>
-        {hasDropdown && <svg className="w-[8px] h-[8px] text-[#605e5c] shrink-0 ml-[1px]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>}
-      </div>
-    </button>
-  );
-}
-
-function MedBtn({ icon, label, onClick, hasDropdown }: { icon: ReactNode; label: string; onClick: () => void; hasDropdown?: boolean; }) {
-  return (
-    <button onMouseDown={(e) => e.preventDefault()} onClick={onClick} title={label}
-      className="flex items-center gap-[3px] h-[24px] px-[4px] rounded-[2px] hover:bg-[#e1dfdd] transition-colors">
-      {icon}
-      <span className="text-[12px] text-[#323130] whitespace-nowrap">{label}</span>
-      {hasDropdown && <svg className="w-[7px] h-[7px] text-[#605e5c]" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" /></svg>}
-    </button>
-  );
-}
 
 function SmBtn({ a, o, t, icon, children }: { a?: boolean; o: () => void; t: string; icon: ReactNode; children?: ReactNode }) {
   if (children) {

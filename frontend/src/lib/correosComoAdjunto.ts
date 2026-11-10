@@ -10,10 +10,15 @@
 import type { ArchivoAdjunto } from './adjuntosBorrador';
 import type { MessageSummary } from '../types';
 import { useMailStore } from '../store/mailStore';
+import { TIPO_EML } from './origenCorreoAdjunto';
 
-export interface CorreoAAdjuntar { folder: string; uid: number; subject: string }
+export { TIPO_EML };
 
-export const TIPO_EML = 'message/rfc822';
+/** Evento de ventana que abre el selector «Correo como adjunto» en el redactor activo. */
+export const EVENTO_ADJUNTAR_CORREO = 'compose-attach-mail';
+
+export interface CorreoAAdjuntar { folder: string; uid: number; subject: string; from?: string; date?: string | null }
+
 /** Tipo que pone la lista al arrastrar correos (MessageList.tsx, `alArrastrar`). */
 export const TIPO_ARRASTRE_CORREOS = 'application/x-mail-meta';
 /** Icono de clip (ruta SVG) para los menús. */
@@ -34,7 +39,8 @@ export async function descargarCorreoComoEml(c: CorreoAAdjuntar): Promise<Archiv
     const blob = await res.blob();
     if (!blob.size) return null;
     const file = new File([blob], nombreArchivoEml(c.subject), { type: TIPO_EML });
-    return { name: file.name, size: file.size, type: file.type, file };
+    // El origen viaja con el adjunto: permite mostrar el asunto y abrir el correo antes de enviar.
+    return { name: file.name, size: file.size, type: file.type, file, correo: { folder: c.folder, uid: c.uid, subject: c.subject, from: c.from, date: c.date } };
   } catch {
     return null;
   }
@@ -69,7 +75,7 @@ export function correosDeSeleccion(msg: MessageSummary | null, uids: number[], c
   return elegidos
     .map(u => (msg && u === msg.uid ? msg : lista.find(m => m.uid === u)))
     .filter((m): m is MessageSummary => !!m)
-    .map(m => ({ folder: m.folder || carpeta, uid: m.uid, subject: m.subject || '' }));
+    .map(m => ({ folder: m.folder || carpeta, uid: m.uid, subject: m.subject || '', from: m.from, date: m.date }));
 }
 
 /** Correos que vienen en un arrastre desde la lista, o [] si lo arrastrado no son correos. */
@@ -77,13 +83,13 @@ export function correosArrastrados(dt: DataTransfer): CorreoAAdjuntar[] {
   if (!Array.from(dt.types).includes(TIPO_ARRASTRE_CORREOS)) return [];
   try {
     const meta = JSON.parse(dt.getData(TIPO_ARRASTRE_CORREOS)) as {
-      correos?: { uid: number; folder: string; subject?: string }[];
-      uid?: number; folder?: string; subject?: string;
+      correos?: { uid: number; folder: string; subject?: string; from?: string; date?: string }[];
+      uid?: number; folder?: string; subject?: string; from?: string; date?: string;
     };
     const lista = meta.correos?.length
       ? meta.correos
-      : (meta.uid && meta.folder ? [{ uid: meta.uid, folder: meta.folder, subject: meta.subject || '' }] : []);
-    return lista.map(c => ({ folder: c.folder, uid: c.uid, subject: c.subject || '' }));
+      : (meta.uid && meta.folder ? [{ uid: meta.uid, folder: meta.folder, subject: meta.subject || '', from: meta.from, date: meta.date }] : []);
+    return lista.map(c => ({ folder: c.folder, uid: c.uid, subject: c.subject || '', from: c.from, date: c.date }));
   } catch {
     return [];
   }
