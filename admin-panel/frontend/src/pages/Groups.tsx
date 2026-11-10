@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { RemitentesLista } from "../components/RemitentesLista";
 
 interface Group { id: number; address: string; name: string; description: string; domain: string; active: boolean; allow_external: boolean; allowed_senders: string; member_count: number; external_count?: number; nested_group_count?: number }
 interface Member { id: number; member_email: string; member_name: string; can_send: boolean; receive: boolean; member_type?: "internal" | "external" | "group" }
@@ -458,6 +459,17 @@ export function Groups() {
                 </div>
               ))}
 
+              {/* Quién puede enviar (allowed_senders): lo que aplica Postfix */}
+              <RemitentesLista
+                grupoId={groupDetail.id}
+                direccion={groupDetail.address}
+                autorizados={groupDetail.allowed_senders || ""}
+                onGuardado={(texto) => {
+                  setGroupDetail({ ...groupDetail, allowed_senders: texto });
+                  setGroups((gs) => gs.map((x) => (x.id === groupDetail.id ? { ...x, allowed_senders: texto } : x)));
+                }}
+              />
+
               {/* Add member */}
               <div className="bg-white rounded border border-ms-gray-30 p-4">
                 <h3 className="text-sm font-semibold text-ms-gray-130 mb-3">Agregar miembro</h3>
@@ -571,7 +583,7 @@ export function Groups() {
                         </td>
                         <td className="px-4 py-2 text-center">
                           <button onClick={() => togglePerm(m.id, "can_send", !m.can_send)}
-                            title={m.can_send ? "Este miembro puede enviar correos al grupo. Clic para QUITARLE el permiso de envío; el cambio es inmediato." : "Este miembro NO puede enviar correos al grupo. Clic para PERMITIRLE enviar; el cambio es inmediato."}
+                            title="Marca informativa del miembro. El permiso real de envío se da arriba, en «Quién puede enviar a esta lista»."
                             className={`px-2 py-0.5 rounded text-[10px] font-medium ${m.can_send ? "bg-green-50 text-ms-green" : "bg-red-50 text-ms-red"}`}>
                             {m.can_send ? "Sí" : "No"}
                           </button>

@@ -3,6 +3,7 @@ from asyncio.subprocess import PIPE
 from fastapi import APIRouter, Request, HTTPException, Depends, Query
 from app.auth.dependencies import get_current_admin, require_role
 from app.wrappers.doveadm import generate_password_hash, verify_password, get_quota, get_mailbox_status
+from app.mailboxes.contrasena_aplicada import activar_y_desbloquear, comprobar_aplicada  # 09/11/2026
 import json
 import re
 from email.message import EmailMessage
@@ -138,8 +139,16 @@ async def update_mailbox(username: str, request: Request, admin: dict = Depends(
         data.get("quota", cur["quota"]), data.get("active", cur["active"]),
         data.get("phone", cur["phone"]), data.get("email_other", cur["email_other"]))
 
-    if pw_changed and not await verify_password(username, data["password"]):
-        raise HTTPException(500, "La contraseña no se aplicó correctamente. Intente nuevamente.")
+    if pw_changed:
+        # 09/11/2026: cambiar la contraseña activa la cuenta y quita el bloqueo por intentos fallidos
+        # (salvo que en esta misma petición se pida dejarla inactiva).
+        if data.get("active", True):
+            estado = await activar_y_desbloquear(db, username)
+            data = {**data, "activada": estado["activada"], "desbloqueada": estado["desbloqueada"]}
+        try:
+            await comprobar_aplicada(db, username, data["password"])
+        except RuntimeError as e:
+            raise HTTPException(500, str(e))
     await _audit(request, admin, "mailbox_update", username, {k: v for k, v in data.items() if k != "password"})
     return dict(row)
 
@@ -215,8 +224,11 @@ async def cambiar_titular(
         username, new_name, pw_hash, new_phone or cur["phone"]
     )
     # GARANTIA anti-desincronizacion: confirmar que la nueva contrasena autentica
-    if not await verify_password(username, new_password):
-        raise HTTPException(500, "La contraseña no se aplicó correctamente. Intente nuevamente.")
+    await activar_y_desbloquear(db, username)  # 09/11/2026: nuevo titular = cuenta activa y sin bloqueo
+    try:
+        await comprobar_aplicada(db, username, new_password)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
 
     # 3. Update signature if has template assigned
     sig_updated = False

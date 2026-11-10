@@ -12,7 +12,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.auth.dependencies import get_current_admin, require_role
 from app.password_audit import service
-from app.wrappers.doveadm import generate_password_hash, verify_password
+from app.wrappers.doveadm import generate_password_hash
+from app.mailboxes.contrasena_aplicada import activar_y_desbloquear, comprobar_aplicada  # 09/11/2026
 
 router = APIRouter(prefix="/api/admin", tags=["password-audit"])
 
@@ -68,10 +69,11 @@ async def password_audit_reset(
         username,
         pw_hash,
     )
-    if not await verify_password(username, temp):
-        raise HTTPException(
-            500, "La clave temporal no se aplicó correctamente. Intente nuevamente."
-        )
+    await activar_y_desbloquear(db, username)
+    try:
+        await comprobar_aplicada(db, username, temp)
+    except RuntimeError as e:
+        raise HTTPException(500, str(e))
     await _audit(
         request, admin, "password_reset_temp", username, {"origen": "password-audit"}
     )
