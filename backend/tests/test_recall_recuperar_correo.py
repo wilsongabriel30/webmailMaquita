@@ -40,7 +40,7 @@ class _Db:
 
     async def execute(self, sql, *args):
         if self.fallar:
-            raise RuntimeError("column \"username\" does not exist")
+            raise RuntimeError('column "username" does not exist')
         self.inserciones.append((sql, args))
 
 
@@ -66,7 +66,13 @@ class _Imap:
 
     async def uid_search(self, *criterios):
         self.ordenes.append(("search",) + criterios)
-        return _Resp(lines=[b"77", b"SEARCH completed."] if self.en_enviados else [b"", b"SEARCH completed."])
+        return _Resp(
+            lines=(
+                [b"77", b"SEARCH completed."]
+                if self.en_enviados
+                else [b"", b"SEARCH completed."]
+            )
+        )
 
     async def uid(self, orden, *args):
         self.ordenes.append((orden,) + args)
@@ -85,17 +91,25 @@ def entorno(monkeypatch):
     """Simula doveadm y la sesión IMAP del remitente; devuelve los dobles para inspeccionar."""
     redis, db, imap = _Redis(), _Db(), _Imap()
     monkeypatch.setattr(
-        recall.subprocess, "run",
+        recall.subprocess,
+        "run",
         lambda *a, **k: SimpleNamespace(returncode=0, stdout="guid 12\n"),
     )
     monkeypatch.setattr(recall, "_doveadm_search", lambda dest, mid: [("guid", "12")])
     monkeypatch.setattr(
-        recall, "_doveadm_fetch_info",
-        lambda dest, mid: {"folders": ["Archive"], "flags": "\\Seen", "was_read": True, "subject": "Hola"},
+        recall,
+        "_doveadm_fetch_info",
+        lambda dest, mid: {
+            "folders": ["Archive"],
+            "flags": "\\Seen",
+            "was_read": True,
+            "subject": "Hola",
+        },
     )
     expunges: list[tuple] = []
     monkeypatch.setattr(
-        recall, "_doveadm_expunge",
+        recall,
+        "_doveadm_expunge",
         lambda dest, mid, carpetas=None: expunges.append((dest, carpetas)) or True,
     )
 
@@ -116,7 +130,9 @@ def entorno(monkeypatch):
 
 
 async def _recuperar(entorno, destinatarios, db=None):
-    body = recall.RecallRequest(message_id="<abc@example.org>", recipients=destinatarios)
+    body = recall.RecallRequest(
+        message_id="<abc@example.org>", recipients=destinatarios
+    )
     return await recall.recall_message(
         _peticion(entorno.redis, db or entorno.db), body, username="test@example.org"
     )
@@ -151,7 +167,9 @@ async def test_recuperado_aunque_ya_lo_haya_leido(entorno):
 async def test_auditoria_con_columnas_reales(entorno):
     await _recuperar(entorno, ["tecnologia@example.org"])
     sql, args = entorno.db.inserciones[0]
-    assert "INSERT INTO audit_log (admin_user, action, target, details, ip_address)" in sql
+    assert (
+        "INSERT INTO audit_log (admin_user, action, target, details, ip_address)" in sql
+    )
     assert "username" not in sql
     assert args[0] == "test@example.org"
     assert args[1] == rc.ACCION_AUDITORIA
@@ -212,7 +230,10 @@ def test_decision_de_mover():
     assert rc.decidir_mover_a_borradores([{"status": "not_found"}]) is False
     assert rc.decidir_mover_a_borradores([ok, {"status": "error"}]) is False
     assert rc.decidir_mover_a_borradores([ok, {"status": "external"}]) is False
-    assert rc.decidir_mover_a_borradores([ok, {"status": "external_request_sent"}]) is False
+    assert (
+        rc.decidir_mover_a_borradores([ok, {"status": "external_request_sent"}])
+        is False
+    )
     assert rc.decidir_mover_a_borradores([]) is False
 
 
@@ -230,7 +251,8 @@ async def test_mover_a_borradores_si_no_esta_en_enviados():
 
 def test_fetch_info_lee_carpetas_y_lectura(monkeypatch):
     monkeypatch.setattr(
-        recall.subprocess, "run",
+        recall.subprocess,
+        "run",
         lambda *a, **k: SimpleNamespace(
             returncode=0,
             stdout="mailbox: INBOX\nuid: 5\nhdr.subject: Hola\nflags: \\Seen \\Recent\n",
@@ -242,8 +264,12 @@ def test_fetch_info_lee_carpetas_y_lectura(monkeypatch):
 
 
 async def test_check_previo_no_presenta_la_lectura_como_impedimento(entorno):
-    body = recall.RecallRequest(message_id="<abc@example.org>", recipients=["tecnologia@example.org"])
-    salida = await recall.check_recallable(_peticion(entorno.redis, entorno.db), body, username="test@example.org")
+    body = recall.RecallRequest(
+        message_id="<abc@example.org>", recipients=["tecnologia@example.org"]
+    )
+    salida = await recall.check_recallable(
+        _peticion(entorno.redis, entorno.db), body, username="test@example.org"
+    )
     c = salida["checks"][0]
     assert c["can_recall"] is True
     assert c["reason"] == "Recuperable (ya lo leyó)"

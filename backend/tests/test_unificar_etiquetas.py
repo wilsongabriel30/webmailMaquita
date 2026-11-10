@@ -5,7 +5,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from scripts.unificar_etiquetas_dominio_doble import Plan, planificar_fusion  # noqa: E402
+from scripts.unificar_etiquetas_dominio_doble import (  # noqa: E402
+    Plan,
+    planificar_fusion,
+)
 
 
 def et(id_, name, color="#000"):
@@ -20,7 +23,8 @@ def test_fusion_por_nombre_y_creacion_de_las_que_faltan():
     plan = planificar_fusion(
         [et(1, "Trabajo"), et(2, "  proyecto X "), et(3, "Zimbra")],
         [et(10, "trabajo"), et(11, "Proyecto x")],
-        [], [],
+        [],
+        [],
     )
     assert plan.mapa_etiqueta == {1: 10, 2: 11}
     assert plan.etiquetas_crear == [("Zimbra", "#000", 3)]
@@ -53,11 +57,20 @@ def test_uids_resueltos_por_message_id_y_pendientes_conservan_la_etiqueta():
     assert plan.asignaciones_borrar == [100]
     assert [a["id"] for a in plan.asignaciones_sin_resolver] == [101]
     assert plan.etiquetas_borrar == [1]
-    assert plan.etiquetas_conservadas == [2]  # borrarla arrastraría la asignación pendiente (CASCADE)
+    assert plan.etiquetas_conservadas == [
+        2
+    ]  # borrarla arrastraría la asignación pendiente (CASCADE)
 
 
 def test_trasladar_sin_resolver_copia_el_uid_tal_cual():
-    plan = planificar_fusion([et(2, "B")], [], [asg(101, "INBOX", 9, 2)], [], mapa_uid={("INBOX", 9): None}, trasladar_sin_resolver=True)
+    plan = planificar_fusion(
+        [et(2, "B")],
+        [],
+        [asg(101, "INBOX", 9, 2)],
+        [],
+        mapa_uid={("INBOX", 9): None},
+        trasladar_sin_resolver=True,
+    )
     assert plan.asignaciones_insertar == [("INBOX", 9, 2)]
     assert plan.asignaciones_sin_resolver == [] and plan.etiquetas_borrar == [2]
 
