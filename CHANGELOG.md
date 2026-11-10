@@ -8,6 +8,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- Reglas de correo: casilla «Aplicar también a los correos que ya están en la Bandeja de entrada» al crear o editar
+  una regla, y botón «Aplicar ahora» en Ajustes › Reglas de correo. El servidor busca por IMAP los correos que cumplen
+  la regla (misma semántica que Sieve) y los mueve, copia o marca; «eliminar» los manda a la Papelera y el reenvío
+  no se aplica hacia atrás (`POST /api/sieve/filters/aplicar`).
 - **Reglas de correo avanzadas y «Crear regla con este correo…».** Clic derecho en un correo (o Reglas → Crear
   regla en la barra) abre una ventana con el remitente y el asunto ya cargados. Una regla admite varias condiciones
   («todas» o «alguna»), negaciones, cuerpo del mensaje, tamaño, cualquier encabezado, expresiones regulares y «Para o
@@ -72,6 +76,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- Notificaciones del navegador: el permiso se pedía al cargar la página y al llegar correo, fuera de un gesto de la
+  persona; Firefox lo rechazaba con un error en consola y Safari lo ignoraba. Ahora se pide en el primer clic o tecla
+  (`lib/notificacionSegura.ts`).
+- Reglas de correo: las sesiones abiertas con el usuario maestro (panel de administración, SSO) no podían leer ni
+  guardar reglas (ManageSieve rechazaba la autenticación, error 424). Ahora se autentica con el mismo nombre que IMAP.
 - Los desplegables de la barra superior se limitan al alto de la pantalla y se desplazan (antes el de «Mover» se
   cortaba con muchas carpetas). El menú contextual ya no se recorta a sí mismo cuando un submenú es más alto que él.
 - **Recuperar correo: el destinatario lo seguía viendo hasta 5 minutos** (incidente 09/11/2026). Tras cada

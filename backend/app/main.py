@@ -123,6 +123,7 @@ from app.settings.routers.preferences import router as settings_router
 from app.settings_mi_equipo import router as mi_equipo_router
 from app.settings_mi_equipo_ubicacion import router as mi_equipo_ubicacion_router
 from app.sieve.router import router as sieve_router
+from app.sieve.router_aplicar import router as sieve_aplicar_router
 from app.smime.router import router as smime_router
 from app.sso.router import router as sso_router
 from app.tareas.modelos import asegurar_tablas as asegurar_tablas_tareas
@@ -307,6 +308,7 @@ _SECURITY_EVENTS = {
     ("/api/identities", 201): "identity_created",
     ("/api/mail/compose", 200): "email_sent",
     ("/api/sieve/filters", 201): "sieve_filter_created",
+    ("/api/sieve/filters/aplicar", 200): "sieve_filter_applied",
     ("/api/sieve/vacation", 200): "vacation_changed",
 }
 
@@ -705,6 +707,7 @@ app.include_router(settings_router)
 app.include_router(autodiscover_router)
 app.include_router(contacts_router)
 app.include_router(sieve_router)
+app.include_router(sieve_aplicar_router)
 app.include_router(confianza_router)  # remitentes de confianza
 app.include_router(bloqueados_router)  # remitentes bloqueados (05/11/2026)
 app.include_router(busqueda_capacidades_router)  # ¿hay índice de texto?

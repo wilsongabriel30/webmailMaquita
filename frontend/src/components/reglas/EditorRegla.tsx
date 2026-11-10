@@ -105,7 +105,8 @@ export function EditorRegla({ regla, onCambio }: { regla: Regla; onCambio: (r: R
         </label>
       </div>
       <p className="text-xs text-[#605e5c]">
-        Las reglas se aplican a los correos que lleguen de ahora en adelante, en el orden en que aparecen en Ajustes › Reglas de correo.
+        Las reglas se aplican a los correos que lleguen de ahora en adelante, en el orden en que aparecen en Ajustes › Reglas de correo;
+        con la casilla de abajo también a los que ya están en la Bandeja de entrada.
         «Coincide con el patrón» admite * y ?; la expresión regular sigue la sintaxis POSIX extendida.
       </p>
     </div>

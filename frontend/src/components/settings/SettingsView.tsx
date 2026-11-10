@@ -13,6 +13,7 @@ import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
 import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
 import { resumenRegla } from '../../lib/reglas/resumenRegla';
+import { BotonAplicarRegla } from '../reglas/BotonAplicarRegla';
 import { ETIQUETA_ACCION, normalizarRegla, reglaVacia, type Regla } from '../../lib/reglas/tipos';
 import { showToast } from '../common/Toast';
 import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché cifrado en el equipo
@@ -387,6 +388,7 @@ export function SettingsView() {
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
+                          {f.enabled && <BotonAplicarRegla regla={f} />}
                           <button onClick={() => abrirModalRegla({ regla: f, indice: i, alGuardar: fetchFilters })}
                             className="text-[13px] text-[#0078d4] hover:bg-[#deecf9] px-2 py-1 rounded" title="Editar">
                             Editar

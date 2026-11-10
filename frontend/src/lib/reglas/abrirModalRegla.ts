@@ -9,6 +9,8 @@ export interface PeticionModalRegla {
   indice?: number;
   /** Se llama tras guardar correctamente. */
   alGuardar?: (regla: Regla) => void;
+  /** Casilla «Aplicar también a los correos que ya están en la Bandeja de entrada» marcada de entrada. */
+  aplicarAnteriores?: boolean;
 }
 
 export const EVENTO_MODAL_REGLA = 'abrir-modal-regla';

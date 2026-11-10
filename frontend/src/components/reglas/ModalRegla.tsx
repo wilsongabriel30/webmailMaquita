@@ -5,6 +5,7 @@ import { showToast } from '../common/Toast';
 import { EVENTO_MODAL_REGLA, type PeticionModalRegla } from '../../lib/reglas/abrirModalRegla';
 import { cuerpoParaGuardar, faltaEnRegla, type Regla } from '../../lib/reglas/tipos';
 import { EditorRegla } from './EditorRegla';
+import { aplicarConAviso } from '../../lib/reglas/aplicarConAviso';
 
 /* Ventana «Regla de correo»: crea o edita una regla y la guarda en el servidor.
    ModalReglaHost se monta una vez en la aplicación y abre la ventana cuando alguien llama a abrirModalRegla(). */
@@ -18,6 +19,7 @@ export function ModalRegla({ peticion, onCerrar }: { peticion: PeticionModalRegl
   const [regla, setRegla] = useState<Regla>(peticion.regla);
   const [guardando, setGuardando] = useState(false);
   const [error, setError] = useState('');
+  const [aplicarAnteriores, setAplicarAnteriores] = useState(peticion.aplicarAnteriores ?? false);
   const edita = peticion.indice !== undefined;
   const falta = faltaEnRegla(regla);
 
@@ -38,6 +40,8 @@ export function ModalRegla({ peticion, onCerrar }: { peticion: PeticionModalRegl
       showToast(edita ? 'Regla guardada' : `Regla «${regla.name.trim()}» creada: se aplicará a los correos que lleguen desde ahora`);
       peticion.alGuardar?.(guardada);
       onCerrar();
+      // Lo ya recibido se ordena después de cerrar: la regla queda guardada aunque esto tarde o falle.
+      if (aplicarAnteriores && regla.enabled) void aplicarConAviso({ ...regla, name: regla.name.trim() });
     } catch (err) {
       setError(motivoServidor(err) || 'No se pudo guardar la regla. Inténtelo de nuevo.');
     } finally { setGuardando(false); }
@@ -56,6 +60,12 @@ export function ModalRegla({ peticion, onCerrar }: { peticion: PeticionModalRegl
         <div className="px-5 py-4 overflow-y-auto">
           <EditorRegla regla={regla} onCambio={r => { setRegla(r); setError(''); }} />
         </div>
+        <label className="flex items-start gap-2 px-5 py-2 text-sm text-[#323130] border-t border-[#edebe9]">
+          <input type="checkbox" className="mt-0.5" checked={aplicarAnteriores} onChange={e => setAplicarAnteriores(e.target.checked)} />
+          <span>Aplicar también a los correos que ya están en la Bandeja de entrada
+            <span className="block text-xs text-[#605e5c]">Mueve, copia o marca lo recibido antes; el reenvío solo actúa sobre lo que llegue.</span>
+          </span>
+        </label>
         <div className="flex items-center justify-between gap-3 px-5 py-3 border-t border-[#edebe9] bg-white rounded-b-lg">
           <span role="alert" className="text-sm text-[#a4262c] min-h-[1.25rem]">{error}</span>
           <div className="flex gap-2 shrink-0">

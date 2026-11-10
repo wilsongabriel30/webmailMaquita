@@ -56,6 +56,13 @@ def sesion(monkeypatch):
 
     monkeypatch.setattr(sieve_router, "get_user_password", contrasena)
 
+    # Desde el 10/11/2026 ManageSieve se autentica con el mismo nombre que IMAP (usuario*admin si la
+    # sesión es del usuario maestro); aquí la sesión es normal.
+    async def nombre_imap(request, username):
+        return username
+
+    monkeypatch.setattr(sieve_router, "get_imap_login_user", nombre_imap)
+
 
 async def test_autenticacion_rechazada_da_424_y_no_401(monkeypatch, sesion):
     servidor, puerto = await _servidor_falso(acepta=False)

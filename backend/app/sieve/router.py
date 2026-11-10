@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
 
 from app.auth.dependencies import get_current_user
-from app.core.session import get_user_password
+from app.core.session import get_imap_login_user, get_user_password
 from app.security.account_protection import audit_sieve_change, check_forward_policy
 from app.sieve import bloqueados_bloque, zimbra_bloque
 from app.sieve.analizador import parse_filters_from_script, parse_vacation_from_script
@@ -308,8 +308,9 @@ async def get_vacation(
     """Get current vacation auto-reply settings."""
     # username from Depends
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
-    script = await _get_current_script(username, password)
+    script = await _get_current_script(login_user, password)
     vacation = parse_vacation_from_script(script)
     return vacation.model_dump()
 
@@ -323,14 +324,15 @@ async def set_vacation(
     """Set vacation auto-reply (generates sieve script, uploads via ManageSieve)."""
     # username from Depends
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
     # Get existing script to preserve filters
-    current_script = await _get_current_script(username, password)
+    current_script = await _get_current_script(login_user, password)
     existing_filters = parse_filters_from_script(current_script)
 
     # Generate new combined script
     new_script = generate_sieve_script(settings, existing_filters)
-    await _save_script(username, password, new_script, settings, existing_filters)
+    await _save_script(login_user, password, new_script, settings, existing_filters)
 
     return {"status": "updated", "vacation": settings.model_dump()}
 
@@ -343,8 +345,9 @@ async def list_filters(
     """List all mail filter rules."""
     # username from Depends
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
-    script = await _get_current_script(username, password)
+    script = await _get_current_script(login_user, password)
     filters = parse_filters_from_script(script)
     return [FilterRuleOut(index=idx, **f.model_dump()) for idx, f in enumerate(filters)]
 
@@ -358,6 +361,7 @@ async def create_filter(
     """Create a new filter rule."""
     MAX_FILTERS = 50
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
     # ── Protección: forwarding externo requiere aprobación admin ──
     for accion in rule.actions:
@@ -377,7 +381,7 @@ async def create_filter(
                 f"Forward to {accion.value}",
             )
 
-    current_script = await _get_current_script(username, password)
+    current_script = await _get_current_script(login_user, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
 
@@ -389,7 +393,7 @@ async def create_filter(
     filters.append(rule)
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script, vacation, filters)
+    await _save_script(login_user, password, new_script, vacation, filters)
 
     return FilterRuleOut(index=len(filters) - 1, **rule.model_dump())
 
@@ -404,6 +408,7 @@ async def update_filter(
     """Update a filter rule by index."""
     # username from Depends
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
     # ── Protección: forwarding externo requiere aprobación admin ──
     for accion in rule.actions:
@@ -417,7 +422,7 @@ async def update_filter(
             if not fwd_check["allowed"]:
                 raise HTTPException(status_code=403, detail=fwd_check["reason"])
 
-    current_script = await _get_current_script(username, password)
+    current_script = await _get_current_script(login_user, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
 
@@ -430,7 +435,7 @@ async def update_filter(
     filters[index] = rule
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script, vacation, filters)
+    await _save_script(login_user, password, new_script, vacation, filters)
 
     return FilterRuleOut(index=index, **rule.model_dump())
 
@@ -444,8 +449,9 @@ async def delete_filter(
     """Delete a filter rule by index."""
     # username from Depends
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
 
-    current_script = await _get_current_script(username, password)
+    current_script = await _get_current_script(login_user, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
 
@@ -458,7 +464,7 @@ async def delete_filter(
     removed = filters.pop(index)
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script, vacation, filters)
+    await _save_script(login_user, password, new_script, vacation, filters)
 
     return {"status": "deleted", "removed": removed.model_dump()}
 
@@ -530,6 +536,7 @@ async def create_filter_from_message(
     MAX_FILTERS = 50
     password: str = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
+    login_user = await get_imap_login_user(request, username)
 
     # Fetch message headers via IMAP
     imap = await get_imap_connection(login_user, password)
@@ -588,7 +595,7 @@ async def create_filter_from_message(
     rule = FilterRule(name=filter_name, conditions=[condition], actions=[action])
 
     # Get current script and add filter
-    current_script = await _get_current_script(username, password)
+    current_script = await _get_current_script(login_user, password)
     vacation = parse_vacation_from_script(current_script)
     filters = parse_filters_from_script(current_script)
 
@@ -600,7 +607,7 @@ async def create_filter_from_message(
 
     filters.append(rule)
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script, vacation, filters)
+    await _save_script(login_user, password, new_script, vacation, filters)
 
     return {
         "index": len(filters) - 1,
@@ -631,6 +638,7 @@ async def preview_filter(
         )
 
     password: str = await get_user_password(request, username)
+    login_user = await get_imap_login_user(request, username)
     login_user = await get_imap_login_user(request, username)
 
     imap = await get_imap_connection(login_user, password)
