@@ -12,7 +12,7 @@ import { ContextMenu, type MenuItem } from '../common/ContextMenu';
 import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
 import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
-import { accionDeshacer, loteDeRespuesta, type LoteMovido, type RespuestaMover } from '../../lib/deshacerMover';
+import { accionDeshacer, loteDeRespuesta, recordarParaDeshacer, type LoteMovido, type RespuestaMover } from '../../lib/deshacerMover';
 import { showToast } from '../common/Toast';
 import { accionEnLote } from '../../lib/accionesLote';
 import { eliminarSeleccion, hayEliminacionDefinitiva } from '../../lib/eliminarSeleccion';
@@ -77,7 +77,8 @@ function avisoAcumulado(key: string, action: string, dest: string, n: number, lo
       : action === 'delete' ? (total > 1 ? `Eliminados: ${total}` : 'Eliminado')
       : action === 'archive' ? (total > 1 ? `Archivados: ${total}` : 'Archivado')
       : 'Hecho';
-  showToast(texto, accionDeshacer(lotes), { clave: `rapida:${key}` });
+  const idAviso = showToast(texto, accionDeshacer(lotes), { clave: `rapida:${key}` });
+  recordarParaDeshacer(lotes, idAviso);
 }
 
 function flushQuickAction(key: string, folder: string, action: string, dest: string) {

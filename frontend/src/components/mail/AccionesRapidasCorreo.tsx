@@ -8,7 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuTeclado } from '../../lib/menuTeclado';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
-import { accionDeshacer, loteDeRespuesta, type RespuestaMover } from '../../lib/deshacerMover';
+import { accionDeshacer, loteDeRespuesta, recordarParaDeshacer, type RespuestaMover } from '../../lib/deshacerMover';
 import { useMailStore } from '../../store/mailStore';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
 import { abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
@@ -104,7 +104,8 @@ export function AccionesRapidasCorreo({
       } else {
         const r = await lote('move', 'Trash');
         const movido = loteDeRespuesta(folder, 'Trash', r);
-        showToast('Movido a Papelera', movido ? accionDeshacer([movido]) : undefined);
+        const idAviso = showToast('Movido a Papelera', movido ? accionDeshacer([movido]) : undefined);
+        if (movido) recordarParaDeshacer([movido], idAviso);
       }
       refrescar(true);
     } catch { showToast('No se pudo eliminar'); }
