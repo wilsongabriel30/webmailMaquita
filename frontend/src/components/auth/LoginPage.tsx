@@ -6,6 +6,7 @@ import { TwoFactorSetup } from '../settings/TwoFactorSetup';
 import { AvisoCookies } from '../common/AvisoCookies';
 import { textoErrorEntrada } from '../../lib/mensajeErrorEntrada';
 import { BienvenidaEntrada, OlvidoContrasena } from './AyudaEntrada';
+import { CampoCodigo2FA } from './CampoCodigo2FA';
 
 interface Branding {
   org_name?: string;
@@ -309,28 +310,7 @@ export function LoginPage() {
                   </div>
                 </>
               ) : (
-                <div className="mb-6">
-                  <label className="block text-sm font-medium mb-1.5" style={{ color: '#323130' }}>
-                    Código de verificación
-                  </label>
-                  <input
-                    type="text"
-                    value={totpCode}
-                    onChange={(e) => setTotpCode(e.target.value.replace(/[^0-9A-Za-z-]/g, '').slice(0, 39))}
-                    placeholder="000000"
-                    className="w-full px-3 py-2 rounded text-sm text-center font-mono text-lg tracking-[0.3em] outline-none transition-colors"
-                    style={{ borderColor: '#d2d0ce', borderWidth: '1px', color: '#323130' }}
-                    onFocus={(e) => { e.target.style.borderColor = color; e.target.style.boxShadow = `0 0 0 1px ${color}`; }}
-                    onBlur={(e) => { e.target.style.borderColor = '#d2d0ce'; e.target.style.boxShadow = 'none'; }}
-                    required
-                    autoFocus
-                    maxLength={39}
-                    autoComplete="one-time-code"
-                  />
-                  <p className="text-xs mt-1" style={{ color: '#605e5c' }}>
-                    También puedes usar uno de tus códigos de respaldo
-                  </p>
-                </div>
+                <CampoCodigo2FA value={totpCode} onChange={setTotpCode} color={color} />
               )}
 
               <button
