@@ -90,7 +90,9 @@ export function useWebSocket(enabled: boolean = true) {
               // Show toast notification
               const delta = data.delta || 1;
               const aviso = textoAvisoCorreo(delta, data.de, data.asunto);   // 06/11/2026
-              showToast(aviso.cuerpo.replace(/\n/g, ' · '));
+              // Correo archivado por una regla en otra carpeta (09/11/2026): se dice en cuál.
+              const enCarpeta = data.folder && data.folder !== 'INBOX' ? `En «${data.folder}»: ` : '';
+              showToast(enCarpeta + aviso.cuerpo.replace(/\n/g, ' · '));
 
               // Play sound
               playNotificationSound();
@@ -112,6 +114,16 @@ export function useWebSocket(enabled: boolean = true) {
 
               // Trigger message list refresh if user is viewing the affected folder
               if (useMailStore.getState().currentFolder === data.folder) {
+                window.dispatchEvent(new CustomEvent('refresh-messages'));
+              }
+              break;
+            }
+
+            case 'correo_recuperado': {
+              // El remitente recuperó un correo de este buzón: la lista debe refrescarse al
+              // instante, sin aviso ni sonido de «correo nuevo» (incidente 09/11/2026).
+              const carpetas: string[] = Array.isArray(data.folders) ? data.folders : ['INBOX'];
+              if (carpetas.includes(useMailStore.getState().currentFolder)) {
                 window.dispatchEvent(new CustomEvent('refresh-messages'));
               }
               break;

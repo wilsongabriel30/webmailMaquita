@@ -53,12 +53,15 @@ from app.escala.api_v1 import AliasApiV1
 from app.escala.ddl import ddl_serializado
 from app.escala.salud import router as salud_router
 from app.escala.tareas_fondo import iniciar_lector_registro
+from app.flota.esquema import asegurar_tablas as asegurar_tablas_flota
+from app.flota.router import router as flota_router
 from app.gal.router import router as gal_router
 from app.hold_ack.router import router as hold_ack_router
 from app.identities.router import router as identities_router
 from app.import_export.router import router as import_router
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.programados import procesar_programados
+from app.mail.routers.acuse_lectura import router as acuse_lectura_router  # 09/11/2026
 from app.mail.routers.adjunto_correo import router as adjunto_correo_router
 from app.mail.routers.archivo_en_correo_adjunto import (
     router as archivo_en_correo_adjunto_router,  # 06/11/2026
@@ -78,6 +81,7 @@ from app.mail.routers.envio_segundo_plano import (
     router as envio_segundo_plano_router,  # envío inmediato 06/11/2026
 )
 from app.mail.routers.export import router as export_router
+from app.mail.routers.firma_pdf import router as firma_pdf_router  # 09/11/2026
 from app.mail.routers.firmas import router as firmas_router
 from app.mail.routers.folders import router as folders_router
 from app.mail.routers.grandes import router as grandes_router
@@ -223,6 +227,7 @@ async def lifespan(app: FastAPI):
         await asegurar_tabla_telemetria(app.state.db_pool)  # telemetría de la app
         await asegurar_tabla_push(app.state.db_pool)  # suscripciones web push (#17)
         await asegurar_tablas_respaldos(app.state.db_pool)  # T-74 alta en UrBackup
+        await asegurar_tablas_flota(app.state.db_pool)  # T-88 Flota Maquita
     # ── Validación MIME al arranque (protección anti-spam) ──
     _validate_mime_on_startup()
     # Tareas de fondo. Las que no pueden repetirse por worker están protegidas
@@ -236,6 +241,10 @@ async def lifespan(app: FastAPI):
     from app.reminders_scheduler import check_reminders
 
     reminders_task = asyncio.create_task(check_reminders(app))
+    # Etiquetas: purga diaria de asignaciones faltantes > 7 días (una vez por clúster).
+    from app.mail.services.etiquetas_huerfanas import bucle as _etiquetas_huerfanas
+
+    etiquetas_task = asyncio.create_task(_etiquetas_huerfanas(app))
     # Start compliance services
     app.state.log_ingestor = iniciar_lector_registro(app)
     from app.safelinks import threatfeeds as _tfeeds
@@ -260,7 +269,13 @@ async def lifespan(app: FastAPI):
     # Stop compliance services
     await app.state.log_ingestor.detener()
     app.state.fraud_detector.stop()
-    for tarea in (scheduler_task, ws_subscriber_task, snooze_task, reminders_task):
+    for tarea in (
+        scheduler_task,
+        ws_subscriber_task,
+        snooze_task,
+        reminders_task,
+        etiquetas_task,
+    ):
         tarea.cancel()
     app.state.tintel_task.cancel()
     try:
@@ -669,6 +684,12 @@ app.include_router(adjunto_correo_router)
 app.include_router(
     archivo_en_correo_adjunto_router
 )  # bajar archivos de un .eml adjunto
+app.include_router(
+    firma_pdf_router
+)  # Firmar PDF adjuntos con el certificado de Raíces (09/11/2026)
+app.include_router(
+    acuse_lectura_router
+)  # Responder confirmaciones de lectura (09/11/2026)
 app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
 app.include_router(stats_router)
@@ -739,6 +760,7 @@ app.include_router(
     telemetria_router, prefix="/api/telemetria", tags=["telemetria"]
 )  # cliente Windows
 app.include_router(respaldos_router)  # T-74 alta automática en UrBackup
+app.include_router(flota_router)  # T-88 Flota Maquita (agente de equipos Windows)
 app.include_router(presence_router)
 app.include_router(branding_router)
 app.include_router(chatcfg_router)

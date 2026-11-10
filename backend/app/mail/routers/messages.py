@@ -14,13 +14,14 @@ from app.mail import telemetria_busqueda
 from app.mail.clients.imap_client import (
     fetch_raw_message,
     get_imap_connection,
-    uid_bulk_action,
+    uid_bulk_action_detallado,
     uid_delete_message,
-    uid_move_message,
+    uid_move_message_detallado,
     uid_set_flags,
 )
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
+from app.mail.services import etiquetas_reubicar
 from app.mail.services.cache_uids import invalidar_uids
 from app.mail.services.message_service import get_message, list_messages
 from app.rag import eliminar as rag_eliminar
@@ -312,8 +313,17 @@ async def move(
     _validate_folder(body.dest_folder)
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
+    db = request.app.state.db_pool
     async with get_pooled_imap(login_user, password) as imap:
-        ok = await uid_move_message(imap, folder, uid, body.dest_folder)
+        ctx = await etiquetas_reubicar.preparar_reubicacion(
+            db, imap, username, folder, [uid], "move"
+        )
+        ok, mapa = await uid_move_message_detallado(imap, folder, uid, body.dest_folder)
+        if ok:
+            # Las etiquetas siguen al correo (09/11/2026).
+            await etiquetas_reubicar.completar_reubicacion(
+                db, imap, ctx, mapa, body.dest_folder
+            )
     if not ok:
         raise HTTPException(
             status_code=404,
@@ -369,6 +379,14 @@ async def remove_message(
         raise HTTPException(
             status_code=404, detail="Message not found or could not be deleted"
         )
+    # Eliminado definitivo: sus asignaciones de etiqueta sobran (09/11/2026).
+    await etiquetas_reubicar.completar_reubicacion(
+        request.app.state.db_pool,
+        None,
+        {"owner": username, "folder": folder, "uids": [uid], "action": "delete"},
+        None,
+        "",
+    )
     await invalidar_uids(request.app.state.redis, username, folder)
     return {"status": "deleted"}
 
@@ -383,10 +401,19 @@ async def bulk_action(
     _validate_folder(folder)
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
+    db = request.app.state.db_pool
     async with get_pooled_imap(login_user, password) as imap:
-        ok = await uid_bulk_action(
+        ctx = await etiquetas_reubicar.preparar_reubicacion(
+            db, imap, username, folder, body.uids, body.action
+        )
+        ok, mapa = await uid_bulk_action_detallado(
             imap, folder, body.uids, body.action, body.dest_folder
         )
+        if ok:
+            # Las etiquetas siguen al correo movido/archivado y se borran al eliminar (09/11/2026).
+            await etiquetas_reubicar.completar_reubicacion(
+                db, imap, ctx, mapa, body.dest_folder
+            )
     if not ok:
         raise HTTPException(status_code=400, detail="Failed to perform bulk action")
     # Sin esto, tras vaciar/borrar la lista seguía mostrando los mensajes eliminados.

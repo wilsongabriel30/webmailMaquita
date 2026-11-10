@@ -11,7 +11,11 @@ import re
 import aioimaplib
 
 from app.config import get_settings
-from app.mail.clients.imap_acciones import expulsar_uids, mover_uids
+from app.mail.clients.imap_acciones import (
+    expulsar_uids,
+    mover_uids,
+    mover_uids_con_mapa,
+)
 from app.mail.clients.imap_sort import uid_sort
 from app.mail.errors import CredencialIMAPInvalida
 from app.mail.services.busqueda_adjuntos import (
@@ -684,10 +688,18 @@ async def fetch_attachment(
 async def uid_move_message(
     imap: aioimaplib.IMAP4, folder: str, uid: int, dest_folder: str
 ) -> bool:
+    ok, _ = await uid_move_message_detallado(imap, folder, uid, dest_folder)
+    return ok
+
+
+async def uid_move_message_detallado(
+    imap: aioimaplib.IMAP4, folder: str, uid: int, dest_folder: str
+) -> tuple[bool, dict[int, int] | None]:
+    """Mueve un correo y devuelve (ok, {uid origen: uid destino} según COPYUID, o None)."""
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
-        return False
-    return await mover_uids(imap, str(uid), _quote_folder(dest_folder))
+        return False, None
+    return await mover_uids_con_mapa(imap, str(uid), _quote_folder(dest_folder))
 
 
 async def uid_set_flags(
@@ -730,9 +742,23 @@ async def uid_bulk_action(
     dest_folder: str = "",
 ) -> bool:
     """Bulk actions: delete, move, mark_read, mark_unread, flag, unflag, archive."""
+    ok, _ = await uid_bulk_action_detallado(imap, folder, uids, action, dest_folder)
+    return ok
+
+
+async def uid_bulk_action_detallado(
+    imap: aioimaplib.IMAP4,
+    folder: str,
+    uids: list[int],
+    action: str,
+    dest_folder: str = "",
+) -> tuple[bool, dict[int, int] | None]:
+    """Como `uid_bulk_action`; al mover o archivar devuelve además el mapa {uid origen: uid destino}
+    que informa el servidor con COPYUID (None si no lo informó). Sirve para que las etiquetas
+    sigan al correo (services/etiquetas_reubicar.py, 09/11/2026)."""
     resp = await imap.select(_quote_folder(folder))
     if resp.result != "OK":
-        return False
+        return False, None
 
     uid_set = ",".join(str(u) for u in uids)
 
@@ -740,15 +766,17 @@ async def uid_bulk_action(
     # Sin esto, uid_set queda vacio y el store no marca nada (parecia que no vaciaba).
     empty_whole_folder = (not uids) and action == "delete"
     if not uids and not empty_whole_folder:
-        return False  # acciones que requieren UIDs: nada que hacer
+        return False, None  # acciones que requieren UIDs: nada que hacer
 
+    mapa: dict[int, int] | None = None
     if action == "delete":
         target = "1:*" if empty_whole_folder else uid_set
         await imap.uid("store", target, "+FLAGS", "(\\Deleted)")
         await expulsar_uids(imap, target)
     elif action == "move" and dest_folder:
-        if not await mover_uids(imap, uid_set, _quote_folder(dest_folder)):
-            return False
+        ok, mapa = await mover_uids_con_mapa(imap, uid_set, _quote_folder(dest_folder))
+        if not ok:
+            return False, None
     elif action == "mark_read":
         await imap.uid("store", uid_set, "+FLAGS", "(\\Seen)")
     elif action == "mark_unread":
@@ -758,11 +786,12 @@ async def uid_bulk_action(
     elif action == "unflag":
         await imap.uid("store", uid_set, "-FLAGS", "(\\Flagged)")
     elif action == "archive":
-        if not await mover_uids(imap, uid_set, "Archive"):
-            return False
+        ok, mapa = await mover_uids_con_mapa(imap, uid_set, "Archive")
+        if not ok:
+            return False, None
     else:
-        return False
-    return True
+        return False, None
+    return True, mapa
 
 
 async def append_message(

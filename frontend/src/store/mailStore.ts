@@ -239,7 +239,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   }),
   setDebouncedSearchQuery: (q: string) => set({ debouncedSearchQuery: q }),
   setEtiquetaFiltro: (e) => set({
-    etiquetaFiltro: e, messages: [], selectedMessage: null, currentPage: 1, selectedUids: new Set(),
+    // totalMessages en 0: la franja «Etiqueta: X» no debe mostrar el total de la carpeta anterior (09/11/2026).
+    etiquetaFiltro: e, messages: [], totalMessages: 0, selectedMessage: null, currentPage: 1, selectedUids: new Set(),
     activeIndex: -1, activeUid: null, threadMessages: [], searchQuery: '', debouncedSearchQuery: '', filter: 'all',
     loadingMessages: !!e,
   }),

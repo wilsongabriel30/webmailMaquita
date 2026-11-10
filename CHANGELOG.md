@@ -7,6 +7,106 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Firmar un PDF: la persona dibuja dónde va la firma y puede «Firmar y responder».** El diálogo muestra la página
+  del PDF (el servidor la dibuja con pypdfium2: `GET /api/mail/firma-pdf/pagina`, `services/pdf_paginas.py`), se pasa de
+  hoja y se arrastra con el ratón o el dedo el rectángulo del sello, como en el Editor PDF de Raíces
+  (`components/mail/firma/SelectorAreaFirma.tsx`; `posicion=manual` con `x, y, ancho, alto` en puntos PDF). Opción «sin
+  sello visible». El botón principal «Firmar y responder» firma y abre enseguida la respuesta al mismo correo con
+  `nombre_firmado.pdf` adjunto y el texto automático editable; «Solo firmar» muestra el resultado para descargar o
+  reenviar. Además: aceptar los términos de la firma desde el correo y guardar el .p12 subido (con contraseña opcional).
+- **Confirmaciones de lectura y de entrega, como Outlook.** Al abrir un correo que pide confirmación de lectura
+  (`Disposition-Notification-To`) aparece el aviso «¿Desea enviarla?» con Enviar / No enviar y «no volver a preguntar»;
+  el acuse estándar «Leído: asunto» sale por SMTP como la persona y el correo queda marcado `$MDNSent`
+  (`services/acuse_lectura.py`, `routers/acuse_lectura.py`, `components/mail/AvisoAcuseLectura.tsx`). Preferencia
+  en Configuración → General (preguntar / siempre / nunca; columna `user_preferences.acuse_lectura`). La «confirmación
+  de entrega» de Opciones → Seguimiento ahora pide un DSN real al servidor (`NOTIFY=SUCCESS,FAILURE`).
+- **Redactar: menú «Insertar» completo y «Correo como adjunto».** El botón «Adjuntar» de la cinta (pestañas Mensaje e
+  Insertar) ahora despliega todas las formas de insertar algo: archivo del equipo, archivo de la Nube (Almacén),
+  correo como adjunto, imagen en el texto y enlace (`compose/MenuInsertar.tsx`). «Correo como adjunto» abre un
+  selector (`SelectorCorreoAdjunto.tsx`) que lista los correos recientes de la carpeta elegida, busca por asunto o
+  remitente (parámetro `search` de `/api/mail/messages/{carpeta}`) y adjunta uno o varios como `.eml` por la misma vía
+  que el arrastre y «Reenviar como adjunto». Funciona igual en un correo nuevo, una respuesta o un reenvío.
+- **Redactar: los correos adjuntos se ven antes de enviar.** En la lista de adjuntos, un `.eml` sale con icono de sobre,
+  asunto legible, remitente y fecha (`ChipCorreoAdjunto.tsx`); el botón «Ver» abre el correo original en su propia
+  ventana si salió del buzón (el adjunto guarda su origen `correo: {folder, uid, subject, from, date}`,
+  `lib/origenCorreoAdjunto.ts`) o, si el `.eml` vino del equipo, una vista previa que lee el archivo en el navegador
+  (`lib/parseEml.ts`, `VistaPreviaCorreoAdjunto.tsx`; HTML saneado en un iframe aislado). Los botones grande y mediano
+  de la cinta pasan a `compose/BotonesCinta.tsx`.
+- **Recuperar correo: el enviado pasa a Borradores.** Cuando la recuperación sale bien para todos los destinatarios
+  locales, el correo del remitente deja «Enviados» y pasa a «Borradores» (UID MOVE con `\Draft` y la palabra clave
+  IMAP `$Recuperado`) para corregirlo y volverlo a enviar; la respuesta trae `movido_a_borradores` y la interfaz
+  avisa «Mensaje recuperado. Lo encontrará en Borradores…», cierra el correo y refresca la lista. Con destinatarios
+  externos (solo solicitud) o fallos no se mueve y se informa por destinatario. Al abrir ese borrador se señala
+  «Mensaje recuperado: corríjalo y vuelva a enviarlo». Lógica en `app/mail/services/recuperar_correo.py`; panel
+  propio `PanelRecuperarCorreo.tsx`.
+
+- **Etiquetas: las etiquetas siguen al correo.** Al mover o archivar (acción individual o en lote) las asignaciones
+  pasan a la carpeta destino con el uid nuevo que informa el servidor (`COPYUID`, RFC 4315; si no viene, se
+  resuelve por Message-ID en el destino); al eliminar definitivamente se borran. Nunca se borra una asignación
+  por un fallo de IMAP (`services/etiquetas_reubicar.py`, `clients/imap_copyuid.py`).
+- **Etiquetas: contador y listado coherentes.** Nueva columna `message_labels.faltante_desde`
+  (`migrations/2026-11-09-etiquetas-faltantes.sql`): al listar una etiqueta, el correo que IMAP ya no devuelve se
+  marca faltante y deja de contar en la barra lateral y en el `total` de `/labels/{id}/mensajes`; la página se
+  rellena con las siguientes asignaciones. Si el correo reaparece en su carpeta, la marca se quita. Tarea diaria
+  que borra las que llevan más de 7 días faltantes, con registro (`services/etiquetas_huerfanas.py`; también
+  `python -m app.mail.services.etiquetas_huerfanas --simular`).
+- **`POST /api/mail/labels/predeterminadas`**: crea las cinco etiquetas iniciales solo si la cuenta no tiene ninguna.
+  El navegador lo pide una vez cuando la lista llega vacía.
+- **Script `scripts/unificar_etiquetas_dominio_doble.py`**: pasa las etiquetas y asignaciones de `usuario@dominioA`
+  a `usuario@dominioB` (fusión por nombre, sin duplicar carpeta+uid+etiqueta; uids resueltos por Message-ID con
+  `doveadm` cuando los buzones son distintos). Simula por defecto, `--aplicar` escribe con respaldo JSON en
+  `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
+
+### Corregido
+- **Recuperar correo: el destinatario lo seguía viendo hasta 5 minutos** (incidente 09/11/2026). Tras cada
+  `doveadm expunge` se invalida la caché Redis del destinatario (INBOX y la carpeta real donde estaba, que ahora se
+  lee de `doveadm fetch mailbox`) y se le publica `correo_recuperado` por el canal WebSocket de correo nuevo: su
+  lista se refresca al instante, sin aviso ni sonido. El expurgo se hace en la carpeta real en vez de dar por
+  bueno el primer OK de INBOX.
+- **Recuperar correo: no quedaba rastro en `audit_log`.** El INSERT usaba una columna inexistente (`username`) y
+  el error se silenciaba. Ahora se registra con las columnas reales (`admin_user, action, target, details,
+  ip_address`): remitente, destinatarios, Message-ID, resultado por destinatario, si ya lo había leído y si pasó a
+  Borradores; un fallo de auditoría queda en el registro del servidor.
+- **Recuperar correo: textos.** La comprobación previa dice «Recuperable» o «Recuperable (ya lo leyó)» (antes «Ya
+  leído», que parecía impedimento: por decisión de la dirección el correo se quita aunque ya se haya leído); tras
+  recuperar: «Recuperado» / «Recuperado (ya lo había leído)» / «Externo: solicitud enviada» / «No encontrado».
+  Tildes corregidas en los literales del servidor («recuperación», «buzón», «eliminación»).
+- **`GET /api/mail/labels` ya no escribe**: antes insertaba las etiquetas predeterminadas al consultar.
+- **Vista por etiqueta**: «No leídos» y «Marcados» ahora filtran también ahí; las pestañas Prioritarios/Otros no se
+  muestran (mezclan carpetas); «Eliminar» de la barra de selección manda cada correo a la papelera desde su carpeta
+  real (antes usaba la carpeta actual y podía señalar a otro correo con el mismo uid); la franja «Etiqueta: X» ya
+  no muestra un instante el total de la carpeta anterior.
+- **Tareas: vista «Tablero»** junto a «Cuadrícula» y «Lista», en cualquier lista (Mi día, Importante, Tareas, listas
+  propias). Columnas Vencidas / Pendiente / En curso / Completada como en Seguimiento; arrastrar una tarea cambia su
+  estado (`PATCH /api/tasks/tasks/{id}/estado`). Completar o reabrir pasa por el mismo camino que el círculo
+  (repetición, bandera del correo marcado, calendario); una tarea con seguimiento cambia por Seguimiento. En
+  «Completada», las de los últimos 30 días. La vista Lista muestra la etiqueta «En curso».
+
+- **Reglas de correo: «De/Para es exactamente» y «coincide con patrón» ahora funcionan.** Para De y Para se genera
+  `address :is` / `address :matches` (compara solo la dirección, sin el nombre visible); antes `header :is "From"`
+  no coincidía nunca porque el encabezado es «Nombre <dirección>». «Contiene» sigue con `header :contains`, así
+  «contiene example.org» vale como filtro por dominio. Los scripts antiguos se leen igual y, al volver a guardarse,
+  se regeneran con `address`.
+- **Reglas de correo: comillas y barras invertidas.** Toda cadena del script escapa `\` y `"`; el analizador las
+  entiende al releer. Una regla con comillas ya no desaparece al releer ni se borra en el siguiente guardado, un
+  valor terminado en `\` ya no produce un 500, y editar reglas ya no apaga «Fuera de la oficina» si su texto lleva
+  comillas. Antes de subir el script se comprueba que se relee igual; si no, se niega a guardar y lo dice.
+- **Reglas de correo: una regla que mueve, elimina o reenvía detiene las siguientes** (`stop;`): el mismo correo ya
+  no acaba copiado en dos carpetas ni en la carpeta y en No deseado. «Marcar con bandera» no detiene nada y usa
+  `addflag` (añade la bandera en lugar de borrar las demás). «Mover a carpeta» usa `fileinto :create`: si la
+  carpeta se borró o renombró, se crea en lugar de dejar el correo en la bandeja con error.
+- **Reenvío a dominios propios.** La política de reenvío y el detector de fraude traían una lista de dominios de
+  ejemplo, así que todo reenvío (incluso a un dominio de la casa) recibía 403 y generaba alerta de «reenvío
+  externo». Ahora ambos usan `app/sieve/dominios.py`: dominios de la organización más los activos de la tabla
+  `domain`, con caché de 10 minutos. El reenvío externo sigue requiriendo aprobación.
+- **Reglas de correo: ya no expulsa de la sesión.** Si ManageSieve rechaza las credenciales de la sesión
+  (impersonación, SSO), el servidor devuelve 424 con el aviso «No se pudo conectar con el servicio de reglas de
+  correo…» y registra el motivo; antes devolvía 401 y el cliente cerraba la sesión. La pestaña muestra el aviso
+  con «Reintentar» y los errores de crear/guardar/eliminar enseñan el motivo que manda el servidor.
+- Código de reglas repartido en módulos: `sieve/modelos.py`, `escapado.py`, `generador.py`, `analizador.py`,
+  `dominios.py`; `router.py` queda con el protocolo ManageSieve y los endpoints.
+
 ## [1.12.0] - 2026-11-08
 
 El correo se ve y se maneja como Outlook, el asistente de IA responde en segundos sobre el correo del día, y

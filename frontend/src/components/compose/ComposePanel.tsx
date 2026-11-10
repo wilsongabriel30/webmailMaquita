@@ -12,10 +12,12 @@ import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensi
 import { cuentaDeCarpeta } from '../../lib/cuentas';
 import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
-import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos } from '../../lib/adjuntosBorrador';
+import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos, type ArchivoAdjunto } from '../../lib/adjuntosBorrador';
+import { tomarArchivosParaRedaccion } from '../../lib/archivosParaRedaccion';
 import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';
 import { CitaMarcable } from './CitaMarcable';
-import { TIPO_ARRASTRE_CORREOS, correosArrastrados, descargarCorreosComoEml } from '../../lib/correosComoAdjunto';
+import { TIPO_ARRASTRE_CORREOS, EVENTO_ADJUNTAR_CORREO, correosArrastrados, descargarCorreosComoEml, type CorreoAAdjuntar } from '../../lib/correosComoAdjunto';
+import { SelectorCorreoAdjunto } from './SelectorCorreoAdjunto';
 import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, insertarImagenesEnTexto, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
@@ -68,7 +70,7 @@ const pendingSendMap: Map<string, PendingSend> = new Map();
 
 interface Props { win: DraftWindow; }
 
-interface AttachmentFile { name: string; size: number; type: string; file?: File; }
+type AttachmentFile = ArchivoAdjunto;
 /** Un dato sensible detectado por Proteccion de datos, tal como lo devuelve el servidor. */
 interface HallazgoDlp { label: string }
 // Limite de adjuntos (fuente unica: MAX_ATTACHMENT_MB -> VITE en build)
@@ -110,6 +112,8 @@ export function ComposePanel({ win }: Props) {
   const [importance, setImportance] = useState<Importancia>('normal');
   const [attachments, setAttachments] = useState<AttachmentFile[]>(estadoPrevio?.attachments ?? []);
   const [mostrarNube, setMostrarNube] = useState(false);
+  // «Correo como adjunto» (menú Insertar): selector de correos del buzón (09/11/2026).
+  const [mostrarSelectorCorreo, setMostrarSelectorCorreo] = useState(false);
 
   // Adjuntos provenientes de la sección Archivos (Almacén): se descargan con
   // la misma sesión y entran como adjuntos normales del mensaje.
@@ -133,6 +137,16 @@ export function ComposePanel({ win }: Props) {
         }
       }
     })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Archivos que esperaban a esta ventana (p. ej. un PDF firmado desde el visor con «Responder con
+  // el PDF firmado», 09/11/2026): entran como adjuntos normales al montarse el editor.
+  useEffect(() => {
+    if (estadoPrevio) return;
+    const iniciales = tomarArchivosParaRedaccion();
+    if (!iniciales.length) return;
+    setAttachments(prev => [...prev, ...iniciales.map(f => ({ name: f.name, size: f.size, type: f.type, file: f }))]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -421,6 +435,7 @@ export function ComposePanel({ win }: Props) {
     }
     const attachHandler = () => fileInputRef.current?.click();
     const attachCloudHandler = () => setMostrarNube(true);
+    const attachMailHandler = () => setMostrarSelectorCorreo(true);
     const draftHandler = () => saveDraft();
     const ccHandler = () => setShowCc(true);
     const bccHandler = () => setShowBcc(true);
@@ -429,6 +444,7 @@ export function ComposePanel({ win }: Props) {
     const sigHandler = (e: Event) => { setSignatureHtml((e as CustomEvent<string>).detail ?? ''); };
     window.addEventListener('compose-attach', attachHandler);
     window.addEventListener('compose-attach-cloud', attachCloudHandler);
+    window.addEventListener(EVENTO_ADJUNTAR_CORREO, attachMailHandler);
     window.addEventListener('compose-save-draft', draftHandler);
     window.addEventListener('compose-show-cc', ccHandler);
     window.addEventListener('compose-show-bcc', bccHandler);
@@ -437,6 +453,7 @@ export function ComposePanel({ win }: Props) {
       useMailStore.getState().setActiveEditor(null);
       window.removeEventListener('compose-attach', attachHandler);
       window.removeEventListener('compose-attach-cloud', attachCloudHandler);
+      window.removeEventListener(EVENTO_ADJUNTAR_CORREO, attachMailHandler);
       window.removeEventListener('compose-save-draft', draftHandler);
       window.removeEventListener('compose-show-cc', ccHandler);
       window.removeEventListener('compose-show-bcc', bccHandler);
@@ -472,6 +489,17 @@ export function ComposePanel({ win }: Props) {
     }
     cerrar();
   }, [to, subject, editor, attachments.length, saveDraft, win.id, closeCompose]);
+
+  // «Cancelar y volver al correo» de la ventana emergente (/mensaje, 09/11/2026): la barra está
+  // fuera de este componente y pide el cierre por evento; se cierra igual que la X (guarda si hay algo).
+  useEffect(() => {
+    const alCerrar = (e: Event) => {
+      const id = (e as CustomEvent<{ id?: string }>).detail?.id;
+      if (!id || id === win.id) void handleClose();
+    };
+    window.addEventListener('compose-cerrar', alCerrar);
+    return () => window.removeEventListener('compose-cerrar', alCerrar);
+  }, [handleClose, win.id]);
 
   // Papelera «Descartar» (07/11/2026): cierra SIN guardar y borra el borrador.
   // Revisión 07/11/2026: en vez de un cuadro de confirmación, aviso con «Deshacer» durante 5 s;
@@ -829,6 +857,14 @@ export function ComposePanel({ win }: Props) {
   };
 
   const adjuntarDesdeNube = (archivos: File[]) => { agregarArchivos(archivos); };
+
+  // Correos elegidos en el selector: entran como .eml con su origen, igual que al arrastrarlos.
+  const adjuntarCorreos = (correos: CorreoAAdjuntar[]) => {
+    descargarCorreosComoEml(correos).then(({ cargados, fallidos }) => {
+      if (cargados.length) setAttachments(prev => [...prev, ...cargados]);
+      if (fallidos.length) showToast(`No se pudo adjuntar: ${fallidos.join(', ')}`);
+    });
+  };
 
   const removeAttachment = (idx: number) => {
     setAttachments(prev => prev.filter((_, i) => i !== idx));
@@ -1209,6 +1245,7 @@ export function ComposePanel({ win }: Props) {
       {/* Hidden file input */}
       <input ref={fileInputRef} type="file" multiple className="hidden" onChange={handleFileSelect} />
       {mostrarNube && <SelectorArchivosNube onCerrar={() => setMostrarNube(false)} onElegir={adjuntarDesdeNube} />}
+      {mostrarSelectorCorreo && <SelectorCorreoAdjunto onCerrar={() => setMostrarSelectorCorreo(false)} onElegir={adjuntarCorreos} />}
 
       {/* Send row (below ribbon, above recipients) - matches OWA layout exactly */}
       <div className="h-[44px] flex items-center px-4 bg-white border-b border-[#edebe9] shrink-0">

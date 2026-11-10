@@ -37,8 +37,9 @@ FRAUD_KEYWORDS = [
     "payment update",
 ]
 
-# Dominios internos (no generan alerta de reenvío externo)
-INTERNAL_DOMAINS = {"ejemplo.com", "ejemplo.com"}
+# Los dominios internos (sin alerta de reenvío externo) salen de `app.sieve.dominios`:
+# organización + tabla `domain`, con caché; antes había aquí una lista de ejemplo.
+from app.sieve.dominios import dominio_de, dominios_internos
 
 
 class FraudDetector:
@@ -146,11 +147,14 @@ class FraudDetector:
                FROM user_activity_log
                WHERE action IN ('forward_create', 'sieve_create', 'sieve_modify')
                AND created_at >= NOW() - INTERVAL '5 minutes'""")
+        if not rows:
+            return
+        internos = await dominios_internos(self.db)
         for r in rows:
             target = r["target"] or ""
             details = r["details"] or {}
-            # Verificar si el target contiene dominio externo
-            if any(d in target.lower() for d in INTERNAL_DOMAINS):
+            # Un destino de un dominio propio no es reenvío externo
+            if dominio_de(target) in internos:
                 continue
             await self._create_alert(
                 "external_forward",
