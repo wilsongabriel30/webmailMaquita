@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../../api/client';
 import type { Folder } from '../../types';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 
@@ -26,6 +27,22 @@ export function AccionesMoverMovil({ carpetaActual, carpetas, hayMensaje, onMove
   onCerrar: () => void;
 }) {
   const [listaAbierta, setListaAbierta] = useState(false);
+  const [carpetasCargadas, setCarpetasCargadas] = useState<Folder[]>([]);
+  const [errorCarpetas, setErrorCarpetas] = useState(false);
+  const [reintento, setReintento] = useState(0);
+  const disponibles = carpetas.length ? carpetas : carpetasCargadas;
+
+  // En móvil el panel lateral se monta solo al abrir el cajón. Si sigue cerrado,
+  // nadie ha pedido aún las carpetas y el menú de mover quedaría vacío.
+  useEffect(() => {
+    if (!listaAbierta || carpetas.length) return;
+    let activo = true;
+    api.get<{ folders: Folder[] }>('/mail/folders')
+      .then(r => { if (activo) { setCarpetasCargadas(r.folders); setErrorCarpetas(false); } })
+      .catch(() => { if (activo) setErrorCarpetas(true); });
+    return () => { activo = false; };
+  }, [listaAbierta, carpetas.length, reintento]);
+
   if (!hayMensaje) return null;
   const enPapelera = carpetaActual === 'Trash';
 
@@ -47,8 +64,17 @@ export function AccionesMoverMovil({ carpetaActual, carpetas, hayMensaje, onMove
       {listaAbierta && (
         <div id="lista-mover-movil" role="group" aria-label="Elegir carpeta de destino"
           className="max-h-[45vh] overflow-y-auto bg-[#faf9f8] border-y border-[#edebe9]">
-          <ArbolMoverCarpetas carpetas={carpetas || []} carpetaActual={carpetaActual} compacto={false}
-            onElegir={(nombre) => { onMover(nombre); onCerrar(); }} />
+          {disponibles.length ? (
+            <ArbolMoverCarpetas carpetas={disponibles} carpetaActual={carpetaActual} compacto={false}
+              onElegir={(nombre) => { onMover(nombre); onCerrar(); }} />
+          ) : errorCarpetas ? (
+            <div className="px-4 py-3 text-sm text-[#a4262c]" role="alert">
+              No se pudieron cargar las carpetas.
+              <button type="button" className="ml-2 underline" onClick={() => { setErrorCarpetas(false); setReintento(n => n + 1); }}>Reintentar</button>
+            </div>
+          ) : (
+            <div className="px-4 py-3 text-sm text-[#605e5c]" role="status">Cargando carpetas…</div>
+          )}
         </div>
       )}
       <div className="h-px bg-[#edebe9] my-1" />

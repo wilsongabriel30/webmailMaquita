@@ -76,6 +76,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- En móvil, «Más acciones → Mover a…» carga las carpetas aunque el cajón lateral nunca se haya abierto; muestra un aviso y permite reintentar si la carga falla.
 - **Pestaña «Otros» escondía correos importantes.** Un correo externo dirigido directamente a la persona (su
   dirección en Para) y con adjuntos va siempre a Prioritarios aunque la clasificación automática lo marque bajo
   (`lib/pestanaPrioritarios.ts`). Caso: un acta de finiquito de una contraparte quedó en «Otros» y no aparecía ni
