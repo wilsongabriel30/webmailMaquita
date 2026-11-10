@@ -5,8 +5,8 @@ Connects to Dovecot ManageSieve on localhost:4190.
 
 import asyncio
 import base64
+import logging
 import re
-from datetime import datetime
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -15,91 +15,42 @@ from pydantic import BaseModel, Field
 from app.auth.dependencies import get_current_user
 from app.core.session import get_user_password
 from app.security.account_protection import audit_sieve_change, check_forward_policy
-
-# ---------------------------------------------------------------------------
-# Input sanitization — prevent sieve code injection
-# ---------------------------------------------------------------------------
-
-_SIEVE_DANGEROUS_RE = re.compile(
-    r"[\r\n\x00-\x08\x0b\x0c\x0e-\x1f\x7f\x85\u2028\u2029]"
+from app.sieve import bloqueados_bloque, zimbra_bloque
+from app.sieve.analizador import parse_filters_from_script, parse_vacation_from_script
+from app.sieve.confianza_bloque import aplicar, extraer
+from app.sieve.escapado import (  # noqa: F401 (nombre histórico)
+    sanear as _sanitize_sieve_value,
+)
+from app.sieve.generador import comprobar_relectura, generate_sieve_script
+from app.sieve.modelos import (  # noqa: F401 (los reexporta este módulo)
+    FilterAction,
+    FilterCondition,
+    FilterRule,
+    FilterRuleOut,
+    VacationSettings,
+    validar_correo_reenvio,
 )
 
-
-def _sanitize_sieve_value(v: str) -> str:
-    """Strip newlines and control chars from sieve values to prevent injection."""
-    return _SIEVE_DANGEROUS_RE.sub("", v).strip()
-
-
-def _validate_forward_email(addr: str) -> str:
-    """Validate that a forward address is a proper email."""
-    addr = _sanitize_sieve_value(addr)
-    if not re.match(r"^[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}$", addr):
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=f"Dirección de reenvío inválida: {addr}",
-        )
-    return addr
-
+logger = logging.getLogger("sieve")
 
 router = APIRouter(prefix="/api/sieve", tags=["sieve"])
 
 SIEVE_HOST = "127.0.0.1"
 SIEVE_PORT = 4190
-from app.sieve import bloqueados_bloque, zimbra_bloque
-from app.sieve.confianza_bloque import aplicar, extraer
-
 SCRIPT_NAME = "webmail"
 
-
-# ---------------------------------------------------------------------------
-# Pydantic models
-# ---------------------------------------------------------------------------
-
-
-class VacationSettings(BaseModel):
-    enabled: bool = False
-    subject: str = ""
-    body: str = ""
-    start_date: Optional[str] = None  # ISO date YYYY-MM-DD
-    end_date: Optional[str] = None
-
-
-class FilterCondition(BaseModel):
-    field: str = Field(..., pattern="^(from|to|subject)$")
-    operator: str = Field(..., pattern="^(contains|is|matches)$")
-    value: str
-
-
-class FilterAction(BaseModel):
-    type: str = Field(..., pattern="^(move|flag|delete|forward)$")
-    value: Optional[str] = None
-
-
-class FilterRule(BaseModel):
-    name: str
-    condition: FilterCondition
-    action: FilterAction
-
-
-class FilterRuleOut(FilterRule):
-    index: int
+# Aviso que ve la persona cuando el servicio de reglas (ManageSieve) no responde o rechaza
+# las credenciales de la sesión. Es un 424 (dependencia fallida) y NO un 401: un 401 hacía
+# que el cliente web diera la sesión por caducada y expulsara a la persona (09/11/2026).
+DETALLE_SIEVE_NO_DISPONIBLE = (
+    "No se pudo conectar con el servicio de reglas de correo. Sus reglas no se han "
+    "borrado; inténtelo de nuevo en unos minutos y, si persiste, avise a soporte."
+)
 
 
 # ---------------------------------------------------------------------------
 # ManageSieve low-level protocol helpers
 # ---------------------------------------------------------------------------
-
-
-async def _read_response(reader: asyncio.StreamReader) -> str:
-    """Read lines until we get an OK or NO terminal response."""
-    lines: list[str] = []
-    while True:
-        raw = await asyncio.wait_for(reader.readline(), timeout=10)
-        line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
-        lines.append(line)
-        if line.startswith("OK") or line.startswith("NO") or line.startswith("BYE"):
-            break
-    return "\n".join(lines)
 
 
 async def _read_until_ok(reader: asyncio.StreamReader) -> str:
@@ -124,9 +75,15 @@ async def sieve_connect(username: str, password: str) -> tuple:
             asyncio.open_connection(SIEVE_HOST, SIEVE_PORT), timeout=10
         )
     except (OSError, asyncio.TimeoutError) as exc:
+        logger.warning(
+            "No se pudo conectar con ManageSieve (%s:%s): %s",
+            SIEVE_HOST,
+            SIEVE_PORT,
+            exc,
+        )
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"Cannot connect to ManageSieve server: {exc}",
+            detail=DETALLE_SIEVE_NO_DISPONIBLE,
         )
 
     # Read server greeting (may be multiple lines ending with OK)
@@ -134,9 +91,10 @@ async def sieve_connect(username: str, password: str) -> tuple:
     if "OK" not in greeting:
         writer.close()
         await writer.wait_closed()
+        logger.warning("El saludo de ManageSieve no trajo OK: %r", greeting[:200])
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="ManageSieve greeting did not contain OK",
+            detail=DETALLE_SIEVE_NO_DISPONIBLE,
         )
 
     # AUTHENTICATE PLAIN
@@ -148,9 +106,20 @@ async def sieve_connect(username: str, password: str) -> tuple:
     if not auth_resp.strip().startswith("OK"):
         writer.close()
         await writer.wait_closed()
+        # Pasa con sesiones sin contraseña propia (impersonación, SSO): la sesión web es
+        # válida, así que no se devuelve 401 (expulsaría a la persona), sino 424.
+        logger.warning(
+            "ManageSieve rechazó la autenticación de %s: %s",
+            username,
+            (
+                auth_resp.strip().splitlines()[-1]
+                if auth_resp.strip()
+                else "(sin respuesta)"
+            ),
+        )
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="ManageSieve authentication failed",
+            status_code=status.HTTP_424_FAILED_DEPENDENCY,
+            detail=DETALLE_SIEVE_NO_DISPONIBLE,
         )
 
     return reader, writer
@@ -267,233 +236,6 @@ async def sieve_deletescript(
 
 
 # ---------------------------------------------------------------------------
-# Sieve script generation / parsing
-# ---------------------------------------------------------------------------
-
-
-def _build_requires(
-    vacation: Optional[VacationSettings], filters: list[FilterRule]
-) -> list[str]:
-    """Compute the list of require strings needed."""
-    reqs: set[str] = set()
-    if vacation and vacation.enabled:
-        reqs.add("vacation")
-        if vacation.start_date or vacation.end_date:
-            reqs.add("date")
-            reqs.add("relational")
-    for f in filters:
-        if f.action.type == "move":
-            reqs.add("fileinto")
-        elif f.action.type == "flag":
-            reqs.update({"imap4flags"})
-        # «redirect» no se declara: es del núcleo de Sieve y Pigeonhole rechaza el script si va en el require.
-    return sorted(reqs)
-
-
-def _sieve_match_type(operator: str) -> str:
-    if operator == "contains":
-        return ":contains"
-    elif operator == "is":
-        return ":is"
-    elif operator == "matches":
-        return ":matches"
-    return ":contains"
-
-
-def _sieve_header_name(field: str) -> str:
-    return {"from": "From", "to": "To", "subject": "Subject"}.get(field, field)
-
-
-def generate_sieve_script(
-    vacation: Optional[VacationSettings], filters: list[FilterRule]
-) -> str:
-    """Build a complete sieve script from vacation + filter rules."""
-    parts: list[str] = []
-
-    requires = _build_requires(vacation, filters)
-    if requires:
-        req_str = ", ".join(f'"{r}"' for r in requires)
-        parts.append(f"require [{req_str}];")
-    parts.append("")
-
-    # Vacation block
-    parts.append("# --- VACATION ---")
-    if vacation and vacation.enabled:
-        subject_escaped = _sanitize_sieve_value(vacation.subject).replace('"', '\\"')
-        body_escaped = _sanitize_sieve_value(vacation.body).replace('"', '\\"')
-
-        date_conditions: list[str] = []
-        if vacation.start_date:
-            date_conditions.append(
-                f'currentdate :value "ge" "date" "{vacation.start_date}"'
-            )
-        if vacation.end_date:
-            date_conditions.append(
-                f'currentdate :value "le" "date" "{vacation.end_date}"'
-            )
-
-        vacation_cmd = (
-            f'vacation :days 7 :subject "{subject_escaped}" "{body_escaped}";'
-        )
-
-        if date_conditions:
-            cond_str = ", ".join(date_conditions)
-            parts.append(f"if allof ({cond_str}) {{")
-            parts.append(f"    {vacation_cmd}")
-            parts.append("}")
-        else:
-            parts.append(vacation_cmd)
-    else:
-        parts.append("# vacation disabled")
-    parts.append("")
-
-    # Filter rules block
-    parts.append("# --- FILTERS ---")
-    for idx, f in enumerate(filters):
-        header = _sieve_header_name(f.condition.field)
-        match = _sieve_match_type(f.condition.operator)
-        value_escaped = _sanitize_sieve_value(f.condition.value).replace('"', '\\"')
-        name_escaped = _sanitize_sieve_value(f.name).replace('"', '\\"')
-
-        parts.append(f"# filter[{idx}]: {name_escaped}")
-        condition_line = f'if header {match} "{header}" "{value_escaped}"'
-
-        if f.action.type == "move":
-            folder = _sanitize_sieve_value(f.action.value or "INBOX").replace(
-                '"', '\\"'
-            )
-            parts.append(f"{condition_line} {{")
-            parts.append(f'    fileinto "{folder}";')
-            parts.append("}")
-        elif f.action.type == "flag":
-            flag_val = _sanitize_sieve_value(f.action.value or "\\\\Flagged").replace(
-                '"', '\\"'
-            )
-            parts.append(f"{condition_line} {{")
-            parts.append(f'    setflag "{flag_val}";')
-            parts.append("}")
-        elif f.action.type == "delete":
-            parts.append(f"{condition_line} {{")
-            parts.append("    discard;")
-            parts.append("}")
-        elif f.action.type == "forward":
-            addr = _validate_forward_email(f.action.value or "")
-            parts.append(f"{condition_line} {{")
-            parts.append(f'    redirect "{addr}";')
-            parts.append("}")
-
-    parts.append("")
-    return "\n".join(parts)
-
-
-def parse_vacation_from_script(script: str) -> VacationSettings:
-    """Parse vacation settings from a sieve script."""
-    if not script:
-        return VacationSettings(enabled=False)
-
-    # Check if vacation command exists and is not commented out
-    # Match: vacation :days N :subject "..." "body";
-    vac_pattern = re.compile(
-        r'vacation\s+:days\s+\d+\s+:subject\s+"([^"]*?)"\s+"([^"]*?)"\s*;',
-        re.DOTALL,
-    )
-    m = vac_pattern.search(script)
-    if not m:
-        return VacationSettings(enabled=False)
-
-    subject = m.group(1).replace('\\"', '"')
-    body = m.group(2).replace('\\"', '"')
-
-    # Check if vacation is inside a disabled comment block
-    # Find the line position of the match
-    before_match = script[: m.start()]
-    if "# vacation disabled" in before_match.split("\n")[-1] if before_match else "":
-        return VacationSettings(enabled=False)
-
-    # Parse date constraints
-    start_date = None
-    end_date = None
-    ge_match = re.search(r'currentdate\s+:value\s+"ge"\s+"date"\s+"([^"]+)"', script)
-    le_match = re.search(r'currentdate\s+:value\s+"le"\s+"date"\s+"([^"]+)"', script)
-    if ge_match:
-        start_date = ge_match.group(1)
-    if le_match:
-        end_date = le_match.group(1)
-
-    return VacationSettings(
-        enabled=True,
-        subject=subject,
-        body=body,
-        start_date=start_date,
-        end_date=end_date,
-    )
-
-
-def parse_filters_from_script(script: str) -> list[FilterRule]:
-    """Parse filter rules from a sieve script."""
-    if not script:
-        return []
-
-    filters: list[FilterRule] = []
-
-    # Pattern for: # filter[N]: name
-    # followed by: if header :op "Header" "value" { action; }
-    block_pattern = re.compile(
-        r"#\s*filter\[\d+\]:\s*(.+?)\n"
-        r'if\s+header\s+(:contains|:is|:matches)\s+"(From|To|Subject)"\s+"([^"]*?)"\s*\{\s*\n'
-        r"\s+(.+?);\s*\n"
-        r"\}",
-        re.MULTILINE,
-    )
-
-    for m in block_pattern.finditer(script):
-        name = m.group(1).strip().replace('\\"', '"')
-        sieve_op = m.group(2)
-        header = m.group(3)
-        value = m.group(4).replace('\\"', '"')
-        action_line = m.group(5).strip()
-
-        # Map sieve match type back to operator
-        op_map = {":contains": "contains", ":is": "is", ":matches": "matches"}
-        operator = op_map.get(sieve_op, "contains")
-
-        # Map header back to field
-        field_map = {"From": "from", "To": "to", "Subject": "subject"}
-        field = field_map.get(header, "from")
-
-        # Parse action
-        if action_line.startswith("fileinto"):
-            folder_m = re.match(r'fileinto\s+"([^"]*)"', action_line)
-            action = FilterAction(
-                type="move", value=folder_m.group(1) if folder_m else "INBOX"
-            )
-        elif action_line.startswith("setflag"):
-            flag_m = re.match(r'setflag\s+"([^"]*)"', action_line)
-            action = FilterAction(
-                type="flag", value=flag_m.group(1) if flag_m else "\\Flagged"
-            )
-        elif action_line == "discard":
-            action = FilterAction(type="delete")
-        elif action_line.startswith("redirect"):
-            addr_m = re.match(r'redirect\s+"([^"]*)"', action_line)
-            action = FilterAction(
-                type="forward", value=addr_m.group(1) if addr_m else ""
-            )
-        else:
-            continue
-
-        filters.append(
-            FilterRule(
-                name=name,
-                condition=FilterCondition(field=field, operator=operator, value=value),
-                action=action,
-            )
-        )
-
-    return filters
-
-
-# ---------------------------------------------------------------------------
 # Helper: get / save the combined webmail script
 # ---------------------------------------------------------------------------
 
@@ -508,13 +250,33 @@ async def _get_current_script(username: str, password: str) -> str:
         await sieve_disconnect(writer)
 
 
-async def _save_script(username: str, password: str, script: str) -> None:
+async def _save_script(
+    username: str,
+    password: str,
+    script: str,
+    vacation: Optional[VacationSettings] = None,
+    filters: Optional[list[FilterRule]] = None,
+) -> None:
     """Upload and activate the 'webmail' sieve script.
+
+    Si se pasan `vacation` y `filters` (lo que se acaba de generar), antes de subir el script se
+    comprueba que se relee igual: una regla con comillas que se perdiera al releer se borraría
+    en el siguiente guardado (09/11/2026).
 
     El script se regenera entero a partir de vacaciones y reglas, asi que aqui se vuelve a
     poner el bloque de remitentes de confianza que ya tuviera: vive dentro de este mismo
     script y, sin esto, tocar un filtro borraria la lista del usuario (21/09/2026).
     """
+    if vacation is not None or filters is not None:
+        try:
+            comprobar_relectura(script, vacation, filters or [])
+        except ValueError as exc:
+            logger.error("No se guarda el script Sieve de %s: %s", username, exc)
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"No se pudo guardar la regla sin riesgo de perderla ({exc}). "
+                "Revise comillas y barras invertidas en los valores.",
+            )
     reader, writer = await sieve_connect(username, password)
     try:
         anterior = await sieve_getscript(reader, writer, SCRIPT_NAME)
@@ -568,7 +330,7 @@ async def set_vacation(
 
     # Generate new combined script
     new_script = generate_sieve_script(settings, existing_filters)
-    await _save_script(username, password, new_script)
+    await _save_script(username, password, new_script, settings, existing_filters)
 
     return {"status": "updated", "vacation": settings.model_dump()}
 
@@ -626,7 +388,7 @@ async def create_filter(
     filters.append(rule)
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script)
+    await _save_script(username, password, new_script, vacation, filters)
 
     return FilterRuleOut(index=len(filters) - 1, **rule.model_dump())
 
@@ -666,7 +428,7 @@ async def update_filter(
     filters[index] = rule
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script)
+    await _save_script(username, password, new_script, vacation, filters)
 
     return FilterRuleOut(index=index, **rule.model_dump())
 
@@ -694,7 +456,7 @@ async def delete_filter(
     removed = filters.pop(index)
 
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script)
+    await _save_script(username, password, new_script, vacation, filters)
 
     return {"status": "deleted", "removed": removed.model_dump()}
 
@@ -836,7 +598,7 @@ async def create_filter_from_message(
 
     filters.append(rule)
     new_script = generate_sieve_script(vacation, filters)
-    await _save_script(username, password, new_script)
+    await _save_script(username, password, new_script, vacation, filters)
 
     return {
         "index": len(filters) - 1,
