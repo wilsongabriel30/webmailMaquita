@@ -7,6 +7,7 @@ import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
 import { recordarLeido, olvidarLeido, conservarLeidosRecientes } from './graciaNoLeidos';
 import { usePolling } from '../../hooks/usePolling';
 import { debeSondearLista } from '../../lib/sondeoLista';
+import { useHiloAlCambiarVista } from '../../hooks/useHiloAlCambiarVista';
 import { api } from '../../api/client';
 import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
@@ -761,6 +762,9 @@ export function MessageList() {
     }
     setLoadingThread(false);
   };
+
+  // Cambiar a «Conversaciones agrupadas» con un correo abierto carga su hilo al momento (10/11/2026).
+  useHiloAlCambiarVista(viewMode, selectedMessage, fetchThreadMessages, clearThread);
 
   const handleThreadHeaderClick = (group: ThreadGroup) => {
     const newExpanded = new Set(expandedThreads);

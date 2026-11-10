@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client"
 import "./lib/modoApp"
 import "./index.css"
 import "./dark-theme.css"
+import "./estilos/lectura-compacta.css"
 import App from "./App"
 // T-49: PRIMERO se deja el caché del equipo cifrado y sin restos, y SOLO DESPUÉS se
 // arrancan la cola de envío y la descarga sin conexión.

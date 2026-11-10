@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { guardarCintaContraida, leerCintaContraida } from '../../lib/cintaContraida';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { togglePins } from '../../lib/pins';
@@ -223,7 +224,7 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
       disabled={disabled}
       title={label}
       className={`
-        flex flex-col items-center justify-center px-2 py-1 rounded min-w-[48px] text-center
+        cinta-boton flex flex-col items-center justify-center px-2 py-1 rounded min-w-[48px] text-center
         transition-colors duration-100 select-none
         ${primary ? 'bg-[#0078d4] text-white hover:bg-[#106ebe]' : ''}
         ${active && !primary ? 'bg-[#e1dfdd] text-[#0078d4]' : ''}
@@ -233,7 +234,7 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
       `}
     >
       <SvgIcon d={icon} size={28} color={danger ? '#d13438' : primary ? 'white' : active ? '#0078d4' : 'currentColor'} />
-      <span className={`text-[12px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
+      <span className={`cinta-boton-texto text-[12px] mt-0.5 leading-tight whitespace-nowrap flex items-center gap-0.5 ${danger ? 'text-[#d13438]' : ''}`}>
         {label}{hasDropdown && <span className="text-[10px]">&#9662;</span>}
       </span>
     </button>
@@ -242,7 +243,7 @@ function ToolbarButton({ icon, label, onClick, hasDropdown, active, primary, dan
 
 //  Group separator
 function Sep() {
-  return <div className="w-px h-[56px] bg-[#edebe9] mx-1 flex-shrink-0" />;
+  return <div className="cinta-separador w-px h-[56px] bg-[#edebe9] mx-1 flex-shrink-0" />;
 }
 
 //  Group wrapper with label
@@ -250,7 +251,7 @@ function Group({ label, children }: { label: string; children: React.ReactNode }
   return (
     <div className="flex flex-col items-center">
       <div className="flex items-end gap-0.5">{children}</div>
-      <span className="text-[11px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
+      <span className="cinta-grupo-etiqueta text-[11px] text-[#605e5c] mt-0.5 leading-none">{label}</span>
     </div>
   );
 }
@@ -371,7 +372,7 @@ export function Toolbar() {
     const { isMobile } = useResponsive();
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'vista' | 'ayuda'>('inicio');
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(leerCintaContraida);
   const [hamburgerTooltip, setHamburgerTooltip] = useState(false);
   const [archivoOpen, setArchivoOpen] = useState(false);
   const [infoCuentaOpen, setInfoCuentaOpen] = useState(false);   // Archivo → Información de la cuenta
@@ -836,7 +837,7 @@ export function Toolbar() {
 
         {/* Spacer + collapse button */}
         <div className="flex-1" />
-        <button onClick={() => setCollapsed(!collapsed)}
+        <button onClick={() => { guardarCintaContraida(!collapsed); setCollapsed(!collapsed); }}
           aria-label={collapsed ? 'Expandir cinta de opciones' : 'Contraer cinta de opciones'}
           className="w-[36px] h-[36px] flex items-center justify-center hover:bg-[#e1dfdd] rounded text-[#605e5c]">
           <SvgIcon d={collapsed ? ICONS.chevronDown : ICONS.chevronUp} size={14} />
