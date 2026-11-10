@@ -755,7 +755,7 @@ export function Toolbar() {
   return (
     <div className="flex flex-col bg-[#f3f2f1] border-b border-[#e1dfdd] select-none" style={{ overflow: 'visible' }}>
       {/*  Tab bar  */}
-      <div className="flex items-center h-[36px] px-1 bg-[#f3f2f1] border-b border-[#edebe9]">
+      <div className="cinta-pestanas flex items-center h-[36px] px-1 bg-[#f3f2f1] border-b border-[#edebe9]">
         {/* Hamburger */}
         <div className="relative">
           <button
