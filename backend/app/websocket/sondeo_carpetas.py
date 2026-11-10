@@ -53,7 +53,7 @@ async def _ultimo_sin_leer_en(imap, carpeta_imap: str) -> int | None:
         return None
 
 
-async def sondear(imap, redis, usuario: str) -> int:
+async def sondear(imap, redis, usuario: str, db=None) -> int:
     """Revisa las carpetas (menos INBOX y las especiales) y publica `new_mail` / `folder_update`.
 
     Devuelve cuántas carpetas recibieron correo nuevo. Nunca lanza: un fallo aquí no debe tumbar
@@ -92,6 +92,12 @@ async def sondear(imap, redis, usuario: str) -> int:
             con_correo_nuevo += 1
             uid = await _ultimo_sin_leer_en(imap, c.get("imap_name") or nombre)
             resumen = await resumen_correo(imap, uid) if uid else {}
+            if db is not None:  # app de escritorio y push, como INBOX (10/11/2026)
+                from app.websocket import avisos_subcarpeta
+
+                await avisos_subcarpeta.avisar(
+                    db, usuario, nombre, unseen - antes, unseen, uid, resumen
+                )
             await redis.publish(
                 f"ws:user:{usuario}",
                 json.dumps(
