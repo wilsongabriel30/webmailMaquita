@@ -76,6 +76,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- **Pestaña «Otros» escondía correos importantes.** Un correo externo dirigido directamente a la persona (su
+  dirección en Para) y con adjuntos va siempre a Prioritarios aunque la clasificación automática lo marque bajo
+  (`lib/pestanaPrioritarios.ts`). Caso: un acta de finiquito de una contraparte quedó en «Otros» y no aparecía ni
+  buscándola.
+- **El refresco automático repetía la búsqueda activa.** La lista se vuelve a pedir cada 45 s; con una búsqueda en
+  curso volvía a lanzar la misma búsqueda una y otra vez (23 111 resultados cada 45 s durante 10 minutos). Mientras
+  hay búsqueda no se sondea (`lib/sondeoLista.ts`).
 - Notificaciones del navegador: el permiso se pedía al cargar la página y al llegar correo, fuera de un gesto de la
   persona; Firefox lo rechazaba con un error en consola y Safari lo ignoraba. Ahora se pide en el primer clic o tecla
   (`lib/notificacionSegura.ts`).
