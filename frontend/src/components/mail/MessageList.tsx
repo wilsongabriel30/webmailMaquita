@@ -6,6 +6,7 @@ import { getPinnedSet, isPinned, pinKey, togglePins } from '../../lib/pins';
 import { parametrosDeCarga, fusionarTanda } from '../../lib/paginacionBandeja';
 import { recordarLeido, olvidarLeido, conservarLeidosRecientes } from './graciaNoLeidos';
 import { usePolling } from '../../hooks/usePolling';
+import { debeSondearLista } from '../../lib/sondeoLista';
 import { api } from '../../api/client';
 import { fechaCortaLista } from '../../lib/fechaLegible';
 import { ContextMenu, type MenuItem } from '../common/ContextMenu';
@@ -489,7 +490,11 @@ export function MessageList() {
     obs.observe(sentinel);
     return () => obs.disconnect();
   }, [messages.length, totalMessages, loadingMessages]);
-  usePolling(fetch_, 45000, true);  // 45 s: con 2 min el correo recien llegado tardaba en aparecer (21/09/2026)
+  // 45 s: con 2 min el correo recien llegado tardaba en aparecer (21/09/2026).
+  // Con una búsqueda activa no se repite la búsqueda en cada sondeo (10/11/2026).
+  usePolling(() => {
+    if (debeSondearLista(useMailStore.getState().debouncedSearchQuery)) fetch_();
+  }, 45000, true);
 
   // Fetch priority classification for INBOX
   useEffect(() => {
