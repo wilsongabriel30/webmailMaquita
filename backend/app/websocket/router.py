@@ -104,6 +104,7 @@ async def aviso_correo_al_canal(
     db=None,
     resumen: dict | None = None,
     cuenta: str | None = None,
+    carpeta: str = "INBOX",
 ) -> None:
     """Avisa al canal de notificaciones (lo que ve la app de escritorio) que llegó
     correo. tipo='correo' y url del webmail; nunca interrumpe la operación."""
@@ -122,6 +123,8 @@ async def aviso_correo_al_canal(
             titulo, texto = textos_aviso(nuevos, resumen)
             if not (resumen or {}).get("de") and sin_leer and sin_leer != nuevos:
                 texto += " (%d sin leer)" % sin_leer
+        if carpeta != "INBOX":  # archivado por una regla (10/11/2026): se dice dónde
+            texto = "En «%s»: %s" % (carpeta, texto)
         import httpx
 
         from app import organizacion
@@ -144,7 +147,7 @@ async def aviso_correo_al_canal(
                         suya
                         + "/webmail/?"
                         + ("cuenta=%s&" % quote(cuenta) if cuenta else "")
-                        + "folder=INBOX"
+                        + "folder=%s" % quote(carpeta)
                         + ("&uid=%d" % uid if uid else "")
                     ),
                     "origen": "correo",
@@ -361,7 +364,9 @@ async def _poll_user_inbox(username: str, app_state):
                 try:
                     from app.websocket import sondeo_carpetas
 
-                    await sondeo_carpetas.sondear(imap, redis, username)
+                    await sondeo_carpetas.sondear(
+                        imap, redis, username, app_state.db_pool
+                    )
                 except asyncio.CancelledError:
                     raise
                 except Exception as exc:
