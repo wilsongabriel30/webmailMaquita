@@ -336,6 +336,12 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
     ):
         auth_user = f"{auth_user}*admin"
 
+    # Confirmación de entrega real (09/11/2026): DSN del SMTP (RFC 3461). Postfix avisa al remitente
+    # cuando entrega el correo (buzones de la casa, y los externos cuyo servidor lo soporte).
+    # La cabecera Return-Receipt-To se mantiene por compatibilidad, pero no basta por sí sola.
+    opciones_dsn = (
+        ["NOTIFY=SUCCESS,FAILURE"] if email_data.request_delivery_receipt else None
+    )
     await aiosmtplib.send(
         msg,
         hostname=settings.smtp_host,
@@ -345,6 +351,8 @@ async def send_email(email_data: OutgoingEmail, password: str) -> dict:
         start_tls=True,
         tls_context=tls_context,
         recipients=all_recipients,
+        rcpt_options=opciones_dsn,
+        mail_options=["RET=HDRS"] if opciones_dsn else None,
         timeout=SMTP_ENVIO_TIMEOUT_S,
     )
 

@@ -22,6 +22,9 @@ class UserSettings(BaseModel):
     auto_reply_enabled: bool = False
     auto_reply_subject: str = ""
     auto_reply_body: str = ""
+    # Qué hacer cuando un correo recibido pide confirmación de lectura (09/11/2026):
+    # preguntar | siempre (enviar sin preguntar si el acuse va al remitente) | nunca.
+    acuse_lectura: str = "preguntar"
 
 
 class SignatureCreate(BaseModel):
@@ -96,12 +99,16 @@ async def update_settings(
     body: UserSettings, request: Request, username: str = Depends(get_current_user)
 ):
     db = request.app.state.db_pool
+    if body.acuse_lectura not in ("preguntar", "siempre", "nunca"):
+        raise HTTPException(
+            status_code=400, detail="Valor no válido para la confirmación de lectura"
+        )
     await db.execute(
         """
         INSERT INTO user_preferences (username, display_name, signature_html, messages_per_page,
             reading_pane, block_remote_images, confirm_delete,
-            auto_reply_enabled, auto_reply_subject, auto_reply_body, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, now())
+            auto_reply_enabled, auto_reply_subject, auto_reply_body, acuse_lectura, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, now())
         ON CONFLICT (username) DO UPDATE SET
             display_name = EXCLUDED.display_name,
             signature_html = EXCLUDED.signature_html,
@@ -112,6 +119,7 @@ async def update_settings(
             auto_reply_enabled = EXCLUDED.auto_reply_enabled,
             auto_reply_subject = EXCLUDED.auto_reply_subject,
             auto_reply_body = EXCLUDED.auto_reply_body,
+            acuse_lectura = EXCLUDED.acuse_lectura,
             updated_at = now()
     """,
         username,
@@ -124,6 +132,7 @@ async def update_settings(
         body.auto_reply_enabled,
         body.auto_reply_subject,
         body.auto_reply_body,
+        body.acuse_lectura,
     )
     return {"status": "saved"}
 

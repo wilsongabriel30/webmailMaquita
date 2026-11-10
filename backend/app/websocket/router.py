@@ -356,6 +356,17 @@ async def _poll_user_inbox(username: str, app_state):
                 _last_unseen[username] = unseen
                 await sondeo_unico.guardar_estado(redis, username, unseen, total)
 
+                # Carpetas distintas de INBOX (reglas que archivan directo): misma conexión,
+                # mismo ciclo; publica new_mail por carpeta (09/11/2026).
+                try:
+                    from app.websocket import sondeo_carpetas
+
+                    await sondeo_carpetas.sondear(imap, redis, username)
+                except asyncio.CancelledError:
+                    raise
+                except Exception as exc:
+                    logger.debug(f"sondeo de carpetas de {username}: {exc}")
+
             finally:
                 if imap:
                     try:
