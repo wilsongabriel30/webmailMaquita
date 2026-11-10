@@ -76,6 +76,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- Notificaciones del navegador: el permiso se pedía al cargar la página y al llegar correo, fuera de un gesto de la
+  persona; Firefox lo rechazaba con un error en consola y Safari lo ignoraba. Ahora se pide en el primer clic o tecla
+  (`lib/notificacionSegura.ts`).
 - Reglas de correo: las sesiones abiertas con el usuario maestro (panel de administración, SSO) no podían leer ni
   guardar reglas (ManageSieve rechazaba la autenticación, error 424). Ahora se autentica con el mismo nombre que IMAP.
 - Los desplegables de la barra superior se limitan al alto de la pantalla y se desplazan (antes el de «Mover» se
