@@ -63,7 +63,9 @@ def test_sanear_quita_saltos_y_controles():
 
 
 def test_de_es_exactamente_usa_address():
-    script = generar(None, [regla("Jefe", "from", "is", "jefe@example.org", "move", "INBOX.Jefe")])
+    script = generar(
+        None, [regla("Jefe", "from", "is", "jefe@example.org", "move", "INBOX.Jefe")]
+    )
     assert 'if address :is "From" "jefe@example.org" {' in script
     # «address» es una prueba básica: no se declara en «require» (sievec lo rechaza).
     assert '"address"' not in script.split("\n", 1)[0]
@@ -75,7 +77,10 @@ def test_para_coincide_con_patron_usa_address():
 
 
 def test_contiene_sigue_usando_header_para_filtrar_por_dominio():
-    script = generar(None, [regla("Dominio", "from", "contains", "example.org", "move", "Proveedores")])
+    script = generar(
+        None,
+        [regla("Dominio", "from", "contains", "example.org", "move", "Proveedores")],
+    )
     assert 'if header :contains "From" "example.org" {' in script
     assert '"address"' not in script
 
@@ -90,7 +95,9 @@ def test_asunto_siempre_usa_header():
 
 
 def test_mover_crea_la_carpeta_y_detiene():
-    script = generar(None, [regla("R", "from", "contains", "a", "move", "INBOX.Carpeta")])
+    script = generar(
+        None, [regla("R", "from", "contains", "a", "move", "INBOX.Carpeta")]
+    )
     assert '    fileinto :create "INBOX.Carpeta";\n    stop;\n}' in script
     assert 'require ["fileinto", "mailbox"];' in script
 
@@ -178,7 +185,9 @@ def test_varias_reglas_conservan_el_orden_y_el_total():
 
 
 def test_el_nombre_con_salto_de_linea_no_inyecta_codigo():
-    peligroso = regla("x\n# filter[9]: y\nif true { discard; }", "from", "contains", "a", "move", "A")
+    peligroso = regla(
+        "x\n# filter[9]: y\nif true { discard; }", "from", "contains", "a", "move", "A"
+    )
     script = generar(None, [peligroso])
     leidas = leer_reglas(script)
     assert len(leidas) == 1
@@ -197,13 +206,21 @@ def test_vacaciones_con_comillas_sobreviven_a_editar_reglas(texto):
     assert leida.subject == vac.subject.strip()
     assert leida.body == texto.strip()
     # Editar reglas regenera el script a partir de lo releído: la respuesta sigue encendida.
-    otra_vez = generar(leida, leer_reglas(script) + [regla("S", "to", "is", "b@example.org", "flag")])
+    otra_vez = generar(
+        leida, leer_reglas(script) + [regla("S", "to", "is", "b@example.org", "flag")]
+    )
     assert leer_vacaciones(otra_vez).enabled is True
     assert leer_vacaciones(otra_vez).body == texto.strip()
 
 
 def test_vacaciones_con_fechas():
-    vac = VacationSettings(enabled=True, subject="S", body="B", start_date="2026-11-10", end_date="2026-11-20")
+    vac = VacationSettings(
+        enabled=True,
+        subject="S",
+        body="B",
+        start_date="2026-11-10",
+        end_date="2026-11-20",
+    )
     script = generar(vac, [])
     assert 'require ["date", "relational", "vacation"];' in script
     leida = leer_vacaciones(script)
@@ -218,7 +235,7 @@ def test_vacaciones_apagadas():
 
 # ── Scripts antiguos (producción antes del 09/11/2026) ────────────────────────
 
-SCRIPT_ANTIGUO = '''require ["fileinto", "imap4flags"];
+SCRIPT_ANTIGUO = """require ["fileinto", "imap4flags"];
 
 # --- VACATION ---
 # vacation disabled
@@ -244,12 +261,14 @@ if header :is "To" "alias@example.org" {
 # --- REGLAS TRAIDAS DE ZIMBRA (no se editan desde el webmail) ---
 if allof (address :all :contains "from" "x@y.z", header :contains "Cc" "z") { fileinto "Z"; stop; }
 # --- FIN REGLAS TRAIDAS DE ZIMBRA ---
-'''
+"""
 
 
 def test_script_antiguo_se_lee_y_se_regenera_con_address():
     leidas = leer_reglas(SCRIPT_ANTIGUO)
-    assert [(r.condition.field, r.condition.operator, r.action.type) for r in leidas] == [
+    assert [
+        (r.condition.field, r.condition.operator, r.action.type) for r in leidas
+    ] == [
         ("from", "is", "move"),
         ("subject", "contains", "flag"),
         ("from", "contains", "delete"),
@@ -274,7 +293,9 @@ def test_comprobar_relectura_detecta_perdidas():
     reglas = [regla("R", "from", "contains", "a", "move", "A")]
     script = generar(None, reglas)
     with pytest.raises(ValueError):
-        generador.comprobar_relectura(script.replace("# filter[0]", "# roto"), None, reglas)
+        generador.comprobar_relectura(
+            script.replace("# filter[0]", "# roto"), None, reglas
+        )
     vac = VacationSettings(enabled=True, subject="S", body="B")
     with pytest.raises(ValueError):
         generador.comprobar_relectura(generar(None, reglas), vac, reglas)

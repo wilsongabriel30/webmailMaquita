@@ -22,7 +22,11 @@ async def _servidor_falso(acepta: bool):
             if not linea:
                 break
             if linea.startswith(b"AUTHENTICATE"):
-                writer.write(b'OK "Autenticado"\r\n' if acepta else b'NO "Authentication failed."\r\n')
+                writer.write(
+                    b'OK "Autenticado"\r\n'
+                    if acepta
+                    else b'NO "Authentication failed."\r\n'
+                )
             elif linea.startswith(b"GETSCRIPT"):
                 writer.write(b'NO (NONEXISTENT) "Script not found"\r\n')
             elif linea.startswith(b"LOGOUT"):
@@ -60,7 +64,9 @@ async def test_autenticacion_rechazada_da_424_y_no_401(monkeypatch, sesion):
         with pytest.raises(HTTPException) as exc:
             await sieve_router.list_filters(PeticionFalsa(), "test@example.org")
         assert exc.value.status_code == 424
-        assert exc.value.detail.startswith("No se pudo conectar con el servicio de reglas de correo")
+        assert exc.value.detail.startswith(
+            "No se pudo conectar con el servicio de reglas de correo"
+        )
         assert "borrado" in exc.value.detail
     finally:
         servidor.close()
@@ -74,7 +80,11 @@ async def test_autenticacion_rechazada_se_registra(monkeypatch, sesion, caplog):
         with caplog.at_level("WARNING", logger="sieve"):
             with pytest.raises(HTTPException):
                 await sieve_router.get_vacation(PeticionFalsa(), "test@example.org")
-        assert any("ManageSieve rechazó" in r.getMessage() and "test@example.org" in r.getMessage() for r in caplog.records)
+        assert any(
+            "ManageSieve rechazó" in r.getMessage()
+            and "test@example.org" in r.getMessage()
+            for r in caplog.records
+        )
     finally:
         servidor.close()
         await servidor.wait_closed()
@@ -84,7 +94,9 @@ async def test_sin_script_devuelve_lista_vacia(monkeypatch, sesion):
     servidor, puerto = await _servidor_falso(acepta=True)
     monkeypatch.setattr(sieve_router, "SIEVE_PORT", puerto)
     try:
-        assert await sieve_router.list_filters(PeticionFalsa(), "test@example.org") == []
+        assert (
+            await sieve_router.list_filters(PeticionFalsa(), "test@example.org") == []
+        )
     finally:
         servidor.close()
         await servidor.wait_closed()

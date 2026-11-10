@@ -79,7 +79,9 @@ async def test_une_organizacion_y_tabla_domain_con_cache():
 
 
 async def test_si_la_base_falla_se_responde_con_los_de_la_organizacion():
-    assert await dominios.dominios_internos(BaseFalsa(falla=True)) == frozenset({"example.org"})
+    assert await dominios.dominios_internos(BaseFalsa(falla=True)) == frozenset(
+        {"example.org"}
+    )
 
 
 def test_dominio_de_direccion():
@@ -99,9 +101,9 @@ async def test_es_interno():
 async def test_reenvio_a_dominio_propio_se_permite_sin_aprobacion():
     redis = RedisFalso()
     db = BaseFalsa(["example.com"])
-    assert await account_protection.check_forward_policy(redis, "ana", "ana@example.org", db) == {
-        "allowed": True
-    }
+    assert await account_protection.check_forward_policy(
+        redis, "ana", "ana@example.org", db
+    ) == {"allowed": True}
     assert await account_protection.check_forward_policy(
         redis, "ana", "Ana@Example.com", db
     ) == {"allowed": True}
@@ -119,7 +121,9 @@ async def test_reenvio_externo_sigue_requiriendo_aprobacion():
 
 
 async def test_reenvio_externo_sin_base_tambien_se_bloquea():
-    resultado = await account_protection.check_forward_policy(RedisFalso(), "ana", "a@gmail.com")
+    resultado = await account_protection.check_forward_policy(
+        RedisFalso(), "ana", "a@gmail.com"
+    )
     assert resultado["allowed"] is False
 
 
@@ -140,8 +144,18 @@ class BaseActividad(BaseFalsa):
 async def test_detector_no_alerta_por_reenvio_a_dominio_propio():
     db = BaseActividad(
         [
-            {"username": "ana", "target": "jefe@example.com", "details": {}, "ip_address": None},
-            {"username": "ana", "target": "Jefe <jefe@example.org>", "details": {}, "ip_address": None},
+            {
+                "username": "ana",
+                "target": "jefe@example.com",
+                "details": {},
+                "ip_address": None,
+            },
+            {
+                "username": "ana",
+                "target": "Jefe <jefe@example.org>",
+                "details": {},
+                "ip_address": None,
+            },
         ],
         ["example.com"],
     )
@@ -152,7 +166,14 @@ async def test_detector_no_alerta_por_reenvio_a_dominio_propio():
 
 async def test_detector_alerta_por_reenvio_externo():
     db = BaseActividad(
-        [{"username": "ana", "target": "ana@yahoo.com", "details": {}, "ip_address": None}],
+        [
+            {
+                "username": "ana",
+                "target": "ana@yahoo.com",
+                "details": {},
+                "ip_address": None,
+            }
+        ],
         [],
     )
     detector = fraud_detector.FraudDetector(db)
