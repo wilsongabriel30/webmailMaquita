@@ -3,12 +3,17 @@
    cinta y pie se llevaban más de la mitad de la ventana. Solo actúa con poca altura; en pantallas
    altas nada cambia. Las reglas llevan !important porque los componentes usan estilos en línea. */
 @media (max-height: 819px) {
-  /* Cinta de opciones: iconos más pequeños y sin el nombre del grupo (≈25 px menos). */
-  .cinta-boton { padding-top: 2px !important; padding-bottom: 2px !important; min-width: 44px !important; }
-  .cinta-boton > svg { width: 22px !important; height: 22px !important; }
-  .cinta-boton-texto { font-size: 11px !important; }
+  /* Barra superior azul y fila de pestañas más bajas (48→40 px y 36→30 px). */
+  header[role="banner"] { height: 40px !important; }
+  .cinta-pestanas { height: 30px !important; }
+  .cinta-pestanas button { height: 30px !important; }
+  /* Cinta de opciones en UNA fila (icono y nombre uno al lado del otro, sin el nombre del grupo):
+     pasa de ≈77 px a ≈36 px, como la cinta simplificada de Outlook. */
+  .cinta-boton { flex-direction: row !important; gap: 5px !important; padding: 3px 7px !important; min-width: 0 !important; }
+  .cinta-boton > svg { width: 18px !important; height: 18px !important; }
+  .cinta-boton-texto { font-size: 12px !important; margin-top: 0 !important; }
   .cinta-grupo-etiqueta { display: none !important; }
-  .cinta-separador { height: 40px !important; }
+  .cinta-separador { height: 24px !important; }
 
   /* Cabecera del correo: asunto más pequeño, fecha junto a las acciones, «Para» y «Más detalles» en una línea. */
   .lectura-cabecera { padding-top: 8px !important; padding-left: 20px !important; padding-right: 20px !important; }
