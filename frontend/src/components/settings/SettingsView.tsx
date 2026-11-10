@@ -16,6 +16,7 @@ import { resumenRegla } from '../../lib/reglas/resumenRegla';
 import { BotonAplicarRegla } from '../reglas/BotonAplicarRegla';
 import { ETIQUETA_ACCION, normalizarRegla, reglaVacia, type Regla } from '../../lib/reglas/tipos';
 import { showToast } from '../common/Toast';
+import { ToastContainer } from '../common/ToastContainer';
 import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché cifrado en el equipo
 import SmimeSettings from './SmimeSettings';   // Certificados S/MIME (por usuario)
 import { RemitentesBloqueados } from './RemitentesBloqueados';   // 05/11/2026: lo que llena «Marcar como spam»
@@ -188,6 +189,7 @@ export function SettingsView() {
 
   return (
     <div className="flex-1 flex flex-col bg-white overflow-hidden">
+      <ToastContainer />
       {/* Header */}
       <div className="px-6 py-4 border-b border-[#edebe9] flex items-center justify-between">
         <h1 className="text-lg font-semibold text-[#323130]">Configuración</h1>

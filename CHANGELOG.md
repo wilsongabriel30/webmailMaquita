@@ -76,6 +76,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- Ajustes muestra los avisos de las reglas, incluido el fallo al aplicar una regla a correos anteriores y el resultado de «Aplicar ahora».
 - **Pestaña «Otros» escondía correos importantes.** Un correo externo dirigido directamente a la persona (su
   dirección en Para) y con adjuntos va siempre a Prioritarios aunque la clasificación automática lo marque bajo
   (`lib/pestanaPrioritarios.ts`). Caso: un acta de finiquito de una contraparte quedó en «Otros» y no aparecía ni
