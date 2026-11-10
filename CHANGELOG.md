@@ -76,6 +76,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- El atajo E archiva también los correos seleccionados mediante la casilla de la lista y permite deshacer el archivo.
 - **Pestaña «Otros» escondía correos importantes.** Un correo externo dirigido directamente a la persona (su
   dirección en Para) y con adjuntos va siempre a Prioritarios aunque la clasificación automática lo marque bajo
   (`lib/pestanaPrioritarios.ts`). Caso: un acta de finiquito de una contraparte quedó en «Otros» y no aparecía ni
