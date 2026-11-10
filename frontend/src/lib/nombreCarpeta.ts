@@ -6,3 +6,10 @@ const PUNTO_VISIBLE = '\u2024';
 export function nombreHojaSeguro(nombre: string): string {
   return nombre.trim().replace(/\./g, PUNTO_VISIBLE);
 }
+
+/** «INBOX.2_ Financiero.Contabilidad» → «2_ Financiero / Contabilidad», como se ve en la barra lateral. */
+export function nombreVisibleCarpeta(carpeta: string): string {
+  const partes = carpeta.split('.').filter(Boolean);
+  if (partes.length && partes[0].toUpperCase() === 'INBOX') partes.shift();
+  return partes.join(' / ') || carpeta;
+}

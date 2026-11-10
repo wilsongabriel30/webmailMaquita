@@ -124,7 +124,9 @@ async def aviso_correo_al_canal(
             if not (resumen or {}).get("de") and sin_leer and sin_leer != nuevos:
                 texto += " (%d sin leer)" % sin_leer
         if carpeta != "INBOX":  # archivado por una regla (10/11/2026): se dice dónde
-            texto = "En «%s»: %s" % (carpeta, texto)
+            from app.websocket.avisos_subcarpeta import nombre_visible
+
+            texto = "En «%s»: %s" % (nombre_visible(carpeta), texto)
         import httpx
 
         from app import organizacion

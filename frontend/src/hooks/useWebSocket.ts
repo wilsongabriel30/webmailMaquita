@@ -1,4 +1,5 @@
 import { useEffect, useRef, useCallback } from 'react';
+import { nombreVisibleCarpeta } from '../lib/nombreCarpeta';
 import { useMailStore } from '../store/mailStore';
 import { showToast } from '../components/common/Toast';
 import { textoAvisoCorreo, textoAvisoCuenta } from '../lib/textoAvisoCorreo';   // remitente y asunto en el aviso (06/11/2026)
@@ -91,7 +92,7 @@ export function useWebSocket(enabled: boolean = true) {
               const delta = data.delta || 1;
               const aviso = textoAvisoCorreo(delta, data.de, data.asunto);   // 06/11/2026
               // Correo archivado por una regla en otra carpeta (09/11/2026): se dice en cuál.
-              const enCarpeta = data.folder && data.folder !== 'INBOX' ? `En «${data.folder}»: ` : '';
+              const enCarpeta = data.folder && data.folder !== 'INBOX' ? `En «${nombreVisibleCarpeta(data.folder)}»: ` : '';
               showToast(enCarpeta + aviso.cuerpo.replace(/\n/g, ' · '));
 
               // Play sound
