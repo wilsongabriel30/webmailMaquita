@@ -77,6 +77,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   muestran (mezclan carpetas); «Eliminar» de la barra de selección manda cada correo a la papelera desde su carpeta
   real (antes usaba la carpeta actual y podía señalar a otro correo con el mismo uid); la franja «Etiqueta: X» ya
   no muestra un instante el total de la carpeta anterior.
+- **Firmar un PDF adjunto desde el correo.** En la vista previa de un PDF hay un botón «Firmar» que abre un diálogo
+  sencillo (apto para el celular): certificado guardado en Raíces o un .p12 del dispositivo, contraseña, página y
+  posición del sello. La firma la hace Raíces con el mismo motor del Editor PDF (`/api/pdf/firma-servicio/*`, token
+  de servicio `RAICES_FIRMA_TOKEN`); el correo solo lee el adjunto del IMAP y lo manda (`mail/routers/firma_pdf.py`,
+  `mail/services/firma_raices.py`). El PDF firmado se descarga o se adjunta a una respuesta o reenvío
+  («Responder con el PDF firmado»); el adjunto original no cambia (`components/mail/firma/*`, `lib/firmaPdf.ts`,
+  `lib/archivosParaRedaccion.ts`).
+- **Ventana emergente: «Cancelar y volver al correo».** Al responder o reenviar desde `/mensaje`, una barra con ese
+  botón permite abandonar la redacción y volver a leer el correo (guarda en Borradores si ya había algo escrito;
+  `components/mail/BarraVolverAlCorreo.tsx`, evento `compose-cerrar`).
 - **Tareas: vista «Tablero»** junto a «Cuadrícula» y «Lista», en cualquier lista (Mi día, Importante, Tareas, listas
   propias). Columnas Vencidas / Pendiente / En curso / Completada como en Seguimiento; arrastrar una tarea cambia su
   estado (`PATCH /api/tasks/tasks/{id}/estado`). Completar o reabrir pasa por el mismo camino que el círculo
