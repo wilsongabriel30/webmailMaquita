@@ -23,6 +23,9 @@ export const LABEL_COLORS = [
 let _labels: Label[] = [];
 let _listeners: Set<() => void> = new Set();
 let _supported: boolean | null = null;
+// Una cuenta sin ninguna etiqueta recibe las predeterminadas UNA vez por sesión del navegador:
+// el servidor ya no las crea en el GET (un GET no debe escribir, 09/11/2026).
+let _predeterminadasPedidas = false;
 
 function notify() {
   _listeners.forEach(fn => fn());
@@ -49,7 +52,14 @@ export function useLabels() {
     }
     setLoading(true);
     try {
-      const res = await api.get<{ labels: Label[] }>('/mail/labels');
+      let res = await api.get<{ labels: Label[] }>('/mail/labels');
+      if (res.labels.length === 0 && !_predeterminadasPedidas) {
+        _predeterminadasPedidas = true;
+        try {
+          const creadas = await api.post<{ creadas: number }>('/mail/labels/predeterminadas', {});
+          if (creadas.creadas > 0) res = await api.get<{ labels: Label[] }>('/mail/labels');
+        } catch { /* servidor sin el endpoint: la lista queda vacía y se puede crear a mano */ }
+      }
       _labels = res.labels;
       _supported = true;
       notify();

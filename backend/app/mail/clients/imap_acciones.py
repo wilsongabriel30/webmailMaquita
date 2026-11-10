@@ -7,6 +7,8 @@ Si el servidor no anunciara esas capacidades se usa el camino clásico.
 
 import aioimaplib
 
+from app.mail.clients.imap_copyuid import mapa_copyuid
+
 
 def _capacidades(imap: aioimaplib.IMAP4) -> set:
     caps = getattr(imap, "capabilities", None)
@@ -70,12 +72,24 @@ async def mover_uids(
     imap: aioimaplib.IMAP4, uid_set: str, destino_entrecomillado: str
 ) -> bool:
     """Mueve los UIDs a la carpeta destino (ya entrecomillada). Carpeta origen ya seleccionada."""
+    ok, _ = await mover_uids_con_mapa(imap, uid_set, destino_entrecomillado)
+    return ok
+
+
+async def mover_uids_con_mapa(
+    imap: aioimaplib.IMAP4, uid_set: str, destino_entrecomillado: str
+) -> tuple[bool, dict[int, int] | None]:
+    """Como `mover_uids`, y además devuelve el mapa {uid origen: uid destino} que informa el servidor
+    con COPYUID (RFC 4315). Es None si el servidor no lo dijo o el movimiento no se hizo.
+
+    Las etiquetas de base de datos (carpeta + uid) usan ese mapa para seguir al correo (09/11/2026).
+    """
     if "MOVE" in _capacidades(imap):
         resp = None
         try:
             resp = await imap.uid("move", uid_set, destino_entrecomillado)
             if resp.result == "OK":
-                return True
+                return True, mapa_copyuid(resp.lines)
         except Exception:
             pass
         # Aqui el MOVE deja el trabajo a medias: copia el mensaje al destino y falla al
@@ -89,13 +103,13 @@ async def mover_uids(
         if resp is not None and _ya_copiado(resp.lines):
             await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
             await expulsar_uids(imap, uid_set)
-            return True
+            return True, mapa_copyuid(resp.lines)
         # Sin rastro de la copia: si ya no estan en el origen, el movimiento se hizo igual.
         if not await _siguen_en_origen(imap, uid_set):
-            return True
+            return True, None
     copia = await imap.uid("copy", uid_set, destino_entrecomillado)
     if copia.result != "OK":
-        return False
+        return False, None
     await imap.uid("store", uid_set, "+FLAGS", "(\\Deleted)")
     await expulsar_uids(imap, uid_set)
-    return True
+    return True, mapa_copyuid(copia.lines)
