@@ -8,7 +8,7 @@ import { api } from '../api/client';
 import { useMailStore } from '../store/mailStore';
 import { showToast, updateToast } from '../components/common/Toast';
 import { agruparUidsPorCarpeta } from './carpetaReal';
-import { accionDeshacer, loteDeRespuesta, type LoteMovido, type RespuestaMover } from './deshacerMover';
+import { accionDeshacer, loteDeRespuesta, recordarParaDeshacer, type LoteMovido, type RespuestaMover } from './deshacerMover';
 
 export type AccionLote = 'move' | 'delete' | 'archive' | 'mark_read' | 'mark_unread' | 'flag' | 'unflag';
 
@@ -58,6 +58,7 @@ export async function accionEnLote(
     }
     // Mover o archivar: el aviso ya visible recibe «Deshacer» para devolver los correos (10/11/2026)
     if (idAviso && mensajeOk && lotes.length) updateToast(idAviso, mensajeOk, accionDeshacer(lotes));
+    if (lotes.length) recordarParaDeshacer(lotes, idAviso);
     if (!optimista) {
       if (mensajeOk) showToast(mensajeOk);
       useMailStore.getState().clearSelection();

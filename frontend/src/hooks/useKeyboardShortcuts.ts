@@ -8,6 +8,24 @@ import { showToast } from '../components/common/Toast';
 import { confirmarBorradoDefinitivo } from '../lib/confirmarBorrado';
 import { agruparUidsPorCarpeta } from '../lib/carpetaReal';
 import { abrirConFlecha, pedido, sigueVigente } from '../lib/aperturaConFlechas';
+import { accionDeshacer, deshacerUltimo, loteDeRespuesta, recordarParaDeshacer, type LoteMovido, type RespuestaMover } from '../lib/deshacerMover';
+
+// Shift + flechas: ancla y selección previa al empezar a extender (como Outlook, 10/11/2026)
+let anclaShift = -1;
+let seleccionBase: Set<number> | null = null;
+
+function extenderSeleccionConFlecha(idx: number, newIdx: number, uids: number[]) {
+  const st = useMailStore.getState();
+  if (anclaShift < 0 || anclaShift >= uids.length || !seleccionBase) {
+    anclaShift = idx >= 0 ? idx : newIdx;
+    seleccionBase = new Set(st.selectedUids);
+  }
+  const desde = Math.min(anclaShift, newIdx), hasta = Math.max(anclaShift, newIdx);
+  const s = new Set(seleccionBase);
+  for (let i = desde; i <= hasta; i++) s.add(uids[i]);
+  useMailStore.setState({ selectedUids: s });
+  st.setActiveIndex(newIdx);
+}
 
 
 function escapeHtml(str: string): string {
@@ -74,7 +92,9 @@ export function useKeyboardShortcuts() {
       // Los atajos de una letra (N, R, F, E, /) solo valen sin Ctrl, Cmd ni Alt: Ctrl+F es
       // «buscar en la página», Ctrl+R recarga y Ctrl+N abre ventana. Antes Ctrl+F abría un
       // reenvío. Ctrl+A se atiende aparte, más abajo.
-      if (e.key.length === 1 && (e.ctrlKey || e.metaKey || e.altKey) && e.key.toLowerCase() !== 'a') return;
+      if (e.key.length === 1 && (e.ctrlKey || e.metaKey || e.altKey) && !['a', 'z'].includes(e.key.toLowerCase())) return;
+      // Sin Shift se olvida el ancla de la selección con flechas
+      if (!e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { anclaShift = -1; seleccionBase = null; }
 
       // Se navega la lista VISIBLE (05/11/2026): «Otros» y chinchetas hacen que messages[idx]
       // no sea el correo resaltado. Ver components/mail/listaVisible.ts.
@@ -93,6 +113,7 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           if (idx < uids.length - 1) {
             const newIdx = idx + 1;
+            if (e.shiftKey) { extenderSeleccionConFlecha(idx, newIdx, uids); break; }
             state.setActiveIndex(newIdx);
             if (!soloResaltar) abrirConFlecha(uids[newIdx], e.repeat, (uid) => selectMessage(uid, folder));
           }
@@ -102,6 +123,7 @@ export function useKeyboardShortcuts() {
           e.preventDefault();
           if (idx > 0) {
             const newIdx = idx - 1;
+            if (e.shiftKey) { extenderSeleccionConFlecha(idx, newIdx, uids); break; }
             state.setActiveIndex(newIdx);
             if (!soloResaltar) abrirConFlecha(uids[newIdx], e.repeat, (uid) => selectMessage(uid, folder));
           }
@@ -123,6 +145,14 @@ export function useKeyboardShortcuts() {
           } else if (idx >= 0 && idx < uids.length) {
             // Fila solo resaltada (panel de lectura apagado, 05/11/2026): Supr también la borra.
             bulkAction([uids[idx]], folder === 'Trash' ? 'delete' : 'move', 'Trash', folder);
+          }
+          break;
+
+        case 'z':
+          // Ctrl+Z: deshacer el último movimiento (mover, archivar, enviar a la Papelera) de los últimos 2 min
+          if (e.ctrlKey || e.metaKey) {
+            e.preventDefault();
+            void deshacerUltimo().then(hecho => { if (!hecho) showToast('Nada que deshacer'); });
           }
           break;
 
@@ -241,14 +271,18 @@ async function bulkAction(uids: number[], action: string, dest: string, folder: 
   if (action === 'delete' && !confirmarBorradoDefinitivo(uids.length)) return;
   try {
     // Cada correo en su carpeta real (vista por etiqueta / Todo el correo, 05/11/2026).
+    const lotes: LoteMovido[] = [];
     for (const [carpetaReal, lote] of agruparUidsPorCarpeta(uids, folder)) {
-      await api.post(`/mail/bulk-action/${encodeURIComponent(carpetaReal)}`, { uids: lote, action, dest_folder: dest });
+      const r = await api.post<RespuestaMover>(`/mail/bulk-action/${encodeURIComponent(carpetaReal)}`, { uids: lote, action, dest_folder: dest });
+      const movido = loteDeRespuesta(carpetaReal, action === 'archive' ? 'Archive' : dest, r);
+      if (movido) lotes.push(movido);
     }
-    // Una tecla suelta (Supr, E) hace desaparecer el correo: se dice siempre adónde fue.
-    showToast(action === 'delete' ? 'Eliminado definitivamente'
+    // Una tecla suelta (Supr, E) hace desaparecer el correo: se dice siempre adónde fue (y «Deshacer»).
+    const idAviso = showToast(action === 'delete' ? 'Eliminado definitivamente'
       : action === 'archive' ? 'Archivado (está en la carpeta Archivo)'
       : action === 'move' && dest === 'Trash' ? 'Movido a la Papelera'
-      : 'Hecho');
+      : 'Hecho', accionDeshacer(lotes));
+    if (lotes.length) recordarParaDeshacer(lotes, idAviso);
     useMailStore.getState().setSelectedMessage(null);
     useMailStore.getState().clearSelection();
     window.dispatchEvent(new CustomEvent('refresh-messages'));

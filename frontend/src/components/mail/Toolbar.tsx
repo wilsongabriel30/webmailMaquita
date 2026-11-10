@@ -26,6 +26,7 @@ import { nombreApp } from '../../lib/marca';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
+import { deshacerUltimo } from '../../lib/deshacerMover';
 import { reglaDesdeCorreo } from '../../lib/reglas/reglaDesdeCorreo';
 import { reglaVacia } from '../../lib/reglas/tipos';
 
@@ -1130,7 +1131,7 @@ export function Toolbar() {
                   {/* Group: Deshacer */}
                   <Group label="Deshacer">
                     <ToolbarButton icon={ICONS.undo} label="Deshacer (Ctrl+Z)"
-                      onClick={() => showToast('El envío de correos se puede deshacer durante 5 segundos. Un correo movido o eliminado se recupera desde su carpeta destino (p. ej. Papelera).')} />
+                      onClick={() => { void deshacerUltimo().then(hecho => { if (!hecho) showToast('Nada que deshacer: el último movimiento se puede deshacer durante 2 minutos. El envío de un correo se deshace en sus primeros 5 segundos.'); }); }} />
                   </Group>
                 </>
               )}
