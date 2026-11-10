@@ -76,6 +76,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- **El punto en el nombre de una carpeta ya no la parte en dos.** El servidor usa el punto como separador de
+  jerarquía: «7. Servicios Generales» quedaba como carpeta «7» con una subcarpeta « Servicios Generales». Al crear o
+  renombrar, el punto del nombre se cambia por un carácter de aspecto idéntico (`lib/nombreCarpeta.ts`).
+- **Los correos que una regla archiva en una subcarpeta avisan también a la app de escritorio y por push.** Antes
+  solo avisaban al navegador abierto; la app y el push se mandaban únicamente desde la Bandeja de entrada
+  (`backend/app/websocket/avisos_subcarpeta.py`). El aviso dice la carpeta con su nombre visible («001 Maria Jesus»,
+  «2_ Financiero / Contabilidad»), no el interno «INBOX.…».
 - **El correo no cabía en pantallas de 1366×768.** Más de quince personas reclamaron que, a diferencia de Zimbra, el
   correo con su firma no se veía entero sin desplazarse: la cinta, la cabecera, los adjuntos y el pie se llevaban más de
   la mitad de la ventana. Con poca altura de ventana (hasta 819 px) la cinta usa iconos más pequeños sin nombre de
