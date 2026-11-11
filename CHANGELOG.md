@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.13.0] - 2026-11-11
+
+Recuperar un correo enviado tiene plazo (1 hora) y a los destinatarios externos se les avisa en la misma conversación;
+las reglas de correo se pueden aplicar a lo ya recibido y siguen a la carpeta cuando se renombra; «Mover a…» en árbol con
+«Deshacer», y la lectura cabe en portátiles de 1366×768. Sin pasos manuales para instalaciones existentes.
+
 ### Añadido
 - Reglas de correo: casilla «Aplicar también a los correos que ya están en la Bandeja de entrada» al crear o editar
   una regla, y botón «Aplicar ahora» en Ajustes › Reglas de correo. El servidor busca por IMAP los correos que cumplen
@@ -76,6 +82,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- **Recuperar un correo enviado a un externo deja constancia.** En vez de una «solicitud de recuperación» suelta con el identificador del mensaje, se responde en la misma conversación avisando de que el correo se envió por error y que no se tenga en cuenta su contenido; quien lo envió recibe copia (`app/mail/services/aviso_envio_por_error.py`). Vale el mismo plazo de 1 hora.
+- **Recuperar un correo tiene plazo.** Solo se puede recuperar durante 1 hora desde la entrega (`RECALL_MAX_MINUTOS`); antes no había límite y se podían retirar correos de hace semanas. Pasado el plazo el servidor no toca el buzón del destinatario, la pantalla avisa con la fecha de entrega y el intento queda en la auditoría (`app/mail/services/plazo_recuperacion.py`).
+- En móvil, «Más acciones → Mover a…» carga las carpetas aunque el cajón lateral nunca se haya abierto; muestra un aviso y permite reintentar si la carga falla.
+- El atajo E archiva también los correos seleccionados mediante la casilla de la lista y permite deshacer el archivo.
+- Ajustes muestra los avisos de las reglas, incluido el fallo al aplicar una regla a correos anteriores y el resultado de «Aplicar ahora».
 - **El punto en el nombre de una carpeta ya no la parte en dos.** El servidor usa el punto como separador de
   jerarquía: «7. Servicios Generales» quedaba como carpeta «7» con una subcarpeta « Servicios Generales». Al crear o
   renombrar, el punto del nombre se cambia por un carácter de aspecto idéntico (`lib/nombreCarpeta.ts`).

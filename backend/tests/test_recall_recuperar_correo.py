@@ -4,6 +4,7 @@ Sin red, sin BD, sin doveadm: todo lo externo se sustituye con dobles (incidente
 """
 
 import json
+from datetime import datetime
 from types import SimpleNamespace
 
 import pytest
@@ -104,8 +105,10 @@ def entorno(monkeypatch):
             "flags": "\\Seen",
             "was_read": True,
             "subject": "Hola",
+            "received": datetime.now(),
         },
     )
+    monkeypatch.setattr(recall, "_fecha_en_enviados", lambda u, mid: datetime.now())
     expunges: list[tuple] = []
     monkeypatch.setattr(
         recall,
@@ -273,3 +276,121 @@ async def test_check_previo_no_presenta_la_lectura_como_impedimento(entorno):
     c = salida["checks"][0]
     assert c["can_recall"] is True
     assert c["reason"] == "Recuperable (ya lo leyó)"
+
+
+# ----------------------------------------------------------------------------- plazo máximo (11/11/2026)
+from datetime import timedelta  # noqa: E402
+
+from app.mail.services import plazo_recuperacion as plazo  # noqa: E402
+
+
+def test_plazo_una_hora_por_defecto_y_textos():
+    assert plazo.minutos_maximos() == 60
+    assert plazo.texto_plazo(60) == "1 hora"
+    assert plazo.texto_plazo(120) == "2 horas"
+    assert plazo.texto_plazo(30) == "30 minutos"
+
+
+def test_plazo_vencido_y_sin_fecha():
+    ahora = datetime(2026, 11, 11, 9, 0, 0)
+    assert not plazo.vencido(ahora - timedelta(minutes=59), ahora)
+    assert plazo.vencido(ahora - timedelta(minutes=61), ahora)
+    # Sin fecha comprobable no se recupera.
+    assert plazo.vencido(None, ahora)
+    assert plazo.interpretar_fecha("2026-10-30 10:15:02") == datetime(
+        2026, 10, 30, 10, 15, 2
+    )
+    assert plazo.interpretar_fecha("basura") is None
+    assert "30/10/2026" in plazo.motivo(datetime(2026, 10, 30, 10, 15))
+
+
+async def test_correo_antiguo_no_se_recupera_ni_se_toca_el_buzon(entorno, monkeypatch):
+    viejo = datetime.now() - timedelta(days=12)
+    monkeypatch.setattr(
+        recall,
+        "_doveadm_fetch_info",
+        lambda dest, mid: {"folders": ["INBOX"], "was_read": True, "received": viejo},
+    )
+    salida = await _recuperar(entorno, ["tecnologia@example.org"])
+
+    assert entorno.expunges == []
+    assert salida["results"][0]["status"] == "fuera_de_plazo"
+    assert salida["summary"]["recalled"] == 0
+    assert salida["summary"]["fuera_de_plazo"] == 1
+    assert salida["movido_a_borradores"] is False
+    assert "Fuera de plazo" in salida["message"]
+    # El intento queda en la auditoría.
+    assert entorno.db.inserciones
+
+
+async def test_sin_fecha_de_entrega_no_se_recupera(entorno, monkeypatch):
+    monkeypatch.setattr(
+        recall, "_doveadm_fetch_info", lambda dest, mid: {"folders": ["INBOX"]}
+    )
+    salida = await _recuperar(entorno, ["tecnologia@example.org"])
+    assert entorno.expunges == []
+    assert salida["results"][0]["status"] == "fuera_de_plazo"
+
+
+async def test_externo_antiguo_no_recibe_solicitud(entorno, monkeypatch):
+    enviados: list[str] = []
+
+    async def _envio(*a, **k):
+        enviados.append("x")
+        return True
+
+    monkeypatch.setattr(recall, "_send_external_recall_request", _envio)
+    monkeypatch.setattr(
+        recall, "_fecha_en_enviados", lambda u, mid: datetime.now() - timedelta(hours=3)
+    )
+    salida = await _recuperar(entorno, ["alguien@externo.test"])
+    assert enviados == []
+    assert salida["results"][0]["status"] == "fuera_de_plazo"
+
+
+def test_fetch_info_lee_la_fecha_de_entrega_mas_antigua(monkeypatch):
+    salida = (
+        "mailbox: INBOX\nuid: 5\nhdr.subject: Hola\nflags: \\Seen\ndate.received: 2026-11-11 08:30:00\n\f\n"
+        "mailbox: Archive\nuid: 9\nhdr.subject: Hola\nflags: \ndate.received: 2026-11-10 07:00:00\n"
+    )
+    monkeypatch.setattr(
+        recall.subprocess,
+        "run",
+        lambda *a, **k: SimpleNamespace(returncode=0, stdout=salida),
+    )
+    info = recall._doveadm_fetch_info("a@example.org", "<x>")
+    assert info["received"] == datetime(2026, 11, 10, 7, 0, 0)
+    assert info["folders"] == ["INBOX", "Archive"]
+
+
+# ----------------------------------------------------------------------------- aviso a externos (11/11/2026)
+from app.mail.services import aviso_envio_por_error as aviso  # noqa: E402
+
+
+def test_aviso_externo_responde_en_la_misma_conversacion():
+    correo = aviso.construir(
+        "ana@example.org",
+        "cliente@externo.test",
+        "<abc@example.org>",
+        "Cotización <b>1</b>",
+        datetime(2026, 11, 11, 8, 30),
+        "Maquita",
+    )
+    assert correo.subject == "RE: Cotización <b>1</b>"
+    assert (
+        correo.in_reply_to == "<abc@example.org>"
+        and correo.references == "<abc@example.org>"
+    )
+    assert correo.to == ["cliente@externo.test"]
+    # Constancia para quien envió.
+    assert correo.bcc == ["ana@example.org"]
+    assert "se envió por error" in correo.text_body
+    assert "11/11/2026 a las 08:30" in correo.text_body
+    # El asunto no se inyecta como HTML.
+    assert "<b>1</b>" not in correo.html_body
+
+
+def test_aviso_externo_asuntos():
+    assert aviso.asunto_respuesta("RE: Hola") == "RE: Hola"
+    assert aviso.asunto_respuesta("") == "RE: (Sin asunto)"
+    assert aviso.decodificar_asunto("\n =?utf-8?B?Q290aXphY2nDs24=?=") == "Cotización"

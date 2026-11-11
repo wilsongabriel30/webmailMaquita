@@ -214,6 +214,29 @@ else
     echo -e "${RED}ERROR: Backend no arrancó — revisar: journalctl -u ${BACKEND_SERVICE}${NC}"
     exit 1
 fi
+# La instancia de RESPALDO (:8002) atiende mientras el principal reinicia y se queda con las
+# sesiones y los sondeos de correo nuevo que cayeron en ella; si no se reinicia también, sigue
+# corriendo el código viejo (10/11/2026: los avisos de subcarpetas no salían por eso). Se
+# reinicia solo cuando el principal ya responde, así nunca están los dos caídos a la vez.
+RESPALDO_SERVICE="${BACKEND_SERVICE}-respaldo"
+if systemctl list-unit-files --no-legend "${RESPALDO_SERVICE}.service" 2>/dev/null | grep -q .; then
+    for _i in $(seq 1 15); do
+        curl -fsS -o /dev/null --max-time 3 "http://127.0.0.1:${BACKEND_PORT:-8000}/api/health" 2>/dev/null && break
+        sleep 2
+    done
+    if curl -fsS -o /dev/null --max-time 3 "http://127.0.0.1:${BACKEND_PORT:-8000}/api/health" 2>/dev/null; then
+        echo -e "${YELLOW}Reiniciando la instancia de respaldo (${RESPALDO_SERVICE}) con el principal ya sano...${NC}"
+        systemctl restart "${RESPALDO_SERVICE}" || true
+        sleep 3
+        if systemctl is-active --quiet "${RESPALDO_SERVICE}"; then
+            echo -e "${GREEN}Respaldo activo con el código nuevo${NC}"
+        else
+            echo -e "${RED}AVISO: el respaldo no arrancó — revisar: journalctl -u ${RESPALDO_SERVICE}${NC}"
+        fi
+    else
+        echo -e "${RED}AVISO: el principal no responde en /api/health; el respaldo NO se reinicia (seguiría atendiendo)${NC}"
+    fi
+fi
 fi
 
 # --- Paso 6: Verificación final ---

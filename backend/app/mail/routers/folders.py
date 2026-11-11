@@ -18,6 +18,7 @@ from app.mail.clients.imap_client import (
     get_imap_connection,
 )
 from app.mail.clients.imap_pool import get_pooled_imap
+from app.mail.services import reglas_al_renombrar
 from app.mail.services.folder_service import get_folders
 
 router = APIRouter(prefix="/api/mail", tags=["mail-folders"])
@@ -117,7 +118,16 @@ async def rename_folder(
         except Exception:
             pass
         await request.app.state.redis.delete(f"folders:{username}")
-        return {"status": "renamed", "old_name": folder_name, "new_name": body.new_name}
+        # Las reglas que archivaban en la carpeta (o en sus hijas) siguen al nombre nuevo (10/11/2026).
+        reglas = await reglas_al_renombrar.actualizar(
+            username, password, folder_name, body.new_name
+        )
+        return {
+            "status": "renamed",
+            "old_name": folder_name,
+            "new_name": body.new_name,
+            "reglas_actualizadas": reglas,
+        }
     finally:
         try:
             await imap.logout()
@@ -195,7 +205,15 @@ async def move_folder_named(
         except Exception:
             pass  # subscribe failure is non-critical
         await request.app.state.redis.delete(f"folders:{username}")
-        return {"status": "moved", "old_name": folder_name, "new_name": new_full_name}
+        reglas = await reglas_al_renombrar.actualizar(
+            username, password, folder_name, new_full_name
+        )
+        return {
+            "status": "moved",
+            "old_name": folder_name,
+            "new_name": new_full_name,
+            "reglas_actualizadas": reglas,
+        }
     finally:
         try:
             await imap.logout()

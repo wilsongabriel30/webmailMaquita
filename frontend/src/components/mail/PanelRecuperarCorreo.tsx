@@ -22,6 +22,8 @@ interface EstadoRecuperacion {
   reason?: string;
   status?: string;
   detail?: string;
+  /** Pasó el plazo máximo de recuperación (lo decide el servidor). */
+  fuera_de_plazo?: boolean;
 }
 
 interface RespuestaRecuperar {
@@ -49,9 +51,10 @@ function textoComprobacion(r: EstadoRecuperacion): string {
 function textoResultado(r: EstadoRecuperacion): string {
   switch (r.status) {
     case 'recalled': return r.was_read ? 'Recuperado (ya lo había leído)' : 'Recuperado';
-    case 'external_request_sent': return 'Externo: solicitud enviada';
-    case 'external': return 'Externo: no se pudo enviar la solicitud';
+    case 'external_request_sent': return 'Externo: se le envió el aviso de «enviado por error» (copia para usted)';
+    case 'external': return 'Externo: no se pudo enviar el aviso de envío por error';
     case 'not_found': return 'No encontrado';
+    case 'fuera_de_plazo': return r.detail || 'Fuera de plazo';
     default: return r.detail || 'Error al recuperar';
   }
 }
@@ -76,11 +79,13 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
   const comprobar = React.useCallback(async () => {
     setEstado('checking');
     try {
-      const res = await api.post<{ checks: EstadoRecuperacion[] }>('/mail/recall/check', {
+      const res = await api.post<{ checks: EstadoRecuperacion[]; aviso?: string | null }>('/mail/recall/check', {
         message_id: msg.message_id, recipients: destinatariosDe(msg), action: 'delete',
       });
       setInfo(res.checks || []);
       setEstado('idle');
+      // Plazo vencido: aviso visible, no solo la letra pequeña junto al botón.
+      if (res.aviso) showToast(res.aviso, undefined, { fijo: true });
     } catch { setEstado('error'); }
   }, [msg]);
 
@@ -92,6 +97,9 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
       });
       setInfo((res.results || []).map((r) => ({ ...r, can_recall: r.status === 'recalled' })));
       setEstado('done');
+      if ((res.results || []).length > 0 && (res.results || []).every((r) => r.status === 'fuera_de_plazo')) {
+        showToast(res.message, undefined, { fijo: true });
+      }
       if (res.movido_a_borradores) {
         setMovido(true);
         showToast('Mensaje recuperado. Lo encontrará en Borradores para corregirlo y volverlo a enviar.');
