@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **Una carpeta renombrada con punto no se podía abrir** (error 400): el punto especial «․» que la interfaz usa en lugar del punto normal no estaba entre los caracteres aceptados. La validación de nombres de carpeta pasa a un solo sitio (app/mail/nombre_carpeta.py) y rechaza solo lo peligroso para IMAP.
+- **Borradores repetidos.** Dos guardados casi simultáneos del mismo borrador dejaban dos copias (el segundo llegaba con el identificador viejo, o sin él). Ahora el servidor pone en fila los guardados de cada persona, traduce un identificador viejo al vigente y no duplica un borrador nuevo idéntico a otro creado hace segundos (`app/mail/services/borrador_cadena.py`).
+
 ## [1.16.0] - 2026-11-11
 
 Toda la personalización se guarda en la cuenta, colores para las carpetas, búsqueda que se acota con un clic y

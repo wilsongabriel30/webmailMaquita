@@ -15,6 +15,7 @@ from fastapi.responses import StreamingResponse
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import fetch_raw_message, get_imap_connection
+from app.mail.nombre_carpeta import nombre_valido
 
 logger = logging.getLogger(__name__)
 MAX_EXPORT_LIMIT = 200  # Max messages per export to prevent abuse
@@ -23,7 +24,7 @@ MAX_EXPORT_SIZE = 10 * 1024 * 1024  # 10 MB max export size
 
 def _validate_export_folder(folder: str) -> str:
     """Validate folder name for export endpoints."""
-    if not re.match(r"^[\w\s.\-/&+,()]+$", folder, re.UNICODE) or len(folder) > 200:
+    if not nombre_valido(folder):
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
     return folder
 
