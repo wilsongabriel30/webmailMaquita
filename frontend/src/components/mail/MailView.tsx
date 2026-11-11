@@ -9,6 +9,7 @@ import RecuperarRedacciones from '../compose/RecuperarRedacciones';
 import { ToastContainer } from '../common/ToastContainer';
 import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
+import { usePreferenciasVista } from '../../hooks/usePreferenciasVista';
 import { api } from '../../api/client';
 import { EventoDesdeCorreo } from '../calendar/EventoDesdeCorreo';
 
@@ -277,6 +278,7 @@ export function MailView() {
   const closeCompose = useMailStore(s => s.closeCompose);
   const openCompose = useMailStore(s => s.openCompose);
   const storeReadingPane = useMailStore(s => s.readingPane);
+  usePreferenciasVista();
   const selectedMessage = useMailStore(s => s.selectedMessage);
   const setSelectedMessage = useMailStore(s => s.setSelectedMessage);
   const showMyDay = useMailStore(s => s.showMyDay);
@@ -408,7 +410,7 @@ export function MailView() {
 
       {readingPane === 'fullscreen' && (
         /* ── RELLENAR PANTALLA ── */
-        <div className="flex-1 flex overflow-hidden min-h-0">
+        <div className="flex-1 flex overflow-hidden min-h-0 relative">
           {activeCompose ? (
             <ComposePanel key={activeCompose.id} win={activeCompose} />
           ) : selectedMessage ? (
@@ -426,9 +428,13 @@ export function MailView() {
                 </div>
               </div>
             </>
-          ) : (
+          ) : null}
+          {/* La lista sigue montada (solo oculta) mientras se lee o se redacta: al volver está donde se
+              dejó, con todo lo que ya se había cargado al bajar (pedido de Gerencia de Agro, 11/11/2026). */}
+          <div aria-hidden={!!(activeCompose || selectedMessage)}
+            className={activeCompose || selectedMessage ? "absolute inset-0 invisible pointer-events-none flex" : "flex-1 flex min-w-0 overflow-hidden"}>
             <MessageList />
-          )}
+          </div>
         </div>
       )}
 

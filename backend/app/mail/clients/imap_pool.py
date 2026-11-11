@@ -120,6 +120,21 @@ class PooledIMAP:
         self.imap = await _create_connection(self.username, self.password)
         return self.imap
 
+    async def reconectar(self) -> aioimaplib.IMAP4:
+        """Cambia la conexión por una nueva cuando la entregada se cerró en mitad del uso.
+
+        Caso real (11/11/2026): la conexión respondió al NOOP de comprobación y el servidor la
+        cerró justo después; la búsqueda siguiente dio 500 («the handler is closed»).
+        """
+        vieja = self.imap
+        if vieja is not None:
+            try:
+                vieja.protocol.transport.close()
+            except Exception:
+                pass
+        self.imap = await _create_connection(self.username, self.password)
+        return self.imap
+
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         if self._returned or self.imap is None:
             if not self._returned:
@@ -150,6 +165,13 @@ class PooledIMAP:
                 await self.imap.logout()
             except Exception:
                 pass
+
+
+def es_conexion_caida(exc: BaseException) -> bool:
+    """¿El error es de una conexión IMAP que ya estaba cerrada (y por tanto vale reintentar)?"""
+    if isinstance(exc, (ConnectionError, EOFError)):
+        return True
+    return isinstance(exc, RuntimeError) and "closed" in str(exc).lower()
 
 
 def get_pooled_imap(username: str, password: str) -> PooledIMAP:

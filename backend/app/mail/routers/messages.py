@@ -19,7 +19,7 @@ from app.mail.clients.imap_client import (
     uid_move_message_detallado,
     uid_set_flags,
 )
-from app.mail.clients.imap_pool import get_pooled_imap
+from app.mail.clients.imap_pool import es_conexion_caida, get_pooled_imap
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
 from app.mail.services import etiquetas_reubicar
 from app.mail.services.cache_uids import invalidar_uids
@@ -145,7 +145,8 @@ async def get_messages(
     )
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
-    async with get_pooled_imap(login_user, password) as imap:
+    conexion = get_pooled_imap(login_user, password)
+    async with conexion as imap:
         # En las cuentas con indice de texto la busqueda entra tambien en el cuerpo: medido en
         # Enviados de gerencia comercial (19.432 mensajes), 0,13 s y 586 resultados frente a 24
         # mirando solo cabeceras. Sin indice hay que abrir y descifrar los mensajes uno a uno
@@ -167,18 +168,29 @@ async def get_messages(
             if search_query.strip()
             else []
         )
-        result = await list_messages(
-            imap,
-            folder,
-            page,
-            per_page,
-            search_query,
-            username=username,
-            buscar_en_contenido=buscar_en_contenido,
-            direcciones_nombre=direcciones,
-            # Solo para la caché de adjuntos (07/11/2026); la lista de UIDs sigue sin caché aquí.
-            redis_adjuntos=getattr(request.app.state, "redis", None),
-        )
+
+        async def _listar(con):
+            return await list_messages(
+                con,
+                folder,
+                page,
+                per_page,
+                search_query,
+                username=username,
+                buscar_en_contenido=buscar_en_contenido,
+                direcciones_nombre=direcciones,
+                # Solo para la caché de adjuntos (07/11/2026); la lista de UIDs sigue sin caché aquí.
+                redis_adjuntos=getattr(request.app.state, "redis", None),
+            )
+
+        try:
+            result = await _listar(imap)
+        except Exception as exc:
+            # La conexión del fondo se cerró en mitad del uso: una sola vuelta con una nueva.
+            if not es_conexion_caida(exc):
+                raise
+            imap = await conexion.reconectar()
+            result = await _listar(imap)
         if result is None:
             from fastapi import HTTPException
 

@@ -4,6 +4,7 @@
 // menú contextual completo, renombrar con doble click, confirmaciones,
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
+import { DivisorCarpetas } from './DivisorCarpetas';
 import { createPortal } from 'react-dom';
 import { nombreHojaSeguro } from '../../lib/nombreCarpeta';
 import { useEffect, useState, useRef } from 'react';
@@ -51,6 +52,7 @@ const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Arch
 // Favoritos (07/11/2026): los elige la persona (lib/carpetasFavoritas.ts); todas las carpetas siguen en «Carpetas».
 
 export function MailSidebar() {
+  const anchoCarpetas = useMailStore(s => s.anchoCarpetas);
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
     const handler = () => setHidden(prev => !prev);
@@ -485,7 +487,9 @@ export function MailSidebar() {
   const allFolderNames = folders.map(f => f.name);
 
   return (
-    <div className={`bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] transition-all duration-200 ease-in-out z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : "w-[220px]"}`}>
+    <div style={hidden ? undefined : { width: anchoCarpetas }}
+      className={`relative bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : ""}`}>
+      {!hidden && <DivisorCarpetas />}
       {/* Cuentas de la persona (principal + asignadas): cambia el correo de esta pestaña */}
       <BarraCuentas />
 

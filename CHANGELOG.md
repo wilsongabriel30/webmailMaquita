@@ -7,6 +7,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **El panel de carpetas se puede ensanchar**: barra arrastrable en su borde derecho (doble clic vuelve al ancho normal); el ancho se recuerda.
+- **Las preferencias de «Vista» se guardan en la cuenta** (densidad, líneas de vista previa, orden de la fila, conversaciones, anchos): ya no se pierden al cambiar de navegador, de equipo o tras reinstalar la aplicación. Migración `2026-11-11-preferencias-vista.sql`.
+- Botón «Ir al inicio» cuando la lista está muy abajo.
+
+### Corregido
+- **El panel de lectura «Rellenar pantalla» y «Solo elementos emergentes» no se restauraba al entrar** (se guardaba, pero al cargar solo se aceptaban tres de los cinco modos).
+- **Cambiar una preferencia borraba las demás**: `PUT /api/settings` con un solo campo dejaba el resto en su valor por defecto (nombre visible, correos por página, respuesta automática). Ahora solo cambia lo que se envía.
+- **Shift + flecha** tras hacer clic en otro correo seguía usando el punto de partida anterior: saltaba el correo elegido y seleccionaba otros. La casilla y Ctrl/Shift + clic también mueven el resaltado.
+- **En «Rellenar pantalla», al cerrar un correo la lista volvía al inicio**: ahora queda donde se dejó, con lo ya cargado.
+- Dos búsquedas seguidas podían dar error 500 si la conexión IMAP del fondo se había cerrado: se reintenta con una nueva.
+
 ## [1.14.0] - 2026-11-11
 
 Recuperar un correo enviado por error funciona también entre servidores distintos que usan esta suite. El actualizador
