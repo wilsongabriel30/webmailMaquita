@@ -28,6 +28,7 @@ import interfaces.api.chat_respuesta_rapida  # noqa: F401,E402  (T-95: respuesta
 import interfaces.api.chat_archivos_lista  # noqa: F401,E402  (T-101: lista de archivos por conversación y general)
 import interfaces.api.archivos_mismo_nombre  # noqa: F401,E402  (T-101: aviso de archivo con el mismo nombre)
 import interfaces.api.contadores_app  # noqa: F401,E402  (T-101: contadores de no leídos y llamadas perdidas)
+import interfaces.api.preferencias_app  # noqa: F401,E402  (T-101: preferencias por persona: tono, volumen, tema)
 import interfaces.api.chat_adjuntos  # noqa: F401,E402
 import interfaces.api.chat_reacciones  # noqa: F401,E402
 import interfaces.api.chat_participantes  # noqa: F401,E402
