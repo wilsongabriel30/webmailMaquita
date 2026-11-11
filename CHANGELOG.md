@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Colores para las carpetas**: clic derecho en una carpeta → «Color de la carpeta…» y se elige entre diez colores (o «Sin color»). El icono de la carpeta se pinta de ese color; el color acompaña a la carpeta al renombrarla y se guarda en la cuenta, así que se ve igual en cualquier navegador o equipo.
+
 ## [1.15.0] - 2026-11-11
 
 Reacciones a los correos (también entre servidores de la suite), preferencias de «Vista» guardadas en la cuenta, panel de

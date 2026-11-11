@@ -4,6 +4,8 @@
 // menú contextual completo, renombrar con doble click, confirmaciones,
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
+import { PaletaColorCarpeta } from './PaletaColorCarpeta';
+import { quitarDeColores, renombrarEnColores } from '../../lib/coloresCarpetas';
 import { DivisorCarpetas } from './DivisorCarpetas';
 import { createPortal } from 'react-dom';
 import { nombreHojaSeguro } from '../../lib/nombreCarpeta';
@@ -53,6 +55,8 @@ const systemFolders = new Set(['INBOX', 'Sent', 'Drafts', 'Trash', 'Junk', 'Arch
 
 export function MailSidebar() {
   const anchoCarpetas = useMailStore(s => s.anchoCarpetas);
+  const coloresCarpetas = useMailStore(s => s.coloresCarpetas);
+  const [paleta, setPaleta] = useState<{ x: number; y: number; carpeta: string } | null>(null);
   const [hidden, setHidden] = useState(false);
   useEffect(() => {
     const handler = () => setHidden(prev => !prev);
@@ -180,6 +184,8 @@ export function MailSidebar() {
     try {
       await api.put(`/mail/folders/${encodeURIComponent(oldName)}`, { new_name: newFull });
       showToast(`Carpeta renombrada a "${renameValue.trim()}"`);
+      const st = useMailStore.getState();
+      st.setColoresCarpetas(renombrarEnColores(st.coloresCarpetas, oldName, newFull));   // el color acompaña a la carpeta
     } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'Error al renombrar'); }
     setRenaming(null); fetchFolders();
   };
@@ -191,7 +197,11 @@ export function MailSidebar() {
       message: `¿Eliminar "${getFolderDisplayName(name)}" y todo su contenido? Esta acción no se puede deshacer.`,
       danger: true,
       onConfirm: async () => {
-        try { await api.del(`/mail/folders/${encodeURIComponent(name)}`); showToast('Carpeta eliminada'); } catch { /* el aviso de error ya lo da el backend */ }
+        try {
+          await api.del(`/mail/folders/${encodeURIComponent(name)}`); showToast('Carpeta eliminada');
+          const st = useMailStore.getState();
+          st.setColoresCarpetas(quitarDeColores(st.coloresCarpetas, name));
+        } catch { /* el aviso de error ya lo da el backend */ }
         fetchFolders();
       },
     });
@@ -269,6 +279,8 @@ export function MailSidebar() {
       { label: '', icon: '', onClick: () => {}, divider: true },
       // Organización de carpetas
       { label: 'Crear subcarpeta', icon: 'M12 4v16m8-8H4', onClick: () => { setCreateParent(f.name); setCreating(true); setCtxMenu(null); } },
+      { label: 'Color de la carpeta…', icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01',
+        onClick: () => { const m = ctxMenu; setPaleta({ x: m?.x ?? 240, y: m?.y ?? 200, carpeta: f.name }); setCtxMenu(null); } },
       ...(!isSystem ? [
         { label: 'Renombrar', icon: 'M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z',
           onClick: () => { setRenaming(f.name); setRenameValue(getFolderDisplayName(f.name)); } },
@@ -464,7 +476,8 @@ export function MailSidebar() {
         ) : <span className="w-[12px] shrink-0" />}
         <svg className={`w-[15px] h-[15px] shrink-0 transition-colors ${
           isDragOver ? 'text-[#0078d4]' : active ? 'text-[#0078d4]' : 'text-[#605e5c]'
-        }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        }`} style={coloresCarpetas[f.name] ? { color: coloresCarpetas[f.name] } : undefined}
+          fill={coloresCarpetas[f.name] || 'none'} fillOpacity={coloresCarpetas[f.name] ? 0.3 : undefined} stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d={icons[f.type] || icons.folder} />
         </svg>
         <span className="truncate flex-1 text-left">{displayName}</span>
@@ -605,6 +618,15 @@ export function MailSidebar() {
 
       {/* Context menu */}
       {ctxMenu && <ContextMenu x={ctxMenu.x} y={ctxMenu.y} items={getFolderCtxItems(ctxMenu.folder)} onClose={() => setCtxMenu(null)} />}
+      {paleta && (
+        <PaletaColorCarpeta x={paleta.x} y={paleta.y} actual={coloresCarpetas[paleta.carpeta]} onCerrar={() => setPaleta(null)}
+          onElegir={(color) => {
+            const st = useMailStore.getState();
+            const siguiente = { ...st.coloresCarpetas };
+            if (color) siguiente[paleta.carpeta] = color; else delete siguiente[paleta.carpeta];
+            st.setColoresCarpetas(siguiente);
+          }} />
+      )}
       {recuperarAbierto && <RecuperarEliminados onCerrar={() => setRecuperarAbierto(false)} />}
 
       {/* Tooltip */}
