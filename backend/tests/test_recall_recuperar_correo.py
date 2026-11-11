@@ -109,6 +109,13 @@ def entorno(monkeypatch):
         },
     )
     monkeypatch.setattr(recall, "_fecha_en_enviados", lambda u, mid: datetime.now())
+
+    async def _sin_otro_servidor(redis, remitente, destinatario, mid):
+        return None
+
+    monkeypatch.setattr(
+        recall.recuperacion_cliente, "recuperar_en_otro_servidor", _sin_otro_servidor
+    )
     expunges: list[tuple] = []
     monkeypatch.setattr(
         recall,
@@ -394,3 +401,43 @@ def test_aviso_externo_asuntos():
     assert aviso.asunto_respuesta("RE: Hola") == "RE: Hola"
     assert aviso.asunto_respuesta("") == "RE: (Sin asunto)"
     assert aviso.decodificar_asunto("\n =?utf-8?B?Q290aXphY2nDs24=?=") == "Cotización"
+
+
+# ----------------------------------------------------------------------------- otro servidor compatible
+async def test_externo_en_servidor_compatible_se_recupera_sin_aviso(
+    entorno, monkeypatch
+):
+    avisos: list[str] = []
+
+    async def _aviso(*a, **k):
+        avisos.append("x")
+        return True
+
+    async def _otro_servidor(redis, remitente, destinatario, mid):
+        return {"estado": "recalled", "leido": True, "servidor": "mail.hermano.test"}
+
+    monkeypatch.setattr(recall, "_send_external_recall_request", _aviso)
+    monkeypatch.setattr(
+        recall.recuperacion_cliente, "recuperar_en_otro_servidor", _otro_servidor
+    )
+    salida = await _recuperar(entorno, ["alguien@hermano.test"])
+    assert avisos == []
+    assert salida["results"][0]["status"] == "recalled"
+    assert salida["results"][0]["was_read"] is True
+    assert "servidor del destinatario" in salida["results"][0]["detail"]
+
+
+async def test_externo_fuera_del_plazo_del_otro_servidor(entorno, monkeypatch):
+    async def _otro_servidor(redis, remitente, destinatario, mid):
+        return {
+            "estado": "fuera_de_plazo",
+            "leido": False,
+            "servidor": "mail.hermano.test",
+        }
+
+    monkeypatch.setattr(
+        recall.recuperacion_cliente, "recuperar_en_otro_servidor", _otro_servidor
+    )
+    salida = await _recuperar(entorno, ["alguien@hermano.test"])
+    assert salida["results"][0]["status"] == "fuera_de_plazo"
+    assert salida["movido_a_borradores"] is False

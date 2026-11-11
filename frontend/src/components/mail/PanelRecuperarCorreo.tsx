@@ -18,6 +18,8 @@ import type { MessageFull } from '../../types';
 interface EstadoRecuperacion {
   recipient: string;
   can_recall: boolean;
+  /** Externo: no se retira aquí, pero se puede pedir al otro servidor o enviar el aviso. */
+  can_request?: boolean;
   was_read: boolean | null;
   reason?: string;
   status?: string;
@@ -50,7 +52,7 @@ function textoComprobacion(r: EstadoRecuperacion): string {
 /** Texto por destinatario tras ejecutar la recuperación. */
 function textoResultado(r: EstadoRecuperacion): string {
   switch (r.status) {
-    case 'recalled': return r.was_read ? 'Recuperado (ya lo había leído)' : 'Recuperado';
+    case 'recalled': return r.detail || (r.was_read ? 'Recuperado (ya lo había leído)' : 'Recuperado');
     case 'external_request_sent': return 'Externo: se le envió el aviso de «enviado por error» (copia para usted)';
     case 'external': return 'Externo: no se pudo enviar el aviso de envío por error';
     case 'not_found': return 'No encontrado';
@@ -138,7 +140,7 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
           <div style={{ fontSize: 11, color: '#605e5c' }}>
             {info.map((r, i) => <div key={i}>{r.recipient}: {textoComprobacion(r)}</div>)}
           </div>
-          {info.some((r) => r.can_recall) && (
+          {info.some((r) => r.can_recall || r.can_request) && (
             <button type="button" onClick={recuperar} disabled={estado === 'recalling'}
               style={{ ...estiloBoton, background: '#d13438' }}>
               {estado === 'recalling' ? 'Recuperando...' : 'Confirmar recuperación'}
