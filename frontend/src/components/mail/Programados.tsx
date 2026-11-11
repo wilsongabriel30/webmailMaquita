@@ -166,7 +166,7 @@ export function PanelProgramados() {
           ))}
         </div>
         <p className="px-5 py-2.5 text-[11px] text-[#605e5c] border-t border-[#edebe9] dark:border-[#3a3a3a]">
-          A la hora indicada el correo sale solo y queda en «Enviados». Hace falta que su cuenta tenga una sesión iniciada en ese momento (si no, sale al volver a entrar).
+          A la hora indicada el correo sale solo y queda en «Enviados», aunque su equipo esté apagado o no tenga la sesión iniciada.
         </p>
       </div>
     </div>

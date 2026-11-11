@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **Un envío programado sale aunque la persona no tenga sesión iniciada** (equipo apagado, sesión cerrada): antes quedaba pendiente hasta que volviera a entrar. Sin sesión viva se usa la credencial maestra del servidor de correo.
+
 ### Añadido
 - **Sección «Programados»** en el panel de carpetas: lista de los correos programados para enviar más tarde (con el número de pendientes), «Cambiar fecha», «Editar» (vuelve a la redacción) y «Cancelar envío». Los envíos que fallan quedan a la vista con «Reintentar…», y al salir o fallar un envío programado se avisa en pantalla.
 

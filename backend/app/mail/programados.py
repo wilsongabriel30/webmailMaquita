@@ -13,6 +13,13 @@ import logging
 logger = logging.getLogger("scheduler")
 
 
+def credencial_maestra(usuario: str) -> tuple[str, str]:
+    """(usuario de acceso, clave) para actuar en nombre de la cuenta sin que tenga sesión."""
+    from app.config import get_settings
+
+    return f"{usuario}*admin", get_settings().master_password or ""
+
+
 async def _avisar(redis, usuario: str, tipo: str, fila) -> None:
     """Avisa en vivo a la persona de que su envío programado salió o falló (sin romper el bucle)."""
     try:
@@ -65,16 +72,22 @@ async def procesar_programados(db_pool, redis):
                     from app.auth.sesiones import credencial_de_alguna_sesion
 
                     cred = await credencial_de_alguna_sesion(redis, username)
-                    if not cred:
-                        logger.warning(
-                            f"Scheduled email {row['id']}: no session for {username}"
-                        )
-                        await db_pool.execute(
-                            "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
-                            row["id"],
-                        )
-                        continue
-                    _sid, password, login_user = cred
+                    if cred:
+                        _sid, password, login_user = cred
+                    else:
+                        # Sin ninguna sesión iniciada (equipo apagado, sesión cerrada): el envío
+                        # programado sale igual, con la credencial maestra del servidor de correo
+                        # (11/11/2026: quien programa un envío cuenta con que salga a su hora).
+                        login_user, password = credencial_maestra(username)
+                        if not password:
+                            logger.warning(
+                                f"Scheduled email {row['id']}: no session for {username}"
+                            )
+                            await db_pool.execute(
+                                "UPDATE scheduled_emails SET status = 'pending' WHERE id = $1",
+                                row["id"],
+                            )
+                            continue
 
                     from app.mail.clients.imap_client import get_imap_connection
                     from app.mail.services.send_service import send_and_save
