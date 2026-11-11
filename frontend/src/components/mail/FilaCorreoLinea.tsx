@@ -1,3 +1,4 @@
+import { MarcaReacciones } from './MarcaReacciones';
 import { PuntoLeido } from './PuntoLeido';
 import { memo } from 'react';
 import type { MessageSummary } from '../../types';
@@ -143,6 +144,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
           <svg className="w-[12px] h-[12px] text-[#0078d4]" fill="currentColor" viewBox="0 0 20 20"><title>Fijado</title>
             <path d="M9 2a1 1 0 00-1 1v4.586L5.707 9.879A1 1 0 006.414 11.5H9V17a1 1 0 002 0v-5.5h2.586a1 1 0 00.707-1.621L12 7.586V3a1 1 0 00-1-1H9z" /></svg>
         )}
+        <MarcaReacciones r={msg.reacciones} />
         {msg.has_attachments && (
           <svg className="w-[12px] h-[12px] text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><title>Con adjunto</title>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>

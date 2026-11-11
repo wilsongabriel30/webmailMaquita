@@ -58,6 +58,7 @@ export function ReaccionesCorreo({ folder, uid }: { folder: string; uid: number 
     try {
       const r = await api.post<Respuesta>(ruta, { emoji });
       setGrupos(r.reacciones || []);
+      window.dispatchEvent(new CustomEvent('refresh-messages'));   // la marca de la lista
     } catch { showToast('No se pudo guardar la reacción'); }
   };
 
