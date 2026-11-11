@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.15.0] - 2026-11-11
+
+Reacciones a los correos (también entre servidores de la suite), preferencias de «Vista» guardadas en la cuenta, panel de
+carpetas ajustable y contador de no leídos en carpetas con tildes. El actualizador aplica solo las tres migraciones.
+
 ### Añadido
 - **Reacciones entre servidores de la suite.** Si quienes tienen el correo están en otro servidor que usa esta suite, la reacción también les llega (y se actualiza o se quita allí). El otro servidor solo la acepta de alguien que figura en ese correo y si el servidor de esa persona confirma el aviso; sin claves compartidas. A servidores que no usan la suite (Gmail, Outlook…) no se envía nada. `REACCIONES_ENTRE_SERVIDORES=false` lo apaga. Migración `2026-11-11-reacciones-entre-servidores.sql`.
 
