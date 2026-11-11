@@ -10,6 +10,7 @@
 import { useEffect } from 'react';
 import { api } from '../api/client';
 import { useMailStore } from '../store/mailStore';
+import { sincronizarAlEntrar } from '../lib/preferenciasCuenta';
 
 interface Vista {
   densidad?: string;
@@ -21,6 +22,8 @@ interface Vista {
   coloresCarpetas?: Record<string, string>;
   /** «siempre» = pedir confirmación de lectura en todo lo que se envía. */
   pedirLectura?: string;
+  /** Resto de preferencias del navegador que siguen a la cuenta (lib/preferenciasCuenta.ts). */
+  local?: Record<string, string>;
 }
 
 export function vistaActual(): Vista {
@@ -61,7 +64,8 @@ export function usePreferenciasVista() {
         const rp = s?.reading_pane;
         if (rp === 'fullscreen' || rp === 'popout') useMailStore.getState().setReadingPane(rp);
         const guardada = s?.vista && typeof s.vista === 'object' ? s.vista : null;
-        if (guardada && Object.keys(guardada).length > 0) aplicar(guardada);
+        sincronizarAlEntrar(guardada?.local);
+        if (guardada && Object.keys(guardada).some((k) => k !== 'local')) aplicar(guardada);
         else guardar(JSON.stringify(vistaActual()));   // primera vez: sube lo que tenía este navegador
       })
       .catch(() => { /* sin servidor se sigue con lo del navegador */ })

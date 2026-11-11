@@ -152,7 +152,8 @@ async def update_settings(
     )
     if body.vista is not None:
         await db.execute(
-            "UPDATE user_preferences SET vista = $2::jsonb WHERE username = $1",
+            # Se FUSIONA por clave: cada parte de la interfaz guarda solo lo suyo (11/11/2026).
+            "UPDATE user_preferences SET vista = COALESCE(vista, '{}'::jsonb) || $2::jsonb WHERE username = $1",
             username,
             json.dumps(preferencias_parciales.limpiar_vista(body.vista)),
         )

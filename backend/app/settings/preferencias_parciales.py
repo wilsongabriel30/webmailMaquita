@@ -52,7 +52,31 @@ def _colores(crudo) -> dict:
             colores[carpeta] = color.lower()
         if len(colores) >= MAX_CARPETAS_CON_COLOR:
             break
-    return {"coloresCarpetas": colores} if colores else {}
+    # Vacío también se guarda: así «Sin color» en la última carpeta borra lo anterior al fusionar.
+    return {"coloresCarpetas": colores}
+
+
+_CLAVE_LOCAL = re.compile(r"^[A-Za-z0-9_.:\-]{1,64}$")
+MAX_CLAVES_LOCALES = 60
+MAX_VALOR_LOCAL = 20000
+
+
+def _locales(crudo) -> dict:
+    """Preferencias del navegador que siguen a la cuenta: {clave: texto}, acotado."""
+    if not isinstance(crudo, dict):
+        return {}
+    locales = {}
+    for clave, valor in crudo.items():
+        if (
+            isinstance(clave, str)
+            and _CLAVE_LOCAL.match(clave)
+            and isinstance(valor, str)
+            and len(valor) <= MAX_VALOR_LOCAL
+        ):
+            locales[clave] = valor
+        if len(locales) >= MAX_CLAVES_LOCALES:
+            break
+    return {"local": locales}
 
 
 def limpiar_vista(vista) -> dict:
@@ -69,4 +93,5 @@ def limpiar_vista(vista) -> dict:
         elif tipo is str and isinstance(valor, str) and 0 < len(valor) <= 32:
             limpia[clave] = valor
     limpia.update(_colores(vista.get("coloresCarpetas")))
+    limpia.update(_locales(vista.get("local")))
     return limpia

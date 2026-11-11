@@ -69,7 +69,25 @@ def test_vista_guarda_colores_de_carpetas_validos():
         "coloresCarpetas": {"INBOX.Dirección": "#d13438"},
     }
     assert "coloresCarpetas" not in pp.limpiar_vista({"coloresCarpetas": "x"})
+    # Vacío se conserva para poder borrar al fusionar.
+    assert pp.limpiar_vista({"coloresCarpetas": {}}) == {"coloresCarpetas": {}}
 
 
 def test_vista_guarda_pedir_confirmacion_de_lectura():
     assert pp.limpiar_vista({"pedirLectura": "siempre"}) == {"pedirLectura": "siempre"}
+
+
+def test_vista_guarda_preferencias_locales_acotadas():
+    limpia = pp.limpiar_vista(
+        {
+            "local": {
+                "theme": "dark",
+                "webmail.ordenLista": "{}",
+                "mala clave": "x",
+                "n": 5,
+                "g": "x" * 30000,
+            }
+        }
+    )
+    assert limpia == {"local": {"theme": "dark", "webmail.ordenLista": "{}"}}
+    assert "local" not in pp.limpiar_vista({"local": "x"})
