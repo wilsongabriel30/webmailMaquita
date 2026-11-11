@@ -31,6 +31,7 @@ import { SinResultados } from './SinResultados';
 import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
 import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
+import { AcotarBusqueda } from './AcotarBusqueda';
 import { abrirMensajeEnPestana, abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
@@ -1350,6 +1351,7 @@ export function MessageList() {
 
       {/* Aviso: la búsqueda se limita a la carpeta elegida */}
       <AvisoBusquedaEnCarpeta />
+      <AcotarBusqueda />
       <CabeceraEtiqueta />
 
       {/* List */}
