@@ -4,6 +4,7 @@
  * La barra de abajo sigue igual; esto es el acceso rápido sin bajar hasta el final del correo.
  * Las acciones del menú actúan solo sobre ESTE correo (no sobre la selección de la lista).
  */
+import { ReaccionesCorreo } from './ReaccionesCorreo';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuTeclado } from '../../lib/menuTeclado';
 import { api } from '../../api/client';
@@ -161,6 +162,7 @@ export function AccionesRapidasCorreo({
 
   return (
     <div ref={caja} style={{ display: 'inline-flex', alignItems: 'center', gap: 2, position: 'relative' }}>
+      <ReaccionesCorreo key={`${folder}:${uid}`} folder={folder} uid={uid} />
       <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onResponder} title="Responder">{icono(D_RESPONDER)}<span className="accion-rapida-texto">Responder</span></button>
       <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onResponderTodos} title="Responder a todos">{icono(D_TODOS)}<span className="accion-rapida-texto">Responder a todos</span></button>
       <button type="button" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloConTexto} onClick={onReenviar} title="Reenviar">{icono(D_REENVIAR)}<span className="accion-rapida-texto">Reenviar</span></button>
