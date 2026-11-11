@@ -2,7 +2,7 @@
 # Base oficial en su etiqueta actual y paquetes del sistema al día en cada build; se reconstruye
 # cada mes (OPERACION.md). No se migra a Alpine ni a PHP «rc». El crítico de zlib/minizip
 # (CVE-2023-45853, sin corrección en Debian, minizip no se usa) está aceptado con motivo (D-9).
-FROM php:8.3-fpm-bookworm
+FROM php:8.5-fpm-bookworm
 
 # Z-Push fijado a un commit de la rama develop (2026-10-18): trae ActiveSync 16.1, con el que los
 # borradores del teléfono se guardan en el servidor (las versiones publicadas, 2.7.x, llegan a 14.1).
