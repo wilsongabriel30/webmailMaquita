@@ -13,6 +13,23 @@ import logging
 logger = logging.getLogger("scheduler")
 
 
+async def _avisar(redis, usuario: str, tipo: str, fila) -> None:
+    """Avisa en vivo a la persona de que su envío programado salió o falló (sin romper el bucle)."""
+    try:
+        await redis.publish(
+            f"ws:user:{usuario}",
+            json.dumps(
+                {
+                    "type": tipo,
+                    "id": fila["id"],
+                    "asunto": (fila["subject"] or "")[:120],
+                }
+            ),
+        )
+    except Exception as exc:
+        logger.warning(f"Scheduled email {fila['id']}: no se pudo avisar: {exc}")
+
+
 async def procesar_programados(db_pool, redis):
     """Background task: check and send scheduled emails every 30s."""
     while True:
@@ -118,6 +135,7 @@ async def procesar_programados(db_pool, redis):
                             row["id"],
                         )
                         logger.info(f"Scheduled email {row['id']} sent successfully")
+                        await _avisar(redis, username, "programado_enviado", row)
                     finally:
                         try:
                             await imap.logout()
@@ -126,6 +144,7 @@ async def procesar_programados(db_pool, redis):
 
                 except Exception as exc:
                     logger.error(f"Scheduled email {row['id']} failed: {exc}")
+                    await _avisar(redis, row["username"], "programado_fallido", row)
                     await db_pool.execute(
                         "UPDATE scheduled_emails SET status = 'failed' WHERE id = $1",
                         row["id"],
