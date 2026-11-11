@@ -81,6 +81,9 @@ interface MailState {
   /** Color elegido para cada carpeta (clave: nombre completo en el servidor). */
   coloresCarpetas: Record<string, string>;
   setColoresCarpetas: (c: Record<string, string>) => void;
+  /** Pedir confirmación de lectura en todo lo que se envía (11/11/2026). */
+  pedirLecturaSiempre: boolean;
+  setPedirLecturaSiempre: (v: boolean) => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
   // Threading
@@ -205,6 +208,8 @@ export const useMailStore = create<MailState>((set, get) => ({
   setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
   anchoCarpetas: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_ancho_carpetas'))) || ANCHO_CARPETAS_NORMAL,
   coloresCarpetas: (() => { try { return coloresValidos(JSON.parse(localStorage.getItem('maquita_colores_carpetas') || '{}')); } catch { return {}; } })(),
+  pedirLecturaSiempre: (() => { try { return localStorage.getItem('maquita_pedir_lectura') === '1'; } catch { return false; } })(),
+  setPedirLecturaSiempre: (v) => { try { localStorage.setItem('maquita_pedir_lectura', v ? '1' : '0'); } catch { /* ignore */ } set({ pedirLecturaSiempre: v }); },
   setColoresCarpetas: (c) => {
     const limpio = coloresValidos(c);
     try { localStorage.setItem('maquita_colores_carpetas', JSON.stringify(limpio)); } catch { /* ignore */ }

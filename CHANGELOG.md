@@ -8,6 +8,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Pedir siempre confirmación de lectura**: Configuración → General → «Pedir siempre confirmación de lectura en los correos que envío». Queda guardado en la cuenta; cada correo nuevo sale con la confirmación marcada y se puede quitar en uno concreto desde Opciones → Seguimiento.
+
+### Añadido
 - **Acotar una búsqueda con muchos resultados**: sobre la lista se indica cuántos resultados hay y, con un clic, se limita al remitente, al asunto, a los últimos 30 días, al año en curso o a los que traen adjuntos. La opción elegida queda escrita en la caja de buscar (de:, asunto:, despues:, tiene:adjunto) y «Quitar filtros» vuelve a la búsqueda simple.
 
 ### Añadido

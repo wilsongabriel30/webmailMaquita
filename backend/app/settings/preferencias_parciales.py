@@ -16,6 +16,7 @@ CLAVES_VISTA = {
     "modo": str,
     "anchoLista": int,
     "anchoCarpetas": int,
+    "pedirLectura": str,
 }
 
 
