@@ -16,7 +16,7 @@ from app.core.session import get_imap_login_user, get_user_password
 from app.federacion import reacciones_cliente
 from app.mail.clients.imap_client import _quote_folder
 from app.mail.clients.imap_pool import get_pooled_imap
-from app.mail.services import reacciones
+from app.mail.services import reacciones, reacciones_avisos
 
 logger = logging.getLogger("maquita.webmail.reacciones")
 
@@ -114,6 +114,22 @@ async def reaccionar(
                 f"ws:user:{cuenta}",
                 json.dumps({**aviso, "para_autor": cuenta == autor}),
             )
+        # Además queda en la campanita de quien envió el correo (por si no está conectado ahora).
+        if estado != "quitada" and autor in locales:
+            # En segundo plano: la base de Raíces no debe frenar la respuesta.
+            t = asyncio.create_task(
+                reacciones_avisos.a_la_campanita(
+                    redis,
+                    autor,
+                    username,
+                    aviso["de"],
+                    body.emoji,
+                    aviso["asunto"],
+                    message_id,
+                )
+            )
+            _TAREAS.add(t)
+            t.add_done_callback(_TAREAS.discard)
         # Quienes tienen el correo en OTRO servidor de la suite: se avisa sin frenar la respuesta.
         externos = todos - set(locales) - {username}
         if externos:

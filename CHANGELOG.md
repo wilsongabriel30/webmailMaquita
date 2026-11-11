@@ -8,6 +8,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Reacciones: aviso en la campanita y marca en la lista.** Quien envió el correo recibe una notificación en la campanita cuando alguien reacciona (aunque no esté conectado en ese momento), y los correos con reacciones llevan una marca con los emojis y el total en la lista.
+
+### Corregido
+- **Un envío programado sale aunque la persona no tenga sesión iniciada** (equipo apagado, sesión cerrada): antes quedaba pendiente hasta que volviera a entrar. Sin sesión viva se usa la credencial maestra del servidor de correo.
+
+### Añadido
 - **Sección «Programados»** en el panel de carpetas: lista de los correos programados para enviar más tarde (con el número de pendientes), «Cambiar fecha», «Editar» (vuelve a la redacción) y «Cancelar envío». Los envíos que fallan quedan a la vista con «Reintentar…», y al salir o fallar un envío programado se avisa en pantalla.
 
 ### Corregido

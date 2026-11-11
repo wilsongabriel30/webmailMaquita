@@ -92,6 +92,43 @@ async def resumen(db, message_id: str, usuario: str) -> list[dict]:
     return sorted(grupos.values(), key=lambda g: orden.get(g["emoji"], len(orden)))
 
 
+async def anotar_en_lista(db, mensajes: list[dict]) -> None:
+    """Añade `reacciones: {total, emojis}` a los correos del listado que tienen alguna.
+
+    Una sola consulta por página. Si algo falla, el listado sale igual, sin la marca.
+    """
+    try:
+        por_id: dict[str, list[dict]] = {}
+        for m in mensajes or []:
+            crudo = " ".join(str(m.get("message_id") or "").split())
+            if not crudo:
+                continue
+            desnudo = crudo.strip("<>")
+            for variante in {crudo, desnudo, f"<{desnudo}>"}:
+                por_id.setdefault(variante, []).append(m)
+        if not por_id:
+            return
+        filas = await db.fetch(
+            """SELECT message_id, emoji, count(*) AS n FROM mail_reacciones
+                WHERE message_id = ANY($1::text[]) GROUP BY message_id, emoji""",
+            list(por_id),
+        )
+        orden = {e: i for i, e in enumerate(CATALOGO)}
+        acumulado: dict[int, dict] = {}
+        for f in filas:
+            for m in por_id.get(f["message_id"], []):
+                a = acumulado.setdefault(id(m), {"m": m, "total": 0, "emojis": {}})
+                a["emojis"][f["emoji"]] = int(f["n"])
+        for a in acumulado.values():
+            emojis = sorted(a["emojis"], key=lambda e: orden.get(e, len(orden)))
+            a["m"]["reacciones"] = {
+                "total": sum(a["emojis"].values()),
+                "emojis": emojis,
+            }
+    except Exception:
+        return
+
+
 def participantes(msg) -> tuple[str, set[str]]:
     """(autor, todas las direcciones de De/Para/CC) del correo, en minúsculas."""
     autor = ""

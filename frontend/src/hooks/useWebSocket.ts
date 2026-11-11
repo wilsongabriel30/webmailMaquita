@@ -124,6 +124,7 @@ export function useWebSocket(enabled: boolean = true) {
               // Alguien reaccionó a un correo que esta persona tiene: se refresca si está abierto y,
               // si es quien lo envió, se le avisa (sin correo nuevo ni sonido).
               window.dispatchEvent(new CustomEvent('reaccion-correo', { detail: data }));
+              window.dispatchEvent(new CustomEvent('refresh-messages'));   // la marca de la lista
               if (data.para_autor && data.emoji && data.estado !== 'quitada') {
                 showToast(`${data.de || 'Alguien'} reaccionó ${data.emoji} a «${data.asunto || 'su correo'}»`);
               }

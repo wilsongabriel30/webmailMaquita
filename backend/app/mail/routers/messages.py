@@ -22,7 +22,7 @@ from app.mail.clients.imap_client import (
 from app.mail.clients.imap_pool import es_conexion_caida, get_pooled_imap
 from app.mail.nombre_carpeta import nombre_valido
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
-from app.mail.services import etiquetas_reubicar
+from app.mail.services import etiquetas_reubicar, reacciones
 from app.mail.services.cache_uids import invalidar_uids
 from app.mail.services.message_service import get_message, list_messages
 from app.rag import eliminar as rag_eliminar
@@ -210,6 +210,11 @@ async def get_messages(
                     buscar_en_contenido,
                     page,
                 )
+            )
+        # Marca de reacciones en la lista (una consulta por página; sin ella el listado sale igual).
+        if isinstance(result, dict):
+            await reacciones.anotar_en_lista(
+                request.app.state.db_pool, result.get("messages") or []
             )
         return result
 

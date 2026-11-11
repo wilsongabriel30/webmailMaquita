@@ -14,7 +14,7 @@ from app.federacion import reacciones_protocolo as protocolo
 from app.federacion import recuperacion_mensaje as mensaje
 from app.federacion import red
 from app.mail.routers import recall
-from app.mail.services import reacciones
+from app.mail.services import reacciones, reacciones_avisos
 
 NO = {"estado": "ignorada"}
 
@@ -76,10 +76,21 @@ async def atender(request, aviso: protocolo.Aviso) -> dict:
             "asunto": str(msg.get("Subject", ""))[:120],
         }
         redis = request.app.state.redis
-        for cuenta in await reacciones.cuentas_locales(db, participantes):
+        locales = await reacciones.cuentas_locales(db, participantes)
+        for cuenta in locales:
             await redis.publish(
                 f"ws:user:{cuenta}",
                 json.dumps({**evento, "para_autor": cuenta == autor}),
+            )
+        if aviso.emoji and autor in locales:
+            await reacciones_avisos.a_la_campanita(
+                redis,
+                autor,
+                usuario,
+                evento["de"],
+                aviso.emoji,
+                evento["asunto"],
+                message_id,
             )
     except Exception as exc:
         red.logger.warning(

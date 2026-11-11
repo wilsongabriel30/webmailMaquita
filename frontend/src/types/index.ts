@@ -23,6 +23,8 @@ export interface MessageSummary {
   flagged: boolean;
   snippet: string;
   has_attachments: boolean;
+  /** Reacciones que tiene el correo (marca en la lista). */
+  reacciones?: { total: number; emojis: string[] } | null;
   /** Nombres de los adjuntos (hasta 3) para verlos en la fila, como Outlook (07/11/2026). */
   adjuntos?: string[];
   importance: 'normal' | 'high' | 'low';

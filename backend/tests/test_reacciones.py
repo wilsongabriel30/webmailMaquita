@@ -76,3 +76,36 @@ async def test_participantes_y_cuentas_locales():
     }
     locales = await r.cuentas_locales(_Db(), todos - {"luis@example.org"})
     assert locales == ["ana@example.org", "eva@example.org"]
+
+
+class _DbLista:
+    async def fetch(self, _sql, ids):
+        assert "<m1@x>" in ids and "m2@x" in ids
+        return [
+            {"message_id": "<m1@x>", "emoji": "🎉", "n": 1},
+            {"message_id": "<m1@x>", "emoji": "👍", "n": 2},
+            {"message_id": "m2@x", "emoji": "❤️", "n": 1},
+        ]
+
+
+async def test_la_lista_marca_los_correos_con_reacciones():
+    mensajes = [
+        {"uid": 1, "message_id": "<m1@x>"},
+        {"uid": 2, "message_id": "<m2@x>"},
+        {"uid": 3, "message_id": ""},
+        {"uid": 4},
+    ]
+    await r.anotar_en_lista(_DbLista(), mensajes)
+    assert mensajes[0]["reacciones"] == {"total": 3, "emojis": ["👍", "🎉"]}
+    assert mensajes[1]["reacciones"] == {"total": 1, "emojis": ["❤️"]}
+    assert "reacciones" not in mensajes[2] and "reacciones" not in mensajes[3]
+
+
+async def test_la_lista_sale_aunque_falle_la_consulta():
+    class _Roto:
+        async def fetch(self, *a):
+            raise RuntimeError("sin base")
+
+    mensajes = [{"uid": 1, "message_id": "<m1@x>"}]
+    await r.anotar_en_lista(_Roto(), mensajes)
+    assert mensajes == [{"uid": 1, "message_id": "<m1@x>"}]
