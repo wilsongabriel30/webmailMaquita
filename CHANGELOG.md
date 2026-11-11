@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.16.0] - 2026-11-11
+
+Toda la personalización se guarda en la cuenta, colores para las carpetas, búsqueda que se acota con un clic y
+confirmación de lectura permanente. Sin migraciones ni pasos manuales.
+
 ### Añadido
 - **Toda la personalización se guarda en la cuenta**: tema claro/oscuro, carpetas favoritas, orden de la lista, chinchetas, secciones plegadas, cinta contraída, «Mi día», zoom, ajustes de firma, vistas de Tareas, Seguimiento y la Nube, entre otras. Siguen a la persona en cualquier navegador o equipo (`lib/preferenciasCuenta.ts`). Lo propio del equipo (cachés, cifrado, descargas sin conexión) no se sincroniza.
 
