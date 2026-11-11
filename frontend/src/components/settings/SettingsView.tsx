@@ -11,6 +11,7 @@ import { ContrasenasAplicacion } from './ContrasenasAplicacion';
 import { MiEquipo } from './MiEquipo';
 import { MailSetup } from './MailSetup';
 import { useMailStore } from '../../store/mailStore';
+import { guardarVistaAhora } from '../../hooks/usePreferenciasVista';
 import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
 import { resumenRegla } from '../../lib/reglas/resumenRegla';
 import { BotonAplicarRegla } from '../reglas/BotonAplicarRegla';
@@ -60,6 +61,7 @@ export function SettingsView() {
     }
   }, []);
   const [settings, setSettings] = useState<Settings | null>(null);
+  const pedirLecturaSiempre = useMailStore(s => s.pedirLecturaSiempre);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<Tab>('general');
@@ -242,6 +244,16 @@ export function SettingsView() {
               </select>
               <p className="mt-1 text-xs text-[#605e5c]">
                 Para pedir usted la confirmación al enviar: en el correo nuevo, pestaña Opciones → Seguimiento.
+              </p>
+            </Field>
+            <Field label="Confirmación de lectura de lo que envío">
+              <label className="flex items-center gap-2 text-sm text-[#323130] cursor-pointer">
+                <input type="checkbox" checked={pedirLecturaSiempre}
+                  onChange={e => { useMailStore.getState().setPedirLecturaSiempre(e.target.checked); void guardarVistaAhora(); showToast(e.target.checked ? 'Se pedirá confirmación de lectura en todos sus correos' : 'Ya no se pedirá confirmación de lectura por defecto'); }} />
+                Pedir siempre confirmación de lectura en los correos que envío
+              </label>
+              <p className="mt-1 text-xs text-[#605e5c]">
+                Se puede quitar en un correo concreto desde Opciones → Seguimiento. Quien recibe decide si la envía.
               </p>
             </Field>
             <Field label="Panel de lectura">

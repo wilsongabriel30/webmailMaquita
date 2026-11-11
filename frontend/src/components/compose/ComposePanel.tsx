@@ -178,7 +178,8 @@ export function ComposePanel({ win }: Props) {
   const [zonaSoltar, setZonaSoltar] = useState<ZonaSoltar>('adjuntar');
   // Límite entre «Adjuntar» e «Insertar»: el borde superior del editor, en px desde arriba del panel (08/11/2026).
   const [limiteZona, setLimiteZona] = useState<number | null>(null);
-  const [trackingState, setTrackingState] = useState({ delivery: false, read: false, noReactions: false });
+  // «read» arranca marcado si la persona eligió pedir siempre confirmación de lectura (Configuración → General).
+  const [trackingState, setTrackingState] = useState(() => ({ delivery: false, read: useMailStore.getState().pedirLecturaSiempre, noReactions: false }));
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [showDirectoryPicker, setShowDirectoryPicker] = useState(false);
   const [directoryPickerTarget, setDirectoryPickerTarget] = useState<'to' | 'cc' | 'bcc'>('to');

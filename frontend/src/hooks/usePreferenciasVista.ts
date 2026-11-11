@@ -19,13 +19,16 @@ interface Vista {
   anchoLista?: number;
   anchoCarpetas?: number;
   coloresCarpetas?: Record<string, string>;
+  /** «siempre» = pedir confirmación de lectura en todo lo que se envía. */
+  pedirLectura?: string;
 }
 
-function vistaActual(): Vista {
+export function vistaActual(): Vista {
   const s = useMailStore.getState();
   return {
     densidad: s.density, lineas: s.previewLines, orden: s.ordenFila, modo: s.viewMode,
     anchoLista: s.messageListWidth, anchoCarpetas: s.anchoCarpetas, coloresCarpetas: s.coloresCarpetas,
+    pedirLectura: s.pedirLecturaSiempre ? 'siempre' : 'no',
   };
 }
 
@@ -38,6 +41,12 @@ function aplicar(v: Vista) {
   if (typeof v.anchoLista === 'number') s.setMessageListWidth(v.anchoLista);
   if (typeof v.anchoCarpetas === 'number') s.setAnchoCarpetas(v.anchoCarpetas);
   if (v.coloresCarpetas && typeof v.coloresCarpetas === 'object') s.setColoresCarpetas(v.coloresCarpetas);
+  if (v.pedirLectura === 'siempre' || v.pedirLectura === 'no') s.setPedirLecturaSiempre(v.pedirLectura === 'siempre');
+}
+
+/** Guarda ya las preferencias (para pantallas donde el guardado automático no está montado, como Configuración). */
+export function guardarVistaAhora(): Promise<unknown> {
+  return api.put('/settings', { vista: vistaActual() }).catch(() => { /* queda en este navegador */ });
 }
 
 export function usePreferenciasVista() {
