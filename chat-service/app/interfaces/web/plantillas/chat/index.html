@@ -6,6 +6,32 @@
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-page.css') }}?v=20260827h">
+<!-- T-101: tema Fluent 2 del chat. Vista previa: se activa sola para las cuentas de revisión y, para cualquiera,
+     con /chat/?tema=fluent | fluent-oscuro | fluent-auto (se recuerda en el equipo); /chat/?tema=clasico lo quita.
+     Las hojas solo se piden cuando el tema está activo. -->
+<script>
+(function () {
+  var previa = {{ 'true' if (session.get('usuario_id')|string) in (tema_previa_usuarios or []) else 'false' }};
+  var validos = ['clasico', 'fluent', 'fluent-oscuro', 'fluent-auto'];
+  var pedido = new URLSearchParams(location.search).get('tema');
+  var tema = null;
+  try {
+    if (pedido && validos.indexOf(pedido) >= 0) localStorage.setItem('mq_chat_tema', pedido);
+    tema = localStorage.getItem('mq_chat_tema');
+  } catch (e) { tema = pedido; }
+  if (validos.indexOf(tema) < 0) tema = previa ? 'fluent' : 'clasico';
+  if (tema === 'clasico') return;
+  var raiz = document.documentElement;
+  raiz.classList.add('mq-fluent');
+  var oscuro = tema === 'fluent-oscuro' ||
+    (tema === 'fluent-auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  if (oscuro) raiz.classList.add('mq-fluent-oscuro');
+  var v = '20261111-t101u';
+  ['chat-fluent-tokens', 'chat-fluent-lista', 'chat-fluent-conversacion', 'chat-fluent-paneles', 'chat-fluent-iconos'].forEach(function (hoja) {
+    document.write('<link rel="stylesheet" href="/static/css/' + hoja + '.css?v=' + v + '">');
+  });
+})();
+</script>
 <!-- Modo EMBED: cuando el chat va dentro del panel flotante del correo/Drive
      (/chat/?embed=1) se oculta la barra de Raíces (app launcher, correo, perfil)
      para que no rediriga (bucle) ni se solape el menu de perfil. -->
@@ -43,8 +69,11 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h5><i class="fas fa-comments me-2"></i>Chat</h5>
                 <div class="d-flex gap-1">
-                    <button class="btn btn-sm btn-light" onclick="abrirHistorialLlamadas()" title="Historial de llamadas">
+                    <button class="btn btn-sm btn-light" onclick="location.href='/chat/llamadas' + (document.documentElement.classList.contains('chat-embed') ? '?embed=1' : '')" title="Llamadas: historial, grabaciones y marcación rápida">
                         <i class="fas fa-phone"></i>
+                    </button>
+                    <button class="btn btn-sm btn-light" onclick="location.href='/chat/archivos' + (document.documentElement.classList.contains('chat-embed') ? '?embed=1' : '')" title="Archivos: todo lo enviado y recibido por el chat">
+                        <i class="fas fa-folder-open"></i>
                     </button>
                     <button class="btn btn-sm btn-light" onclick="openNewChatModal()" title="Nuevo chat">
                         <i class="fas fa-edit"></i>
@@ -55,7 +84,7 @@
 
         <div class="chat-search position-relative">
             <i class="fas fa-search search-icon"></i>
-            <input type="text" id="searchConversations" placeholder="Buscar conversaciones..." oninput="filterConversations(this.value)">
+            <input type="text" id="searchConversations" placeholder="Buscar personas, chats y mensajes" oninput="filterConversations(this.value)">
         </div>
 
         <div class="chat-tabs">
@@ -376,10 +405,11 @@
 <script src="{{ url_for('static', filename='js/chat-notificaciones-sonido.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-inicio.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-conversaciones.js') }}?v=20260828-chat1"></script>
-<script src="{{ url_for('static', filename='js/chat-mensajes.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-enlaces.js') }}?v=20260921-enlaces"></script>
+<script src="{{ url_for('static', filename='js/chat-mensajes.js') }}?v=20261001-sindebug"></script>
 <script src="{{ url_for('static', filename='js/chat-reacciones.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-emojis.js') }}?v=20260828-chat1"></script>
-<script src="{{ url_for('static', filename='js/chat-envio.js') }}?v=20260828-chat1"></script>
+<script src="{{ url_for('static', filename='js/chat-envio.js') }}?v=20261001-sindebug"></script>
 <script src="{{ url_for('static', filename='js/chat-nuevo-chat.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-grupos-crear.js') }}?v=20260828-chat1"></script>
 <script src="{{ url_for('static', filename='js/chat-lista.js') }}?v=20260828-chat1"></script>
@@ -393,6 +423,8 @@
 <script src="{{ url_for('static', filename='js/chat-llamadas.js') }}?v=20260831-t15"></script>
 <script src="{{ url_for('static', filename='js/chat-pegar-imagen.js') }}?v=20260828a"></script>
 <script src="{{ url_for('static', filename='js/chat-arrastrar.js') }}?v=20260828a"></script>
+<!-- T-101: aviso de documento con el mismo nombre (se carga antes que el de duplicados) -->
+<script src="{{ url_for('static', filename='js/chat-archivos-mismo-nombre.js') }}?v=20261111-t101v"></script>
 <script src="{{ url_for('static', filename='js/chat-adjuntos-dedup.js') }}?v=20260828a"></script>
 <script src="{{ url_for('static', filename='js/chat-grupos.js') }}?v=20260831-t15"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-ficha-persona.css') }}?v=20260901-t43">
@@ -421,6 +453,10 @@
 <!-- T-50 tanda 2: el encabezado del chat activo como Teams -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-encabezado-teams.css') }}?v=20260902-t54b">
 <script src="{{ url_for('static', filename='js/chat-encabezado-teams.js') }}?v=20260902-t54b"></script>
+<!-- T-101: pestañas «Archivos» y «Fotos» con la lista completa -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-archivos.css') }}?v=20261111-t101v">
+<script src="{{ url_for('static', filename='js/chat-archivos-nucleo.js') }}?v=20261111-t101u"></script>
+<script src="{{ url_for('static', filename='js/chat-archivos-pestana.js') }}?v=20261111-t101u"></script>
 <!-- T-50 tanda 3: la barra de redaccion como Teams -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-redaccion-teams.css') }}?v=20260902-t54b">
 <script src="{{ url_for('static', filename='js/chat-redaccion-teams.js') }}?v=20260902-t54b"></script>
@@ -434,6 +470,9 @@
 <!-- T-54a: llegar al mensaje sin paseo -->
 <script src="{{ url_for('static', filename='js/chat-ancla.js') }}?v=20260902-t54b"></script>
 <script src="{{ url_for('static', filename='js/chat-ficha-persona.js') }}?v=20260901-t43"></script>
+<!-- T-94 (09/11/2026): panel «Información del grupo» (nombre, foto, miembros, administradores) -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chat-grupo-panel.css') }}?v=20261109t94">
+<script src="{{ url_for('static', filename='js/chat-grupo-panel.js') }}?v=20261109t94"></script>
 <script>
   // Abre sola la conversacion pedida por la URL (/chat/conversation/<id> o ?conv=<id>).
   (function () {

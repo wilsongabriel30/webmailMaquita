@@ -1,0 +1,64 @@
+/* ============================================================================
+ * T-101 · Ventana de conferencia (llamada de grupo) con Fluent 2.
+ * Va DESPUÉS de chat-fluent-llamada.css, que ya da la barra superior, los
+ * controles y los menús (las dos ventanas comparten esas clases). Aquí solo
+ * lo propio de la conferencia: contador, mosaicos y «Salir».
+ * Solo estilo y solo tokens; cuelga de html.mq-fluent.
+ * ========================================================================== */
+
+/* barra: título, tiempo y, a continuación, cuántas personas hay */
+html.mq-fluent .vc-header { justify-content: flex-start; gap: var(--fl-esp-16); }
+html.mq-fluent #contadorParticipantes {
+    display: block !important;
+    font: var(--fl-leyenda-1) !important; color: var(--fl-texto-3);
+    opacity: 1 !important; white-space: nowrap;
+}
+
+/* salir: botón rojo con texto, como «Colgar» en la llamada */
+html.mq-fluent .vc-controls .btn-salir {
+    width: auto; height: 32px; padding: 0 var(--fl-esp-12); margin-left: var(--fl-esp-12); gap: var(--fl-esp-8);
+    font-size: 14px; color: #ffffff;
+    background: var(--fl-presencia-ocupado);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .vc-controls .btn-salir::after { content: 'Salir'; font: var(--fl-cuerpo-1-fuerte); }
+html.mq-fluent .vc-controls .btn-salir:hover { background: #b62e31; }
+html.mq-fluent .vc-controls .btn-salir:active { background: #9c282a; }
+
+/* ---- mosaicos ---- */
+html.mq-fluent .vc-grid {
+    gap: var(--fl-esp-8); padding: var(--fl-esp-12);
+    align-content: center;
+    background: var(--fl-fondo-3);
+    scrollbar-width: thin; scrollbar-color: var(--fl-trazo-1) transparent;
+}
+html.mq-fluent .tile {
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+}
+html.mq-fluent .tile-avatar {
+    width: 72px; height: 72px;
+    font: 600 28px/1 var(--fl-fuente);
+    color: var(--fl-texto-sobre-marca);
+    background: var(--fl-marca-80);
+}
+/* nombre abajo a la izquierda, en una etiqueta oscura */
+html.mq-fluent .tile-nombre {
+    left: var(--fl-esp-8); bottom: var(--fl-esp-8);
+    padding: var(--fl-esp-2) var(--fl-esp-8);
+    max-width: calc(100% - 16px);
+    font: var(--fl-leyenda-1); color: #ffffff;
+    background: rgba(0, 0, 0, .6);
+    border-radius: var(--fl-radio-medio);
+}
+/* pantalla compartida: el contenido manda */
+html.mq-fluent .tile.pantalla { background: #000000; border-color: var(--fl-trazo-3); }
+
+/* aviso de estado sobre los mosaicos */
+html.mq-fluent .vc-estado { font: var(--fl-cuerpo-1); color: var(--fl-texto-3); background: var(--fl-fondo-3); }
+
+@media (max-width: 720px) {
+    html.mq-fluent .vc-header { gap: var(--fl-esp-8); }
+    html.mq-fluent .vc-grid { align-content: start; }
+}

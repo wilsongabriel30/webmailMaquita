@@ -1,0 +1,354 @@
+/* ============================================================================
+ * T-101 · La conversación con Fluent 2: cabecera, hilo de mensajes y redacción.
+ * Solo estilo y solo con tokens de chat-fluent-tokens.css. Todo cuelga de
+ * html.mq-fluent: sin esa clase, el chat se ve como antes.
+ * Los !important responden a los que ya traen chat-teams.css y chat-page.css.
+ * ========================================================================== */
+
+html.mq-fluent .chat-main { background: var(--fl-lienzo); }
+
+/* ================= cabecera ================= */
+html.mq-fluent .chat-main-header {
+    min-height: 48px;
+    padding: var(--fl-esp-8) var(--fl-esp-16);
+    background: var(--fl-lienzo);
+    border-bottom: 1px solid var(--fl-trazo-3);
+}
+html.mq-fluent .chat-main-header .avatar {
+    width: 32px; height: 32px; margin-right: var(--fl-esp-12);
+    font: var(--fl-leyenda-1); font-weight: 600;
+    background: var(--fl-marca-fondo); color: var(--fl-texto-sobre-marca);
+}
+html.mq-fluent .chat-main-header .user-details h6 { font: var(--fl-subtitulo-2) !important; color: var(--fl-texto-1); }
+html.mq-fluent .chat-main-header .user-details small,
+html.mq-fluent .chat-main-header .user-details small span { font: var(--fl-leyenda-1) !important; color: var(--fl-texto-3); }
+html.mq-fluent .chat-main-header .status-online { color: var(--fl-presencia-disponible); }
+html.mq-fluent .chat-main-header .status-offline { color: var(--fl-texto-3); }
+
+/* acciones: todas iguales y neutras; el color aparece al pasar por encima */
+html.mq-fluent .chat-main-header .chat-actions { gap: var(--fl-esp-2); }
+html.mq-fluent .chat-main-header .chat-actions button,
+html.mq-fluent .chat-main-header .chat-actions .meet-btn {
+    width: 32px !important; height: 32px !important;
+    border-radius: var(--fl-radio-medio);
+    color: var(--fl-texto-2) !important;
+    font-size: 14px;
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-main-header .chat-actions button i { color: inherit !important; }
+/* llamada y videollamada traían color propio por id: aquí son un icono más */
+html.mq-fluent #btnLlamadaAudio.meet-btn,
+html.mq-fluent #btnLlamadaVideo.meet-btn,
+html.mq-fluent #btnConferenciaGrupal.meet-btn { color: var(--fl-texto-2) !important; }
+html.mq-fluent #btnLlamadaAudio.meet-btn:hover,
+html.mq-fluent #btnLlamadaVideo.meet-btn:hover,
+html.mq-fluent #btnConferenciaGrupal.meet-btn:hover { color: var(--fl-marca-texto) !important; }
+html.mq-fluent .chat-main-header .chat-actions button:hover,
+html.mq-fluent .chat-main-header .chat-actions .meet-btn:hover { background: var(--fl-sutil-encima) !important; color: var(--fl-marca-texto) !important; }
+html.mq-fluent .chat-main-header .chat-actions button:active { background: var(--fl-sutil-pulsado) !important; }
+html.mq-fluent .chat-main-header .chat-actions button.dropdown-toggle::after { display: none; }
+html.mq-fluent .chat-back-btn { color: var(--fl-texto-2); border-radius: var(--fl-radio-medio); }
+
+/* pestañas Chat / Archivos / Fotos */
+html.mq-fluent .mq-pestana { font: var(--fl-leyenda-1); color: var(--fl-texto-3); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-pestana:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .mq-pestana.activa { color: var(--fl-marca-texto); box-shadow: inset 0 -2px 0 var(--fl-marca-trazo); }
+
+/* menús que flotan */
+html.mq-fluent .chat-container .dropdown-menu {
+    padding: var(--fl-esp-4);
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-medio);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .chat-container .dropdown-item { padding: 6px var(--fl-esp-8); border-radius: var(--fl-radio-medio); color: var(--fl-texto-1); }
+html.mq-fluent .chat-container .dropdown-item:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .chat-container .dropdown-divider { border-color: var(--fl-trazo-2); margin: var(--fl-esp-4) 0; }
+
+/* ================= hilo ================= */
+html.mq-fluent .chat-messages { background: var(--fl-lienzo); padding: var(--fl-esp-12) var(--fl-esp-20) var(--fl-esp-8); }
+html.mq-fluent .chat-messages.mq-filtrando { background: var(--fl-fondo-2); }
+
+/* separación: 12 px entre personas distintas, 2 px dentro del mismo bloque */
+html.mq-fluent .chat-messages .message { gap: var(--fl-esp-8); margin: var(--fl-esp-16) 0 0; align-items: flex-start; }
+html.mq-fluent .chat-messages .message.mq-agrupado { margin-top: var(--fl-esp-2); }
+
+/* burbujas */
+html.mq-fluent .chat-messages .message .message-content {
+    padding: 6px var(--fl-esp-12);
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1) !important;
+    background: var(--fl-burbuja-ajena) !important;
+    border-radius: var(--fl-radio-grande);
+    box-shadow: none;
+}
+html.mq-fluent .chat-messages .message.sent .message-content {
+    color: var(--fl-burbuja-propia-texto) !important;
+    background: var(--fl-burbuja-propia) !important;
+}
+/* la esquina «de la cola», un poco menor */
+html.mq-fluent .chat-messages .message.mq-agrupado .message-content { border-radius: var(--fl-radio-grande); }
+
+html.mq-fluent .chat-messages .message .message-text { font: var(--fl-cuerpo-1); }
+/* un mensaje que es solo emojis: grande y sin burbuja, como hasta ahora */
+html.mq-fluent .chat-messages .message.mq-solo-emoji .message-content { background: transparent !important; padding: var(--fl-esp-2) var(--fl-esp-4); }
+html.mq-fluent .chat-messages .message.mq-solo-emoji .message-text { font-size: 40px; line-height: 1.1; }
+html.mq-fluent .chat-messages .message .message-content a { color: var(--fl-marca-enlace); }
+html.mq-fluent .chat-messages .message.sent .message-content a { color: var(--fl-burbuja-propia-enlace); }
+html.mq-fluent .chat-messages .message .message-content a:hover { color: var(--fl-marca-enlace-encima); }
+
+/* quién escribe: solo en el primer mensaje del bloque */
+html.mq-fluent .chat-messages .message .message-sender {
+    position: absolute; left: 0; bottom: calc(100% + var(--fl-esp-2));
+    margin: 0; white-space: nowrap;
+    font: var(--fl-leyenda-1);
+    color: var(--fl-texto-3);
+}
+/* hueco para ese nombre sobre el primer mensaje de cada bloque ajeno */
+html.mq-fluent .chat-messages .message.received:not(.mq-agrupado):has(.message-sender) { margin-top: calc(var(--fl-esp-16) + 18px); }
+html.mq-fluent .chat-messages .message.received:not(.mq-agrupado):has(.message-sender) .message-avatar { margin-top: 0; }
+html.mq-fluent .chat-messages .message .message-avatar {
+    width: 32px; height: 32px; flex: 0 0 32px;
+    font: var(--fl-leyenda-1); font-weight: 600;
+}
+/* el punto verde fijo del avatar no reflejaba la presencia real: fuera */
+html.mq-fluent .chat-messages .message .message-avatar::after { content: none; }
+
+/* hora y estado: tenues */
+html.mq-fluent .chat-messages .message-meta,
+html.mq-fluent .chat-messages .message.sent .message-meta,
+html.mq-fluent .chat-messages .message.mq-solo-emoji .message-meta {
+    margin-top: var(--fl-esp-2);
+    font: var(--fl-leyenda-2);
+    color: var(--fl-texto-3) !important;
+}
+/* los iconos de estado conservan su fuente de iconos: solo tamaño y color */
+html.mq-fluent .chat-messages .message .message-status,
+html.mq-fluent .chat-messages .message.sent .message-status { font-size: 10px; color: var(--fl-texto-3) !important; }
+html.mq-fluent .chat-messages .message.sent .message-status.read,
+html.mq-fluent .chat-messages .message.sent .message-status .text-primary { color: var(--fl-marca-texto) !important; }
+
+/* Hora al final del bloque; en los mensajes intermedios, al pasar por encima.
+   Solo donde el navegador entiende :has() y hay ratón: si no, la hora se ve siempre. */
+@supports selector(:has(*)) {
+    @media (hover: hover) and (min-width: 701px) {
+        html.mq-fluent .chat-messages .message:has(+ .message.mq-agrupado) .message-meta {
+            position: absolute; top: 50%; margin: 0;
+            transform: translateY(-50%);
+            white-space: nowrap;
+            opacity: 0; pointer-events: none;
+            transition: opacity var(--fl-corto) var(--fl-curva);
+        }
+        html.mq-fluent .chat-messages .message.received:has(+ .message.mq-agrupado) .message-meta { left: calc(100% + var(--fl-esp-8)); }
+        html.mq-fluent .chat-messages .message.sent:has(+ .message.mq-agrupado) .message-meta { right: calc(100% + var(--fl-esp-8)); }
+        html.mq-fluent .chat-messages .message:has(+ .message.mq-agrupado):hover .message-meta { opacity: 1; }
+    }
+}
+
+/* separadores de día y marcas de lectura: centrados y discretos */
+html.mq-fluent .message-date-divider { margin: var(--fl-esp-16) 0 var(--fl-esp-4); text-align: center; }
+html.mq-fluent .message-date-divider span {
+    padding: 0 var(--fl-esp-8);
+    font: var(--fl-leyenda-1); color: var(--fl-texto-3);
+    background: transparent; box-shadow: none; border: 0;
+}
+html.mq-fluent .mq-separador { margin: var(--fl-esp-16) 0 var(--fl-esp-4); gap: var(--fl-esp-12); font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+html.mq-fluent .mq-separador::before,
+html.mq-fluent .mq-separador::after { background: var(--fl-trazo-3); }
+html.mq-fluent .mq-leido,
+html.mq-fluent .mq-nuevos { margin: var(--fl-esp-12) 0; font: var(--fl-leyenda-1); font-weight: 600; color: var(--fl-marca-texto); }
+html.mq-fluent .mq-leido::before, html.mq-fluent .mq-leido::after,
+html.mq-fluent .mq-nuevos::before, html.mq-fluent .mq-nuevos::after { background: var(--fl-marca-trazo-suave); opacity: 1; }
+
+/* reacciones */
+html.mq-fluent .mq-barra-reacciones {
+    padding: var(--fl-esp-2) var(--fl-esp-4);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-circular);
+    box-shadow: var(--fl-sombra-8);
+}
+html.mq-fluent .mq-barra-reacciones button:hover { background: var(--fl-sutil-encima); transform: none; }
+html.mq-fluent .message-reaction {
+    font: var(--fl-leyenda-1);
+    color: var(--fl-texto-2);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-2);
+    border-radius: var(--fl-radio-circular);
+}
+html.mq-fluent .message-reaction.my-reaction { background: var(--fl-marca-fondo-suave); border-color: var(--fl-marca-trazo-suave); color: var(--fl-marca-texto); }
+html.mq-fluent .reaction-count { color: inherit; }
+html.mq-fluent .btn-add-reaction { color: var(--fl-texto-3); background: var(--fl-fondo-1); border-color: var(--fl-trazo-2); }
+
+/* cita de respuesta */
+html.mq-fluent .msg-cita {
+    padding: var(--fl-esp-4) var(--fl-esp-8);
+    background: transparent;
+    border-left: 2px solid var(--fl-marca-trazo);
+    border-radius: var(--fl-radio-chico);
+}
+html.mq-fluent .msg-cita-texto { color: var(--fl-texto-3); }
+html.mq-fluent #barraRespuesta { background: var(--fl-fondo-2); border-left: 2px solid var(--fl-marca-trazo); border-radius: var(--fl-radio-medio); }
+
+/* adjuntos: tarjeta limpia, igual en burbuja propia y ajena */
+html.mq-fluent .chat-messages .message .message-file,
+html.mq-fluent .chat-messages .message.sent .message-file,
+html.mq-fluent .chat-messages .message.received .message-file {
+    padding: var(--fl-esp-8) var(--fl-esp-12);
+    background: var(--fl-fondo-1) !important;
+    border: 1px solid var(--fl-trazo-2);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .chat-messages .message.sent .message-file,
+html.mq-fluent .chat-messages .message.sent .message-file .fw-bold,
+html.mq-fluent .chat-messages .message .message-file .fw-bold { font: var(--fl-cuerpo-1-fuerte); color: var(--fl-texto-1) !important; }
+html.mq-fluent .chat-messages .message.sent .message-file .small,
+html.mq-fluent .chat-messages .message .message-file .small { font: var(--fl-leyenda-1); color: var(--fl-texto-3) !important; }
+html.mq-fluent .chat-messages .message.sent .message-file i,
+html.mq-fluent .chat-messages .message .message-file i { color: var(--fl-marca-texto) !important; }
+html.mq-fluent .chat-messages .message.sent .message-file a,
+html.mq-fluent .chat-messages .message .message-file a { color: var(--fl-marca-enlace) !important; text-decoration: none; }
+html.mq-fluent .chat-messages .message .message-media img,
+html.mq-fluent .chat-messages .message .message-gif img { border-radius: var(--fl-radio-medio); }
+
+/* ir al final */
+html.mq-fluent .mq-ir-final {
+    width: 32px; height: 32px;
+    color: var(--fl-marca-texto);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    box-shadow: var(--fl-sombra-8);
+}
+html.mq-fluent .mq-ir-final .mq-ir-final-num { background: var(--fl-marca-fondo); color: var(--fl-texto-sobre-marca); font: var(--fl-leyenda-2); font-weight: 600; }
+
+/* «está escribiendo» */
+html.mq-fluent .typing-indicator { padding: var(--fl-esp-2) var(--fl-esp-20) var(--fl-esp-4); font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+html.mq-fluent .typing-dots span { background: var(--fl-texto-4); }
+
+/* entrada de mensajes: un fundido corto */
+@media (prefers-reduced-motion: no-preference) {
+    html.mq-fluent .chat-messages .message { animation: fl-entrar var(--fl-corto) var(--fl-curva-entrada) both; }
+    @keyframes fl-entrar { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* ================= estado vacío ================= */
+html.mq-fluent .chat-empty-state { background: var(--fl-lienzo); color: var(--fl-texto-3); }
+html.mq-fluent .chat-empty-state > i { font-size: 40px; color: var(--fl-trazo-1); margin-bottom: var(--fl-esp-16); }
+html.mq-fluent .chat-empty-state .btn i { font-size: 12px; color: inherit; margin: 0 var(--fl-esp-8) 0 0; }
+html.mq-fluent .chat-empty-state h4 { font: var(--fl-subtitulo-1); color: var(--fl-texto-1); margin-bottom: var(--fl-esp-4); }
+html.mq-fluent .chat-empty-state p { font: var(--fl-cuerpo-1); color: var(--fl-texto-3); }
+html.mq-fluent .mq-sin-nada { font: var(--fl-cuerpo-1); color: var(--fl-texto-3); }
+html.mq-fluent .chat-container .btn-primary {
+    padding: 5px var(--fl-esp-12);
+    font: var(--fl-cuerpo-1-fuerte);
+    color: var(--fl-texto-sobre-marca);
+    background: var(--fl-marca-fondo);
+    border: 1px solid transparent;
+    border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-container .btn-primary:hover { background: var(--fl-marca-fondo-encima); }
+html.mq-fluent .chat-container .btn-primary:active { background: var(--fl-marca-fondo-pulsado); }
+
+/* ================= redacción ================= */
+html.mq-fluent .chat-input-area { padding: var(--fl-esp-8) var(--fl-esp-20) var(--fl-esp-16); background: var(--fl-lienzo); border-top: 0; }
+html.mq-fluent .chat-input-container.wa-input {
+    gap: var(--fl-esp-2);
+    padding: var(--fl-esp-4) var(--fl-esp-8);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-1);
+    border-bottom-color: var(--fl-trazo-accesible);
+    border-radius: var(--fl-radio-xgrande);
+    transition: border-color var(--fl-rapido) var(--fl-curva), box-shadow var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-input-container.wa-input:focus-within {
+    border-color: var(--fl-trazo-1);
+    border-bottom-color: var(--fl-marca-trazo);
+    box-shadow: inset 0 -1px 0 var(--fl-marca-trazo);
+}
+html.mq-fluent .chat-input-container .chat-input-wrapper { order: 0; border: 0; padding: 0 0 0 var(--fl-esp-4); background: transparent; box-shadow: none !important; }
+html.mq-fluent .chat-input-container .ci-btn { order: 1; }
+html.mq-fluent .chat-input-container .ci-mic { order: 98; }
+html.mq-fluent .chat-input-container textarea#messageInput {
+    padding: 6px var(--fl-esp-4);
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1) !important;
+    background: transparent !important;
+    border-radius: 0 !important;
+}
+html.mq-fluent .chat-input-container textarea#messageInput::placeholder { color: var(--fl-texto-4); }
+
+html.mq-fluent .chat-input-container .ci-btn {
+    border-radius: var(--fl-radio-medio);
+    color: var(--fl-texto-2);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-input-container .ci-btn:hover { background: var(--fl-sutil-encima); color: var(--fl-marca-texto); }
+html.mq-fluent .chat-input-container .ci-btn:active { background: var(--fl-sutil-pulsado); }
+
+/* enviar: apagado sin texto, en el acento cuando hay algo que mandar */
+html.mq-fluent .chat-input-container .btn-send {
+    border-radius: var(--fl-radio-medio);
+    color: var(--fl-texto-inactivo);
+    background: transparent;
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-input-container .btn-send.mq-listo { color: var(--fl-marca-texto); background: transparent; }
+html.mq-fluent .chat-input-container .btn-send.mq-listo:hover { background: var(--fl-sutil-encima); filter: none; }
+html.mq-fluent .chat-input-container .btn-send.mq-listo:active { background: var(--fl-sutil-pulsado); }
+
+/* adjunto en espera, junto a la caja */
+html.mq-fluent .mq-adjunto {
+    margin: 0 var(--fl-esp-20) var(--fl-esp-8);
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-2);
+    border-radius: var(--fl-radio-medio);
+    box-shadow: var(--fl-sombra-4);
+}
+html.mq-fluent .mq-adjunto i { color: var(--fl-marca-texto); }
+html.mq-fluent .mq-adjunto-datos small { color: var(--fl-texto-3); }
+html.mq-fluent .mq-adjunto-enviar { background: var(--fl-marca-fondo); color: var(--fl-texto-sobre-marca); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-adjunto-quitar { color: var(--fl-texto-3); }
+
+/* selectores de emojis y GIF: superficies que flotan */
+html.mq-fluent .emoji-picker,
+html.mq-fluent .gif-picker,
+html.mq-fluent .reaction-picker {
+    color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .emoji-picker-header,
+html.mq-fluent .gif-picker-header,
+html.mq-fluent .emoji-picker-search,
+html.mq-fluent .gif-picker-search { background: transparent; border-color: var(--fl-trazo-3); }
+html.mq-fluent .emoji-picker-search input,
+html.mq-fluent .gif-picker-search input {
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-2);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .emoji-category:hover,
+html.mq-fluent .emoji-item:hover,
+html.mq-fluent .reaction-emoji-item:hover { background: var(--fl-sutil-encima); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .emoji-category.active { background: var(--fl-sutil-elegido); border-radius: var(--fl-radio-medio); }
+
+/* ---- v2: cabecera con el nombre y las pestañas en la misma línea ---- */
+html.mq-fluent .chat-main-header .user-details {
+    display: grid; grid-template-columns: auto auto; column-gap: var(--fl-esp-16); align-items: center; justify-content: start;
+}
+html.mq-fluent .chat-main-header .user-details h6 { grid-column: 1; grid-row: 1; }
+html.mq-fluent .chat-main-header .user-details small { grid-column: 1; grid-row: 2; }
+html.mq-fluent .chat-main-header .user-details .mq-pestanas { grid-column: 2; grid-row: 1 / span 2; margin: 0; gap: var(--fl-esp-4); align-self: center; }
+html.mq-fluent .mq-pestana { padding: var(--fl-esp-4) var(--fl-esp-8) 6px; font: var(--fl-cuerpo-1); color: var(--fl-texto-2); background: transparent; border-radius: 0; }
+html.mq-fluent .mq-pestana:hover { background: transparent; color: var(--fl-texto-1); }
+html.mq-fluent .mq-pestana.activa { font-weight: 600; color: var(--fl-texto-1); box-shadow: inset 0 -2px 0 var(--fl-marca-trazo); border-radius: 0; }

@@ -122,6 +122,17 @@ def _contexto_conversacion(conversacion_id, remitente_id):
     return (conv['name'] if conv else None), (conv['conversation_type'] if conv else 'direct'), destinatarios
 
 
+def _avatar_grupo(conversacion_id):
+    """Ruta de la foto del grupo (T-94) o None."""
+    try:
+        with _conexion() as con, con.cursor() as cur:
+            cur.execute("SELECT avatar_path FROM chat_conversations WHERE id = %s", (conversacion_id,))
+            fila = cur.fetchone()
+        return fila[0] if fila and fila[0] else None
+    except Exception:
+        return None
+
+
 def notificar_mensaje(conversacion_id, remitente_id, nombre_remitente, contenido, tipo_mensaje='text',
                       mensaje_id=None, menciones=None):
     """Notificación automática por mensaje nuevo (la llama el servidor al guardar un mensaje)."""
@@ -138,11 +149,19 @@ def notificar_mensaje(conversacion_id, remitente_id, nombre_remitente, contenido
         url = f'{URL_BASE}/chat/conversation/{conversacion_id}'
         extra = {'origen': 'chat', 'conversacion_id': conversacion_id, 'mensaje_id': mensaje_id,
                  'remitente_id': remitente_id, 'es_grupo': es_grupo, 'avatar': avatar_usuario(remitente_id)}
+        if es_grupo:  # T-94: nombre y foto del grupo para la notificación (la app y la web pueden mostrarlos)
+            extra['nombre_grupo'] = nombre_conv
+            extra['avatar_grupo'] = _avatar_grupo(conversacion_id)
         mencionados = {int(m) for m in (menciones or []) if str(m).isdigit()}
         n = 0
         if mencionados:
             n += emitir([u for u in destinatarios if u in mencionados], 'mencion', f'{nombre_remitente} te mencionó', texto, url, extra)
         n += emitir([u for u in destinatarios if u not in mencionados], 'chat', titulo, texto, url, extra)
+        try:   # T-101: el total de no leídos de cada destinatario, por el evento «contadores»
+            from interfaces.api.contadores_app import emitir_contadores
+            emitir_contadores(destinatarios)
+        except Exception as _e:
+            print(f'[contadores] mensaje: {_e}')
         return n
     except Exception as e:
         print(f'[notificaciones] error al notificar mensaje: {e}')

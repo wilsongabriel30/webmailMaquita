@@ -12,6 +12,7 @@ import urllib.error
 import urllib.request
 
 import jwt
+from cuenta_pruebas import token as token_pruebas  # sesión real del correo (12/10/2026)
 import socketio as sio_cli
 
 BASE = 'https://mail.example.org'
@@ -31,8 +32,7 @@ def token(correo):
         if '=' in l and not l.strip().startswith('#'):
             k, v = l.strip().split('=', 1)
             env[k] = v.strip('"\'')
-    return jwt.encode({'sub': correo, 'type': 'access', 'exp': int(time.time()) + 900},
-                      env['CHAT_JWT_SECRET'], algorithm='HS256')
+    return token_pruebas(correo)
 
 
 def cookies(tok, ua=UA_APP):
@@ -72,7 +72,12 @@ def main():
     _, d = pedir('/api/chat/estado', gb)
     uid_b = d.get('usuario_id')
 
-    # 1) la lista definitiva, 1:1 con Teams
+    # 1) la lista definitiva, 1:1 con Teams. Con el socket abierto, como la app: sin
+    #    conexion viva la regla pinta Desconectado todo lo que no sea Ocupado/No molestar.
+    s1 = sio_cli.Client(reconnection=False)
+    s1.connect(BASE, headers={'Cookie': ga, 'User-Agent': UA_APP},
+               transports=['websocket'], wait_timeout=15)
+    time.sleep(2)
     for estado in ('disponible', 'ocupado', 'no_molestar', 'vuelvo_enseguida',
                    'ausente', 'desconectado'):
         c, d = pedir('/api/chat/estado', ga, {'estado': estado})
@@ -85,6 +90,8 @@ def main():
     c, d = pedir('/api/chat/estado', ga, {'estado': 'conectado'})
     check('T-48 . se sigue aceptando «conectado» del cliente antiguo',
           c == 200 and d.get('estado') == 'disponible', 'devuelve=%s' % d.get('estado'))
+    s1.disconnect()
+    time.sleep(2)
     c, _ = pedir('/api/chat/estado', ga, {'estado': 'bailando'})
     check('T-48 . rechaza un estado inventado', c == 400, 'estado=%d' % c)
 

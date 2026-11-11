@@ -1,0 +1,177 @@
+/* ============================================================================
+ * T-101 · Tokens de diseño del chat (Fluent 2 con el color de la organización).
+ *
+ * Valores neutros, radios, sombras, tipografía y tiempos tomados de
+ * @fluentui/tokens (repositorio microsoft/fluentui, tema web claro y oscuro).
+ * La rampa de marca es propia: parte del color institucional (#0060A0) en el
+ * escalón 80, que es el que Fluent usa como fondo de marca en el tema claro.
+ *
+ * Solo se definen variables. Los componentes viven en chat-fluent.css y nunca
+ * llevan un color, tamaño o radio suelto: siempre un token de este archivo.
+ * El tema oscuro es el MISMO juego de tokens con otros valores.
+ * ========================================================================== */
+
+html.mq-fluent {
+    /* ---- rampa de marca (color de la organización) ---- */
+    --fl-marca-20: #002138;
+    --fl-marca-30: #0B3A5C;
+    --fl-marca-40: #003C66;
+    --fl-marca-60: #004B7D;
+    --fl-marca-70: #00558E;
+    --fl-marca-80: #0060A0;
+    --fl-marca-100: #4C9BD0;
+    --fl-marca-110: #6AADDA;
+    --fl-marca-140: #BCDDF1;
+    --fl-marca-150: #DDECF8;
+    --fl-marca-160: #EBF4FB;
+
+    /* ---- texto ---- */
+    --fl-texto-1: #242424;            /* colorNeutralForeground1 */
+    --fl-texto-2: #424242;            /* colorNeutralForeground2 */
+    --fl-texto-3: #616161;            /* colorNeutralForeground3 */
+    --fl-texto-4: #707070;            /* colorNeutralForeground4 */
+    --fl-texto-inactivo: #bdbdbd;     /* colorNeutralForegroundDisabled */
+    --fl-texto-sobre-marca: #ffffff;  /* colorNeutralForegroundOnBrand */
+
+    /* ---- superficies ---- */
+    --fl-fondo-1: #ffffff;            /* colorNeutralBackground1 */
+    --fl-fondo-2: #fafafa;            /* colorNeutralBackground2 */
+    --fl-fondo-3: #f5f5f5;            /* colorNeutralBackground3 */
+    --fl-fondo-4: #f0f0f0;            /* colorNeutralBackground4 */
+    --fl-sutil-encima: #f5f5f5;       /* colorSubtleBackgroundHover */
+    --fl-sutil-pulsado: #e0e0e0;      /* colorSubtleBackgroundPressed */
+    --fl-sutil-elegido: #ebebeb;      /* colorSubtleBackgroundSelected */
+
+    /* ---- trazos ---- */
+    --fl-trazo-1: #d1d1d1;            /* colorNeutralStroke1 */
+    --fl-trazo-2: #e0e0e0;            /* colorNeutralStroke2 */
+    --fl-trazo-3: #f0f0f0;            /* colorNeutralStroke3 */
+    --fl-trazo-accesible: #616161;    /* colorNeutralStrokeAccessible */
+
+    /* ---- marca (único acento) ---- */
+    --fl-marca-fondo: var(--fl-marca-80);          /* colorBrandBackground */
+    --fl-marca-fondo-encima: var(--fl-marca-70);   /* colorBrandBackgroundHover */
+    --fl-marca-fondo-pulsado: var(--fl-marca-40);  /* colorBrandBackgroundPressed */
+    --fl-marca-fondo-suave: var(--fl-marca-160);   /* colorBrandBackground2 */
+    --fl-marca-texto: var(--fl-marca-80);          /* colorBrandForeground1 */
+    --fl-marca-enlace: var(--fl-marca-70);         /* colorBrandForegroundLink */
+    --fl-marca-enlace-encima: var(--fl-marca-60);  /* colorBrandForegroundLinkHover */
+    --fl-marca-trazo: var(--fl-marca-80);          /* colorBrandStroke1 */
+    --fl-marca-trazo-suave: var(--fl-marca-140);   /* colorBrandStroke2 */
+
+    /* ---- papeles propios del chat ---- */
+    --fl-lienzo: var(--fl-fondo-1);                /* donde van los mensajes */
+    --fl-panel: var(--fl-fondo-3);                 /* lista de conversaciones */
+    --fl-fila-activa: var(--fl-fondo-1);           /* conversación abierta */
+    --fl-burbuja-ajena: var(--fl-fondo-3);
+    --fl-burbuja-propia: var(--fl-marca-150);
+    --fl-burbuja-propia-texto: var(--fl-texto-1);
+    --fl-burbuja-propia-enlace: var(--fl-marca-70);
+
+    /* ---- presencia ---- */
+    --fl-presencia-disponible: #13a10e;  /* colorPaletteLightGreenForeground3 */
+    --fl-presencia-ausente: #eaa300;     /* colorPaletteMarigoldBackground3 */
+    --fl-presencia-ocupado: #d13438;     /* colorPaletteRedBackground3 */
+    --fl-presencia-desconectado: var(--fl-texto-4);
+    --fl-peligro-texto: #bc2f32;         /* colorPaletteRedForeground1: llamadas perdidas */
+
+    /* ---- sombras (solo en lo que flota) ---- */
+    --fl-sombra-4: 0 0 2px rgba(0,0,0,.12), 0 2px 4px rgba(0,0,0,.14);
+    --fl-sombra-8: 0 0 2px rgba(0,0,0,.12), 0 4px 8px rgba(0,0,0,.14);
+    --fl-sombra-16: 0 0 2px rgba(0,0,0,.12), 0 8px 16px rgba(0,0,0,.14);
+
+    /* ---- radios ---- */
+    --fl-radio-chico: 2px;     /* borderRadiusSmall */
+    --fl-radio-medio: 4px;     /* borderRadiusMedium: controles */
+    --fl-radio-grande: 6px;    /* borderRadiusLarge */
+    --fl-radio-xgrande: 8px;   /* borderRadiusXLarge: burbujas y tarjetas */
+    --fl-radio-circular: 10000px;
+
+    /* ---- espaciado (base 4 px) ---- */
+    --fl-esp-2: 2px;
+    --fl-esp-4: 4px;
+    --fl-esp-8: 8px;
+    --fl-esp-12: 12px;
+    --fl-esp-16: 16px;
+    --fl-esp-20: 20px;
+    --fl-esp-24: 24px;
+
+    /* ---- tipografía (rampa Fluent 2) ---- */
+    --fl-fuente: "Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Segoe UI Web (West European)",
+                 -apple-system, BlinkMacSystemFont, Roboto, "Helvetica Neue", system-ui, sans-serif;
+    --fl-leyenda-2: 400 10px/14px var(--fl-fuente);     /* caption2 */
+    --fl-leyenda-1: 400 12px/16px var(--fl-fuente);     /* caption1 */
+    --fl-cuerpo-1: 400 14px/20px var(--fl-fuente);      /* body1 */
+    --fl-cuerpo-1-fuerte: 600 14px/20px var(--fl-fuente);
+    --fl-subtitulo-2: 600 16px/22px var(--fl-fuente);   /* subtitle2 */
+    --fl-subtitulo-1: 600 20px/28px var(--fl-fuente);   /* subtitle1 */
+    --fl-titulo-3: 600 24px/32px var(--fl-fuente);      /* title3 */
+
+    /* ---- movimiento ---- */
+    --fl-rapido: 100ms;     /* durationFaster */
+    --fl-corto: 150ms;      /* durationFast */
+    --fl-normal: 200ms;     /* durationNormal */
+    --fl-curva: cubic-bezier(.33, 0, .67, 1);    /* curveEasyEase */
+    --fl-curva-entrada: cubic-bezier(0, 0, 0, 1); /* curveDecelerateMid */
+
+    /* Las capas anteriores (T-45 y T-50) leen estas variables: al apuntarlas a
+       los tokens, siguen el tema sin tocarlas. */
+    --mq-azul: var(--fl-marca-fondo);
+    --mq-texto: var(--fl-texto-1);
+    --mq-gris-suave: var(--fl-texto-3);
+    --mq-gris-burbuja: var(--fl-burbuja-ajena);
+    --mq-verde-presencia: var(--fl-presencia-disponible);
+    --primary-color: var(--fl-marca-fondo);
+
+    color-scheme: light;
+}
+
+/* ---- tema oscuro: los mismos tokens con otros valores ---- */
+html.mq-fluent.mq-fluent-oscuro,
+html.mq-fluent[data-theme="dark"] {
+    --fl-texto-1: #ffffff;
+    --fl-texto-2: #d6d6d6;
+    --fl-texto-3: #adadad;
+    --fl-texto-4: #999999;
+    --fl-texto-inactivo: #5c5c5c;
+
+    --fl-fondo-1: #292929;
+    --fl-fondo-2: #1f1f1f;
+    --fl-fondo-3: #141414;
+    --fl-fondo-4: #0a0a0a;
+    --fl-sutil-encima: #383838;
+    --fl-sutil-pulsado: #2e2e2e;
+    --fl-sutil-elegido: #333333;
+
+    --fl-trazo-1: #666666;
+    --fl-trazo-2: #525252;
+    --fl-trazo-3: #3d3d3d;
+    --fl-trazo-accesible: #adadad;
+
+    --fl-marca-fondo: var(--fl-marca-70);
+    --fl-marca-fondo-encima: var(--fl-marca-80);
+    --fl-marca-fondo-pulsado: var(--fl-marca-40);
+    --fl-marca-fondo-suave: var(--fl-marca-20);
+    --fl-marca-texto: var(--fl-marca-100);
+    --fl-marca-enlace: var(--fl-marca-100);
+    --fl-marca-enlace-encima: var(--fl-marca-110);
+    --fl-marca-trazo: var(--fl-marca-100);
+    --fl-marca-trazo-suave: var(--fl-marca-60);
+
+    --fl-lienzo: var(--fl-fondo-2);
+    --fl-panel: var(--fl-fondo-3);
+    --fl-fila-activa: var(--fl-fondo-1);
+    --fl-burbuja-ajena: var(--fl-fondo-1);
+    --fl-burbuja-propia: var(--fl-marca-30);
+    --fl-burbuja-propia-texto: #ffffff;
+    --fl-burbuja-propia-enlace: var(--fl-marca-110);
+
+    --fl-presencia-disponible: #3db838;
+    --fl-peligro-texto: #e37d80;
+
+    --fl-sombra-4: 0 0 2px rgba(0,0,0,.24), 0 2px 4px rgba(0,0,0,.28);
+    --fl-sombra-8: 0 0 2px rgba(0,0,0,.24), 0 4px 8px rgba(0,0,0,.28);
+    --fl-sombra-16: 0 0 2px rgba(0,0,0,.24), 0 8px 16px rgba(0,0,0,.28);
+
+    color-scheme: dark;
+}

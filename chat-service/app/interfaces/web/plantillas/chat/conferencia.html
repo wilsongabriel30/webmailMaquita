@@ -143,6 +143,24 @@
             box-shadow: 0 2px 10px rgba(0,0,0,.4); display: none;
         }
     </style>
+    <!-- T-101: aspecto Fluent 2 de la ventana de conferencia. Vista previa: mismas condiciones que el chat
+         (cuentas de revisión o tema «fluent» elegido en este equipo). Solo estilo: no cambia la conferencia. -->
+    <script>
+    (function () {
+      var previa = {{ 'true' if (session.get('usuario_id')|string) in (tema_previa_usuarios or []) else 'false' }}, tema = null;
+      try { tema = localStorage.getItem('mq_chat_tema'); } catch (e) {}
+      if (tema === 'clasico' || (!previa && String(tema || '').indexOf('fluent') !== 0)) return;
+      // Sigue el tema del chat: claro por defecto; oscuro solo con el tema oscuro (o el del sistema en «auto»).
+      var raiz = document.documentElement;
+      raiz.classList.add('mq-fluent');
+      if (tema === 'fluent-oscuro' || (tema === 'fluent-auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) raiz.classList.add('mq-fluent-oscuro');
+      ['chat-fluent-tokens', 'chat-fluent-llamada', 'chat-fluent-conferencia', 'chat-fluent-iconos'].forEach(function (hoja) {
+        document.write('<link rel="stylesheet" href="/static/css/' + hoja + '.css?v=20261111-t101t">');
+      });
+    })();
+    </script>
+    <link rel="stylesheet" href="/static/css/chat-conferencia-hablando.css?v=20261111-t101t">
+    <link rel="stylesheet" href="/static/css/chat-conferencia-micro.css?v=20261111-t101t">
 </head>
 <body>
     <div class="media-unlock" id="mediaUnlock" onclick="desbloquearMedia()">
@@ -164,7 +182,7 @@
     <div class="vc-controls">
         <button id="btnMute" onclick="toggleMute()" title="Silenciar"><i class="fas fa-microphone"></i></button>
         <button id="btnCam" class="active" onclick="toggleCam()" title="Encender cámara"><i class="fas fa-video-slash"></i></button>
-        <button id="btnShare" class="btn-share" onclick="toggleShare()" title="Compartir pantalla"><i class="fas fa-desktop"></i></button>
+        <button id="btnShare" class="btn-share" onclick="toggleShare()" title="Compartir pantalla (con sonido)"><i class="fas fa-desktop"></i></button>
         <button id="btnRec" class="btn-rec" onclick="toggleGrabacion()" title="Grabar conferencia" style="display:none;"><i class="fas fa-circle"></i></button>
         <button class="btn-salir" onclick="salir()" title="Salir de la conferencia"><i class="fas fa-phone-slash"></i></button>
     </div>
@@ -287,10 +305,14 @@
         // ===== Conexión =====
         async function conectar() {
             try {
-                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                est.localStream = await obtenerMicrofono();
             } catch (e) {
-                setEstado('No se pudo acceder al micrófono. Revisa los permisos y recarga.');
-                return;
+                // 05/11/2026: sin micrófono ya NO se queda fuera: entra a escuchar y ver, y el aviso
+                // dice el motivo real (antes el mismo texto para todo y no dejaba entrar).
+                console.warn('Micrófono no disponible:', e && e.name, e);
+                est.sinMic = true;
+                est.motivoMic = describirErrorMic(e) + (e && e.message ? ' [' + e.message + ']' : '');
+                est.localStream = new MediaStream();
             }
 
             // Mi tile (sin video hasta encender cámara)
@@ -301,8 +323,18 @@
                 const data = await resp.json();
                 if (!resp.ok || !data.exito) throw new Error(data.error || 'token');
 
-                const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+                const room = new LivekitClient.Room({ adaptiveStream: { pixelDensity: 'screen' }, dynacast: true });
                 est.room = room;
+
+                // T-77 (05/11/2026): número de participantes para la app de escritorio (telemetría
+                // conferencia_pantalla / conferencia_recursos). Cuenta a todos, incluida esta persona.
+                window.__maquitaConferencia = { participantes: 0, maximo: 0 };
+                function contarParticipantes() {
+                    const n = est.room && est.room.state === 'connected' ? est.room.remoteParticipants.size + 1 : 0;
+                    const c = window.__maquitaConferencia;
+                    c.participantes = n;
+                    if (n > c.maximo) c.maximo = n;
+                }
 
                 // T-26: si te quedas solo en la llamada, la ventana se cierra sola.
                 // Si alguien vuelve antes de los 5 s, se cancela el cierre.
@@ -324,10 +356,12 @@
                     crearTile('tile_' + p.identity, p.name || ('Usuario ' + p.identity), false);
                     iniciarTimer();
                     if (est.temporizadorVacia) { clearTimeout(est.temporizadorVacia); est.temporizadorVacia = null; }
+                    contarParticipantes();
                 });
                 room.on(LivekitClient.RoomEvent.ParticipantDisconnected, (p) => {
                     quitarTile('tile_' + p.identity);
                     quitarTile('tile_' + p.identity + '_screen');
+                    contarParticipantes();
                     cierreSiVacia();
                 });
                 room.on(LivekitClient.RoomEvent.TrackSubscribed, (track, pub, p) => {
@@ -373,10 +407,12 @@
                     }
                 });
                 room.on(LivekitClient.RoomEvent.Disconnected, () => {
+                    contarParticipantes();
                     if (!est.finalizada) salir(true);
                 });
 
                 await room.connect(data.url, data.token);
+                contarParticipantes();
                 // T-15: entrar con camara cuando la llamada grupal se inicio como videollamada
                 if (Q.get('video') === '1') {
                     setTimeout(function () { try { toggleCam(); } catch (e) {} }, 400);
@@ -393,6 +429,8 @@
                 });
 
                 setEstado(null);
+                if (est.sinMic) avisoSinMic();
+                else if (est.micAlterno) setEstadoTemporal('Usando el micrófono: ' + est.micAlterno);
                 iniciarTimer();
                 actualizarContador();
                 if (ROLE === 'host') document.getElementById('btnRec').style.display = '';
@@ -407,8 +445,71 @@
             }
         }
 
+        // ===== Micrófono que falta o no deja usarse (05/11/2026) =====
+        // Windows puede tener como predeterminado un micrófono virtual u ocupado
+        // (NotReadableError) mientras el físico funciona: se prueba cada uno.
+        async function obtenerMicrofono() {
+            let primerError = null;
+            try {
+                return await navigator.mediaDevices.getUserMedia({ audio: true });
+            } catch (e) {
+                primerError = e;
+                console.warn('Micrófono predeterminado falló:', e && e.name, e && e.message);
+                if (e && (e.name === 'NotAllowedError' || e.name === 'SecurityError')) throw e;
+            }
+            let lista = [];
+            try {
+                lista = (await navigator.mediaDevices.enumerateDevices())
+                    .filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications');
+            } catch (e) {}
+            for (const d of lista) {
+                try {
+                    const f = await navigator.mediaDevices.getUserMedia({ audio: { deviceId: { exact: d.deviceId } } });
+                    console.warn('Micrófono alternativo en uso:', d.label || d.deviceId);
+                    est.micAlterno = d.label || 'otro micrófono';
+                    return f;
+                } catch (e2) {
+                    console.warn('Micrófono', d.label || d.deviceId, 'falló:', e2 && e2.name, e2 && e2.message);
+                }
+            }
+            throw primerError;
+        }
+        function describirErrorMic(e) {
+            const n = (e && e.name) || '';
+            if (n === 'NotFoundError' || n === 'OverconstrainedError' || n === 'DevicesNotFoundError')
+                return 'Este equipo no tiene micrófono conectado.';
+            if (n === 'NotAllowedError' || n === 'SecurityError' || n === 'PermissionDeniedError')
+                return 'Windows no deja usar el micrófono (Configuración → Privacidad → Micrófono).';
+            if (n === 'NotReadableError' || n === 'AbortError' || n === 'TrackStartError')
+                return 'El micrófono lo está usando otro programa (otra llamada, Zoom…).';
+            return 'No se pudo usar el micrófono' + (n ? ' (' + n + ')' : '') + '.';
+        }
+        function avisoSinMic() {
+            setEstado(est.motivoMic + ' Estás en la llamada para escuchar y ver; para hablar, conecta un micrófono y pulsa el botón del micrófono.');
+            const b = document.getElementById('btnMute');
+            if (b) { b.classList.add('active'); b.innerHTML = '<i class="fas fa-microphone-slash"></i>'; }
+        }
+        async function activarMicTarde() {
+            try {
+                const flujo = await obtenerMicrofono();
+                est.localStream = flujo;
+                est.sinMic = false;
+                est.muted = false;
+                if (est.room) {
+                    for (const t of flujo.getAudioTracks()) await est.room.localParticipant.publishTrack(t);
+                }
+                const b = document.getElementById('btnMute');
+                if (b) { b.classList.remove('active'); b.innerHTML = '<i class="fas fa-microphone"></i>'; }
+                setEstadoTemporal('Micrófono activado');
+            } catch (e) {
+                est.motivoMic = describirErrorMic(e) + (e && e.message ? ' [' + e.message + ']' : '');
+                avisoSinMic();
+            }
+        }
+
         // ===== Controles =====
         function toggleMute() {
+            if (est.sinMic) { activarMicTarde(); return; }
             if (!est.localStream) return;
             est.muted = !est.muted;
             est.localStream.getAudioTracks().forEach(t => t.enabled = !est.muted);
@@ -446,15 +547,50 @@
                 else console.error('Error con la cámara:', e);
             }
         }
+        // ===== Pantalla compartida nítida (05/11/2026) =====
+        // Antes iba con los valores por defecto: a la mínima bajaba resolución y el texto se veía
+        // pixelado. Ahora: resolución completa, contenido tipo «detalle», hasta 4 Mbps y, si la red
+        // se aprieta, baja los cuadros por segundo y NO la nitidez. Quien tenga una conexión lenta
+        // (sede rural, satélite) recibe la capa de 720p sin frenar a los demás.
+        function opcionesCapturaPantalla(conSonido) {
+            const o = { resolution: { width: 1920, height: 1080, frameRate: 15 }, contentHint: 'detail' };
+            if (conSonido) {
+                o.audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+                o.systemAudio = 'include';
+            }
+            return o;
+        }
+        function opcionesPublicarPantalla() {
+            const P = LivekitClient.ScreenSharePresets;
+            return {
+                screenShareEncoding: { maxBitrate: 4000000, maxFramerate: 15 },
+                screenShareSimulcastLayers: [P.h720fps5],
+                degradationPreference: 'maintain-resolution',
+                audioPreset: LivekitClient.AudioPresets.musicHighQuality,
+                dtx: false
+            };
+        }
         async function toggleShare() {
             if (!est.room) return;
             const b = document.getElementById('btnShare');
             try {
                 const activo = est.room.localParticipant.isScreenShareEnabled;
-                await est.room.localParticipant.setScreenShareEnabled(!activo);
+                if (activo) {
+                    await est.room.localParticipant.setScreenShareEnabled(false);
+                } else {
+                    // 05/11/2026: compartir también el SONIDO de lo que se muestra (un video, una
+                    // presentación con audio). Sin cancelación de eco ni supresión de ruido, que
+                    // estropean la música y las voces del video. Al elegir qué compartir hay que
+                    // marcar «Compartir audio» (pestaña) o «Compartir audio del sistema» (pantalla).
+                    await est.room.localParticipant.setScreenShareEnabled(true, opcionesCapturaPantalla(true), opcionesPublicarPantalla());
+                    const conSonido = est.room.localParticipant.getTrackPublication(LivekitClient.Track.Source.ScreenShareAudio);
+                    if (!conSonido) {
+                        setEstadoTemporal('Compartes la pantalla sin sonido. Para pasar el audio de un video, vuelve a compartir y marca «Compartir audio».');
+                    }
+                }
                 const ahora = est.room.localParticipant.isScreenShareEnabled;
                 b.classList.toggle('sharing', ahora);
-                b.title = ahora ? 'Dejar de compartir' : 'Compartir pantalla';
+                b.title = ahora ? 'Dejar de compartir' : 'Compartir pantalla (con sonido)';
             } catch (e) {
                 if (e && (e.name === 'NotAllowedError' || /Permission|cancel/i.test(String(e)))) return;
                 console.error('Error compartiendo pantalla:', e);
@@ -553,5 +689,9 @@
             conectar();
         }
     </script>
+    <!-- T-101: aro alrededor de quien habla -->
+    <script src="/static/js/chat-conferencia-hablando.js?v=20261111-t101r"></script>
+    <!-- T-101: micrófono apagado en cada mosaico -->
+    <script src="/static/js/chat-conferencia-micro.js?v=20261111-t101s"></script>
 </body>
 </html>

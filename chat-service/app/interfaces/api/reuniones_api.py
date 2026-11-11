@@ -20,6 +20,7 @@ import psycopg2
 import psycopg2.extras
 from flask import Blueprint, jsonify, request, session
 
+from aplicacion.servicios.estado_reunion import estado_vivo
 from aplicacion.servicios.jitsi_jwt import generar_jwt, nombre_sala_nuevo, limpiar_nombre_sala, url_sala, url_sala_app, JITSI_URL, MINUTOS_POR_DEFECTO
 import organizacion
 
@@ -109,10 +110,19 @@ def _evento_correo_eliminar(fila):
         return False
 
 
+# Invitado = su correo EXACTO está en la lista (04/11/2026). Antes se comparaba por subcadena
+# (LIKE '%ana@…%' también acertaba con «mariana@…») y daba acceso a reuniones ajenas.
+SQL_ES_PARTICIPANTE = ("NULLIF(%s, '') = ANY(regexp_split_to_array("
+                       "lower(COALESCE(participantes_emails, '')), '[[:space:],;]+'))")
+
+
+def _correo_normalizado(correo):
+    return (correo or '').strip().lower()
+
+
 def _fila_reunion(cur, rid, yo):
-    cur.execute("""SELECT * FROM reuniones_programadas WHERE id = %s
-                   AND (creador_id = %s OR lower(participantes_emails) LIKE %s)""",
-                (rid, yo['id'], f"%{yo['email']}%"))
+    cur.execute("SELECT * FROM reuniones_programadas WHERE id = %s AND (creador_id = %s OR " + SQL_ES_PARTICIPANTE + ")",
+                (rid, yo['id'], _correo_normalizado(yo['email'])))
     return cur.fetchone()
 
 
@@ -126,21 +136,28 @@ def proximas():
     except ValueError:
         limite = 20
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("""SELECT * FROM reuniones_programadas
-                       WHERE (creador_id = %s OR lower(participantes_emails) LIKE %s)
+        cur.execute("SELECT * FROM reuniones_programadas WHERE (creador_id = %s OR " + SQL_ES_PARTICIPANTE + """)
                          AND estado <> 'cancelada'
-                         AND fecha_hora + (COALESCE(duracion_horas,1) || ' hours')::interval >= NOW()
-                       ORDER BY fecha_hora ASC LIMIT %s""", (yo['id'], f"%{yo['email']}%", limite))
+                         AND cerrada_en IS NULL
+                         AND fecha_hora + (COALESCE(duracion_horas,1) || ' hours')::interval + interval '2 hours' >= NOW()
+                       ORDER BY fecha_hora ASC LIMIT %s""", (yo['id'], _correo_normalizado(yo['email']), limite))
         filas = cur.fetchall()
     ahora = datetime.now()
     items = []
     for r in filas:
-        d = _a_dict(r, yo)
-        d['en_curso'] = bool(r['fecha_hora'] and r['fecha_hora'] <= ahora)
-        # T-30: identidad única con el calendario del correo
-        d['reunion_id'] = r['id']
         _cfg = r['config_sala'] or {}
         _cfg = json.loads(_cfg) if isinstance(_cfg, str) else _cfg
+        # T-91: estado real (hora de fin, cierre del anfitrión y ocupación medida por Raíces)
+        vivo = estado_vivo(r['fecha_hora'], r['duracion_horas'], r['estado'], r.get('cerrada_en'), _cfg, ahora)
+        if vivo['estado'] in ('finalizada', 'cancelada'):
+            continue
+        d = _a_dict(r, yo)
+        d['en_curso'] = vivo['estado'] in ('en_curso', 'en_vivo')
+        d['en_vivo'] = vivo['estado'] == 'en_vivo'
+        d['estado_vivo'] = vivo['estado']
+        d['personas'] = vivo['personas']
+        # T-30: identidad única con el calendario del correo
+        d['reunion_id'] = r['id']
         d['evento_correo'] = _cfg.get('evento_correo')
         items.append(d)
     return jsonify({'success': True, 'reuniones': items, 'ahora': ahora.isoformat(timespec='minutes')})
@@ -251,13 +268,20 @@ def cancelar(rid):
     yo = _yo()
     if not yo:
         return jsonify({'success': False, 'error': 'No autenticado'}), 401
+    # Idempotente (04/11/2026): cancelar una reunión ya cancelada (desde Raíces, o la vuelta que da el correo al
+    # borrar su evento) solo quita el evento del calendario; el aviso a los participantes sale una sola vez.
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
+        cur.execute("SELECT estado FROM reuniones_programadas WHERE id=%s AND creador_id=%s", (rid, yo['id']))
+        previo = cur.fetchone()
         cur.execute("UPDATE reuniones_programadas SET estado='cancelada', updated_at=NOW() "
                     "WHERE id=%s AND creador_id=%s RETURNING *", (rid, yo['id']))
         r = cur.fetchone()
     if not r:
         return jsonify({'success': False, 'error': 'Solo el creador puede cancelar'}), 403
     evento_eliminado = _evento_correo_eliminar(dict(r))
+    if previo and previo['estado'] == 'cancelada':
+        return jsonify({'success': True, 'reunion': _a_dict(r, yo), 'evento_correo_eliminado': evento_eliminado,
+                        'ya_cancelada': True})
     try:
         from interfaces.websocket.notificaciones_globales import emitir, usuarios_por_correo
         ids = [u for u in usuarios_por_correo(_participantes(r['participantes_emails'])) if u != yo['id']]

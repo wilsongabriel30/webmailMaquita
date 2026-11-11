@@ -22,7 +22,6 @@
     window.formatUltimaVez = formatUltimaVez;
 
     async function openConversation(conversationId, conversationType) {
-        console.log('🔓 openConversation - conversationId:', conversationId, 'type:', conversationType);
         currentConversationId = conversationId;
         currentConversationType = conversationType;
 
@@ -48,7 +47,6 @@
             // Guardar info del otro usuario para llamadas
             currentChatTrabajadorId = conv.other_user ? conv.other_user.id : null;
             currentChatUserType = conv.other_user?.user_type || 'trabajador';  // Tipo de usuario
-            console.log('📞 Usuario del chat actual:', currentChatTrabajadorId, 'tipo:', currentChatUserType);
 
             // Mostrar/ocultar botones segun tipo de conversacion
             const isGroup = conversationType === 'group';
@@ -102,19 +100,14 @@
         }
 
         // Cargar mensajes
-        console.log('🔓 openConversation - Iniciando loadMessages...');
         await loadMessages(conversationId);
-        console.log('🔓 openConversation - loadMessages completado');
-        console.log('🔓 openConversation - chatMessages innerHTML length:', document.getElementById('chatMessages')?.innerHTML.length);
 
         // ✅ UNIRSE A LA SALA DE SOCKET.IO PARA TIEMPO REAL
         // Siempre intentar unirse - si no está conectado, se unirá cuando conecte
         if (chatUltraFast) {
             if (chatUltraFast.connected) {
                 chatUltraFast.join(conversationId);
-                console.log(`⚡ Unido a sala de conversación ${conversationId} via v3.0`);
             } else {
-                console.log(`⏳ WebSocket pendiente - se unirá a sala ${conversationId} cuando conecte`);
                 // Guardar para unirse cuando conecte
                 window._pendingJoinConversation = conversationId;
             }
@@ -122,7 +115,6 @@
         // Fallback a socket legacy si chatUltraFast no existe
         if (socket && socketConnected) {
             socket.emit('join_conversation', { conversation_id: conversationId });
-            console.log(`🔌 Unido a sala de conversación ${conversationId} via legacy`);
         }
 
         // Marcar como leídos
@@ -142,21 +134,14 @@
             let url = `/api/chat/conversations/${conversationId}/messages`;
             if (beforeId) url += `?before=${beforeId}`;
 
-            console.log('📨 loadMessages - URL:', url);
 
             const response = await fetch(url);
             const data = await response.json();
 
-            console.log('📨 loadMessages - Response:', data);
-            console.log('📨 loadMessages - success:', data.success, 'exito:', data.exito);
-            console.log('📨 loadMessages - messages:', data.messages?.length, 'mensajes:', data.mensajes?.length);
 
             if (data.success || data.exito) {
                 const mensajes = data.messages || data.mensajes || [];
-                console.log('📨 loadMessages - Renderizando', mensajes.length, 'mensajes');
-                console.log('📨 loadMessages - Tipo de mensajes:', typeof mensajes, Array.isArray(mensajes));
                 if (mensajes.length > 0) {
-                    console.log('📨 loadMessages - Ejemplo mensaje[0]:', JSON.stringify(mensajes[0]));
                 }
                 renderMessages(mensajes, !beforeId);
             } else {
@@ -175,15 +160,7 @@
     function renderMessages(messages, replace = true) {
         const container = document.getElementById('chatMessages');
 
-        console.log('🎨 renderMessages - container:', container);
-        console.log('🎨 renderMessages - container existe:', !!container);
-        console.log('🎨 renderMessages - container visible:', container ? container.offsetParent !== null : false);
-        console.log('🎨 renderMessages - container parent display:', container ? window.getComputedStyle(container.parentElement).display : 'N/A');
-        console.log('🎨 renderMessages - chatActiveArea display:', document.getElementById('chatActiveArea')?.style.display);
-        console.log('🎨 renderMessages - messages count:', messages.length);
-        console.log('🎨 renderMessages - replace:', replace);
         if (messages.length > 0) {
-            console.log('🎨 renderMessages - primer mensaje:', JSON.stringify(messages[0]).substring(0, 200));
         }
 
         // VERIFICACIÓN CRÍTICA: Si no existe el container, salir
@@ -236,27 +213,18 @@
             });
         }
 
-        console.log('🎨 renderMessages - HTML generado, longitud:', html.length);
-        console.log('🎨 renderMessages - HTML (primeros 500 chars):', html.substring(0, 500));
 
         if (replace) {
-            console.log('🎨 renderMessages - Reemplazando innerHTML del container');
-            console.log('🎨 renderMessages - grouped tiene', Object.keys(grouped).length, 'fechas');
 
-            // Debug: Si no hay contenido generado, mostrar mensaje de prueba
             if (!html || html.trim() === '') {
-                console.error('❌ renderMessages - HTML VACÍO! Mostrando debug...');
-                container.innerHTML = '<div style="color:red;padding:20px;">DEBUG: HTML vacío generado. Revisa la consola.</div>';
+                container.innerHTML = '';
                 return;
             }
 
             container.innerHTML = html;
-            console.log('🎨 renderMessages - innerHTML asignado, container.innerHTML.length:', container.innerHTML.length);
 
             // Verificar que realmente se asignó
             setTimeout(() => {
-                console.log('🎨 renderMessages - VERIFICACIÓN POST-RENDER: innerHTML.length =', container.innerHTML.length);
-                console.log('🎨 renderMessages - container.children.length =', container.children.length);
             }, 100);
 
             // Scroll al fondo después de que el DOM se actualice completamente
@@ -271,13 +239,11 @@
         if (!container) container = document.getElementById('chatMessages');
         if (!container) return;
 
-        console.log('📜 scrollToBottom - ANTES: scrollTop=', container.scrollTop, 'scrollHeight=', container.scrollHeight, 'clientHeight=', container.clientHeight);
 
         // Usar requestAnimationFrame para asegurar que el DOM esté actualizado
         requestAnimationFrame(() => {
             // Segundo frame para garantizar que el layout esté calculado
             requestAnimationFrame(() => {
-                console.log('📜 scrollToBottom - EN RAF: scrollTop=', container.scrollTop, 'scrollHeight=', container.scrollHeight);
                 if (smooth) {
                     container.scrollTo({
                         top: container.scrollHeight,
@@ -286,15 +252,18 @@
                 } else {
                     container.scrollTop = container.scrollHeight;
                 }
-                console.log('📜 scrollToBottom - DESPUÉS: scrollTop=', container.scrollTop);
             });
         });
     }
 
     function renderSingleMessage(msg) {
         try {
-        // Debug temporal
-        console.log('🔧 renderSingleMessage - msg:', msg);
+        // T-60: el evento en vivo puede traer los campos en español (contenido, tipo) y hay tipos
+        // sin rama propia (reply, system, audio, video…). Se normaliza aquí, una sola vez.
+        if (msg.content == null && msg.contenido != null) msg.content = msg.contenido;
+        if (!msg.message_type) msg.message_type = msg.tipo || msg.type || 'text';
+        if (msg.reply_to_id == null && msg.respuesta_a_id != null) msg.reply_to_id = msg.respuesta_a_id;
+        if (msg.message_type === 'reply' || msg.message_type === 'respuesta' || msg.message_type === 'texto') msg.message_type = 'text';
 
         // El backend devuelve 'is_own_message' no 'is_own'
         const isSent = msg.is_own_message || msg.is_own || false;
@@ -333,7 +302,7 @@
         // Contenido del mensaje (texto, imagen, archivo, gif)
         let contentHtml = '';
         if (msg.message_type === 'text') {
-            contentHtml = `<div class="message-text">${escapeHtml(msg.content)}</div>`;
+            contentHtml = `<div class="message-text">${enlazarTexto(msg.content)}</div>`;
         } else if (msg.message_type === 'gif') {
             // GIF desde Tenor - buscar URL en media o directamente en gif_url
             let gifUrl = null;
@@ -374,7 +343,7 @@
                          onclick="viewImage('${imagePath}')"
                          onerror="console.error('Error cargando imagen:', this.src)">
                 </div>
-                ${msg.content ? `<div class="message-text mt-1">${escapeHtml(msg.content)}</div>` : ''}
+                ${msg.content ? `<div class="message-text mt-1">${enlazarTexto(msg.content)}</div>` : ''}
             `;
         } else if ((msg.message_type === 'file' || msg.message_type === 'document') && msg.media && msg.media.length > 0) {
             const mediaItem = msg.media[0];
@@ -389,6 +358,17 @@
                     </div>
                 </div>
             `;
+        }
+
+        // T-60: ningún mensaje queda con la burbuja vacía. Si su tipo no tiene rama propia (o le
+        // falta el adjunto), se pinta el adjunto como archivo y/o el texto.
+        if (!contentHtml) {
+            const adj = msg.media && msg.media.length > 0 ? msg.media[0] : null;
+            if (adj && adj.file_path) {
+                const rutaAdj = adj.file_path.startsWith('/') ? adj.file_path : '/' + adj.file_path;
+                contentHtml += `<div class="message-file d-flex align-items-center p-2 bg-light rounded"><i class="fas fa-file fa-2x me-2 text-primary"></i><div><div class="fw-bold small">${escapeHtml(adj.file_name || 'Archivo')}</div><a href="${rutaAdj}" target="_blank" download class="small">Descargar</a></div></div>`;
+            }
+            if (msg.content) contentHtml += `<div class="message-text">${enlazarTexto(msg.content)}</div>`;
         }
 
         // Menú de opciones solo para mensajes propios

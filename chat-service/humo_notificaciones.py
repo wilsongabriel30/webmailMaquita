@@ -9,6 +9,7 @@ import time
 import urllib.request
 
 import jwt
+from cuenta_pruebas import token as token_pruebas  # sesión real del correo (12/10/2026)
 import socketio as sio_cli
 
 # Nada atado a una instalación concreta: todo por entorno o por argumentos.
@@ -54,11 +55,7 @@ def token(correo):
     # permiten revocarla desde el correo. El vale real del webmail los lleva; sin ellos el
     # socket se rechaza con «sesion central no valida» y esta prueba daba rojo sin haber nada
     # roto. Aqui se usa un `sid` propio de la prueba, que el correo nunca ha revocado.
-    return jwt.encode({'sub': correo, 'type': 'access',
-                       'sid': 'humo-t47-%d' % int(time.time()),
-                       'av': 0,
-                       'exp': int(time.time()) + 900},
-                      env['CHAT_JWT_SECRET'], algorithm='HS256')
+    return token_pruebas(correo)
 
 
 def cookies(tok, ua):

@@ -1,0 +1,119 @@
+/* ============================================================================
+ * T-101 · Sección «Llamadas» con Fluent 2, según el modelo de la app de
+ * llamadas de Teams: historial con filtros y columnas de duración y fecha,
+ * buscador para llamar y marcación rápida a la derecha.
+ * Solo tokens de chat-fluent-tokens.css.
+ * ========================================================================== */
+
+html.mq-fluent body, html.mq-fluent .main-content { background: var(--fl-fondo-2) !important; }
+
+.llam {
+    display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--fl-esp-24);
+    max-width: 1120px; margin: 0 auto; padding: var(--fl-esp-16) var(--fl-esp-24) var(--fl-esp-24);
+    font: var(--fl-cuerpo-1); color: var(--fl-texto-1);
+}
+.llam button, .llam input { font-family: var(--fl-fuente); }
+.llam-titulo { grid-column: 1 / -1; display: flex; align-items: center; gap: var(--fl-esp-8); margin: 0; font: var(--fl-subtitulo-1); }
+/* volver al chat */
+.llam-volver {
+    width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--fl-texto-2); text-decoration: none;
+    border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+.llam-volver:hover { background: var(--fl-sutil-encima); color: var(--fl-marca-texto); }
+
+/* ---- historial ---- */
+.llam-cabecera { display: flex; align-items: center; justify-content: space-between; gap: var(--fl-esp-12); padding: 0 var(--fl-esp-8) var(--fl-esp-8); }
+.llam-cabecera h2, .llam-lado h2 { margin: 0; font: var(--fl-cuerpo-1-fuerte); }
+.llam-filtros { display: flex; flex-wrap: wrap; gap: var(--fl-esp-4); }
+.llam-filtro {
+    padding: 3px 10px; cursor: pointer;
+    font: var(--fl-leyenda-1); color: var(--fl-texto-2);
+    background: var(--fl-fondo-4); border: 1px solid transparent; border-radius: var(--fl-radio-circular);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+.llam-filtro:hover { background: var(--fl-sutil-pulsado); }
+.llam-filtro[aria-pressed="true"] { font-weight: 600; color: var(--fl-marca-texto); background: var(--fl-marca-fondo-suave); border-color: var(--fl-marca-trazo-suave); }
+
+.llam-fila {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) auto 72px 96px; align-items: center; column-gap: var(--fl-esp-12);
+    min-height: 52px; padding: var(--fl-esp-8);
+    border-bottom: 1px solid var(--fl-trazo-3); border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva);
+}
+.llam-fila:hover, .llam-fila:focus-within { background: var(--fl-sutil-encima); }
+.llam-foto {
+    width: 32px; height: 32px; border-radius: 50%; object-fit: cover;
+    display: flex; align-items: center; justify-content: center;
+    font: var(--fl-leyenda-1); font-weight: 600;
+    color: var(--fl-marca-texto); background: var(--fl-marca-fondo-suave);
+}
+.llam-quien { min-width: 0; }
+.llam-nombre { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: var(--fl-cuerpo-1); color: var(--fl-texto-1); }
+.llam-detalle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+.llam-detalle i { margin-right: var(--fl-esp-4); font-size: 10px; }
+.llam-duracion, .llam-fecha { font: var(--fl-leyenda-1); color: var(--fl-texto-3); text-align: right; white-space: nowrap; }
+/* perdida: nombre, duración y fecha en rojo, como en Teams */
+.llam-fila.perdida .llam-nombre, .llam-fila.perdida .llam-fecha, .llam-fila.perdida .llam-duracion { color: var(--fl-peligro-texto); }
+
+/* acciones: aparecen al pasar por la fila (siempre visibles sin ratón) */
+.llam-acciones { display: flex; gap: var(--fl-esp-2); opacity: 0; transition: opacity var(--fl-rapido) var(--fl-curva); }
+.llam-fila:hover .llam-acciones, .llam-fila:focus-within .llam-acciones { opacity: 1; }
+@media (hover: none) { .llam-acciones { opacity: 1; } }
+.llam-boton {
+    width: 32px; height: 32px; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--fl-texto-2);
+    background: transparent; border: 0; border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+.llam-boton:hover { background: var(--fl-sutil-pulsado); color: var(--fl-marca-texto); }
+.llam-boton.activo { color: var(--fl-marca-texto); }
+.llam-vacio { padding: var(--fl-esp-16) var(--fl-esp-8); font: var(--fl-cuerpo-1); color: var(--fl-texto-3); }
+
+/* ---- lateral: llamar a alguien y marcación rápida ---- */
+.llam-lado { display: flex; flex-direction: column; gap: var(--fl-esp-20); }
+.llam-buscar { position: relative; }
+.llam-buscar i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--fl-texto-3); }
+html.mq-fluent .llam-buscar input#llamBuscar {
+    width: 100%; height: 32px; padding: 0 var(--fl-esp-12) 0 30px;
+    font: var(--fl-cuerpo-1); color: var(--fl-texto-1) !important;
+    background: var(--fl-fondo-3) !important; border: 1px solid transparent; border-bottom-color: var(--fl-trazo-accesible);
+    border-radius: var(--fl-radio-medio); outline: 0;
+}
+.llam-buscar input::placeholder { color: var(--fl-texto-4); }
+html.mq-fluent .llam-buscar input#llamBuscar:focus { background: var(--fl-fondo-1) !important; border-bottom-color: var(--fl-marca-trazo); box-shadow: inset 0 -1px 0 var(--fl-marca-trazo); }
+.llam-resultados .llam-fila { grid-template-columns: 32px minmax(0, 1fr) auto; }
+.llam-resultados .llam-acciones { opacity: 1; }
+/* en la búsqueda el espacio es poco: llamar, videollamada y estrella */
+.llam-resultados .llam-boton[data-accion="chat"] { display: none; }
+
+.llam-rapidos { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--fl-esp-8); margin-top: var(--fl-esp-12); }
+.llam-rapido {
+    padding: var(--fl-esp-12) var(--fl-esp-4) var(--fl-esp-8); cursor: pointer; text-align: center;
+    background: var(--fl-fondo-1); border: 1px solid var(--fl-trazo-3); border-radius: var(--fl-radio-medio);
+    transition: box-shadow var(--fl-rapido) var(--fl-curva), background var(--fl-rapido) var(--fl-curva);
+}
+.llam-rapido:hover { box-shadow: var(--fl-sombra-4); }
+.llam-rapido .llam-foto { width: 48px; height: 48px; margin: 0 auto var(--fl-esp-8); font: var(--fl-cuerpo-1-fuerte); }
+.llam-rapido span { display: block; font: var(--fl-leyenda-1); color: var(--fl-texto-1); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+@media (max-width: 860px) {
+    .llam { grid-template-columns: minmax(0, 1fr); padding: var(--fl-esp-12); gap: var(--fl-esp-16); }
+    .llam-titulo { order: -2; }
+    .llam-lado { order: -1; }
+    /* sin ratón: queda a la vista solo el botón de llamar */
+    .llam-acciones { opacity: 1; }
+    .llam-fila:not(.llam-grabacion) .llam-boton:not([data-accion="audio"]) { display: none; }
+    .llam-resultados .llam-boton[data-accion="video"] { display: inline-flex; }
+    .llam-fila { grid-template-columns: 32px minmax(0, 1fr) auto 64px; }
+    .llam-duracion { display: none; }
+    .llam-rapidos { grid-template-columns: repeat(4, 1fr); }
+}
+
+/* grabaciones: la acción (descargar o estado) queda siempre a la vista */
+.llam-grabacion .llam-acciones { opacity: 1; align-items: center; }
+.llam-grabacion .llam-foto { font-size: 12px; }
+/* dentro del panel flotante del correo no hay barra de Raíces que esquivar */
+html.chat-embed .main-content { padding: 0 !important; margin: 0 !important; }

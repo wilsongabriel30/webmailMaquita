@@ -1,0 +1,6 @@
+/* T-101 · Conferencia: aro alrededor de quien está hablando (clase «hablando», la pone chat-conferencia-hablando.js).
+ * Vale para la ventana de siempre y para el tema nuevo: usa el token de marca si existe y, si no, el mismo azul. */
+.tile { transition: box-shadow 150ms cubic-bezier(.33, 0, .67, 1); }
+.tile.hablando { box-shadow: 0 0 0 3px var(--fl-marca-100, #4C9BD0); }
+html.mq-fluent .tile.hablando { border-color: var(--fl-marca-100); }
+@media (prefers-reduced-motion: reduce) { .tile { transition: none; } }

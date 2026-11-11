@@ -105,9 +105,14 @@ def detalle(conv_id):
                              'rol': (m['role'] or 'miembro'), 'es_yo': m['user_id'] == uid,
                              'es_admin': m['user_id'] == c['created_by'] or (m['role'] or '').lower() in ('admin', 'owner', 'administrador')})
         soy_admin = _es_admin(cur, conv_id, uid)
+        from interfaces.api.grupos_info_api import edicion_de, puede_editar  # T-94
+        edicion = edicion_de(cur, conv_id)
+        editar = puede_editar(cur, conv_id, uid)
     return jsonify({'success': True, 'grupo': {
         'id': c['id'], 'nombre': c['name'], 'descripcion': c['description'] or '', 'avatar': c['avatar_path'],
-        'creado_por': c['created_by'], 'notas': c['description'] == NOTAS_DESC, 'miembros': miembros, 'soy_admin': soy_admin}})
+        'creado_por': c['created_by'], 'creado_en': c['created_at'].isoformat() if c['created_at'] else None,
+        'notas': c['description'] == NOTAS_DESC, 'miembros': miembros, 'soy_admin': soy_admin,
+        'puede_editar': editar, 'edicion': edicion}})
 
 
 @bp_grupos.route('/<int:conv_id>/grupo', methods=['PUT'])
@@ -121,8 +126,9 @@ def editar(conv_id):
     if not nombre:
         return jsonify({'success': False, 'error': 'El nombre es obligatorio'}), 400
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        if not _es_admin(cur, conv_id, uid):
-            return jsonify({'success': False, 'error': 'Solo un administrador del grupo puede editarlo'}), 403
+        from interfaces.api.grupos_info_api import puede_editar  # T-94: administradores o todos, según el grupo
+        if not puede_editar(cur, conv_id, uid):
+            return jsonify({'success': False, 'error': 'No tienes permiso para editar este grupo'}), 403
         cur.execute("SELECT description FROM chat_conversations WHERE id=%s", (conv_id,))
         act = cur.fetchone()
         if act and act['description'] == NOTAS_DESC:
@@ -150,8 +156,9 @@ def avatar(conv_id):
     if not ext:
         return jsonify({'success': False, 'error': 'Formato no válido (png, jpg, webp, gif)'}), 400
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        if not _es_admin(cur, conv_id, uid):
-            return jsonify({'success': False, 'error': 'Solo un administrador del grupo puede cambiar la foto'}), 403
+        from interfaces.api.grupos_info_api import puede_editar  # T-94
+        if not puede_editar(cur, conv_id, uid):
+            return jsonify({'success': False, 'error': 'No tienes permiso para cambiar la foto de este grupo'}), 403
         os.makedirs(DIR_FOTOS, exist_ok=True)
         nombre = f"{conv_id}_{uuid.uuid4().hex[:10]}{ext}"
         with open(os.path.join(DIR_FOTOS, nombre), 'wb') as out:
@@ -188,3 +195,7 @@ def yo():
         'id': u['id'], 'nombre': nombre, 'correo': u['email'], 'usuario': u['username'], 'rol': u['role'],
         'iniciales': iniciales, 'avatar': avatar_usuario(uid),
         'perfil_url': organizacion.url_intranet() + '/auth/perfil?app=1', 'chat_url': URL_BASE + '/chat/'}})
+
+
+# T-94 (09/11/2026): permisos, administradores y quitar foto (mismo blueprint)
+from interfaces.api import grupos_info_api  # noqa: E402,F401
