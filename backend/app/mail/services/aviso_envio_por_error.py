@@ -66,10 +66,7 @@ def asunto_en_enviados(username: str, message_id: str) -> str:
 def asunto_respuesta(asunto: str) -> str:
     """«RE: asunto», sin duplicar el prefijo si ya lo trae."""
     asunto = (asunto or "").strip() or SIN_ASUNTO
-    if (
-        asunto.lower().startswith(("re:", "rv:", "fw:", "fwd:"))
-        and asunto[:3].lower() == "re:"
-    ):
+    if asunto[:3].lower() == "re:":
         return asunto
     return f"RE: {asunto}"
 
