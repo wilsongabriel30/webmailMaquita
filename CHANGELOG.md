@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.17.0] - 2026-11-11
+
+El correo nuevo aparece en segundos, sección «Programados» (los envíos salen aunque no haya sesión iniciada), borradores
+sin duplicados, reacciones en la campanita y en la lista, y errores de la interfaz con su ubicación en la telemetría.
+Paso manual para instalaciones existentes: copiar `scripts/aviso_entrega_filtro.py` junto al filtro de correo y actualizar
+`spam-filter-service.py` (sin eso todo funciona, pero el correo nuevo se sigue viendo con la espera de 45 s).
+
 ### Añadido
 - **Los errores de la interfaz llegan a la telemetría con su ubicación** (archivo, línea, primeras líneas de la pila y pantalla), también desde un navegador normal; antes solo los enviaba la aplicación de escritorio y sin decir dónde. Sin contenido de correos; como mucho 10 por sesión (lib/erroresNavegador.ts).
 
