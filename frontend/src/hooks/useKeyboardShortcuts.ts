@@ -226,7 +226,9 @@ export function useKeyboardShortcuts() {
         case 'e':
           if (!e.ctrlKey && !e.metaKey) {
             e.preventDefault();
-            if (state.selectedMessage) {
+            if (state.selectedUids.size > 0) {
+              bulkAction(Array.from(state.selectedUids), 'archive', '', folder);
+            } else if (state.selectedMessage) {
               bulkAction([state.selectedMessage.uid], 'archive', '', folder);
             }
           }

@@ -76,6 +76,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- En móvil, «Más acciones → Mover a…» carga las carpetas aunque el cajón lateral nunca se haya abierto; muestra un aviso y permite reintentar si la carga falla.
+- El atajo E archiva también los correos seleccionados mediante la casilla de la lista y permite deshacer el archivo.
+- Ajustes muestra los avisos de las reglas, incluido el fallo al aplicar una regla a correos anteriores y el resultado de «Aplicar ahora».
 - **El punto en el nombre de una carpeta ya no la parte en dos.** El servidor usa el punto como separador de
   jerarquía: «7. Servicios Generales» quedaba como carpeta «7» con una subcarpeta « Servicios Generales». Al crear o
   renombrar, el punto del nombre se cambia por un carácter de aspecto idéntico (`lib/nombreCarpeta.ts`).
