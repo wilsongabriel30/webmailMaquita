@@ -53,6 +53,7 @@ from app.escala.api_v1 import AliasApiV1
 from app.escala.ddl import ddl_serializado
 from app.escala.salud import router as salud_router
 from app.escala.tareas_fondo import iniciar_lector_registro
+from app.federacion.recuperacion_router import router as federacion_recuperacion_router
 from app.flota.esquema import asegurar_tablas as asegurar_tablas_flota
 from app.flota.router import router as flota_router
 from app.gal.router import router as gal_router
@@ -694,6 +695,7 @@ app.include_router(
 )  # Responder confirmaciones de lectura (09/11/2026)
 app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
+app.include_router(federacion_recuperacion_router)
 app.include_router(stats_router)
 app.include_router(labels_router)
 app.include_router(

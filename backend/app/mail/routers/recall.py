@@ -20,6 +20,7 @@ from app.auth.dependencies import get_current_user
 from app.branding.service import marca_corta
 from app.config import get_settings
 from app.core.session import get_imap_login_user, get_user_password
+from app.federacion import recuperacion_cliente
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services import (
     aviso_envio_por_error,
@@ -336,6 +337,34 @@ async def recall_message(
                     )
                 )
                 continue
+            # Otro servidor con esta misma suite: se le pide retirar el correo de su buzón.
+            federado = await recuperacion_cliente.recuperar_en_otro_servidor(
+                request.app.state.redis, username, recipient, msg_id
+            )
+            if federado and federado["estado"] == "recalled":
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status="recalled",
+                        detail="Recuperado del servidor del destinatario"
+                        + (" (ya lo había leído)" if federado.get("leido") else ""),
+                        was_read=bool(federado.get("leido")),
+                    )
+                )
+                continue
+            if (
+                federado
+                and federado["estado"] == plazo_recuperacion.ESTADO_FUERA_DE_PLAZO
+            ):
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status=plazo_recuperacion.ESTADO_FUERA_DE_PLAZO,
+                        detail="Fuera de plazo: el servidor del destinatario ya no permite recuperar este correo.",
+                        was_read=bool(federado.get("leido")),
+                    )
+                )
+                continue
             if body.action == "delete":
                 # Send a recall request email to the recipient
                 recall_sent = await _send_external_recall_request(
@@ -562,12 +591,22 @@ async def check_recallable(
                     }
                 )
                 continue
+            compatible = await recuperacion_cliente.servidor_compatible(
+                request.app.state.redis, recipient.rsplit("@", 1)[-1]
+            )
             checks.append(
                 {
                     "recipient": recipient,
                     "can_recall": False,
                     "can_request": True,
-                    "reason": "Externo: no se puede retirar de su buzón; se le enviará el aviso de «enviado por error» en la misma conversación",
+                    "otro_servidor": bool(compatible),
+                    "reason": (
+                        "Otro servidor compatible: se intentará retirar de su buzón; si no se puede, "
+                        "recibirá el aviso de «enviado por error»"
+                        if compatible
+                        else "Externo: no se puede retirar de su buzón; se le enviará el aviso de "
+                        "«enviado por error» en la misma conversación"
+                    ),
                     "was_read": None,
                 }
             )

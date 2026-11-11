@@ -46,6 +46,12 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     # Recuperar un correo enviado: minutos de plazo desde la entrega (app/mail/services/plazo_recuperacion.py).
     recall_max_minutos: int = 60
+    # Recuperación entre servidores que usan esta suite (docs/RECUPERACION-ENTRE-SERVIDORES.md).
+    recall_entre_servidores: bool = True
+    # Servidores hermanos alcanzables por la red privada (nombres MX separados por coma).
+    recall_federado_hosts_internos: str = ""
+    # Nombre con que este servidor firma Authentication-Results (vacío = el de public_base_url).
+    recall_federado_authserv: str = ""
     # Sesiones de la app de escritorio (Teams Maquita): duran hasta que la persona cierra
     # sesión. Ver app/auth/sesion_app.py.
     app_sesion_dias: int = 365

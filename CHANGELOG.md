@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Recuperación entre servidores.** Si el destinatario está en otro servidor que usa esta misma suite, «Recuperar mensaje»
+  le pide a ese servidor que retire el correo de su buzón (mismo plazo, auditoría en ambos lados). El otro servidor solo
+  lo hace si él mismo recibió y autenticó ese correo (DKIM/DMARC) y si el servidor del dominio remitente confirma la
+  solicitud; sin claves compartidas. Si no es compatible o no se puede, se envía el aviso de «enviado por error».
+  `RECALL_ENTRE_SERVIDORES=false` lo apaga. Dependencia nueva: `dnspython`. Ver `docs/RECUPERACION-ENTRE-SERVIDORES.md`.
+- En «Recuperar mensaje», un correo con solo destinatarios externos ya ofrece «Confirmar recuperación» (antes el aviso a
+  externos solo salía si además había algún destinatario interno).
+
 ## [1.13.0] - 2026-11-11
 
 Recuperar un correo enviado tiene plazo (1 hora) y a los destinatarios externos se les avisa en la misma conversación;
