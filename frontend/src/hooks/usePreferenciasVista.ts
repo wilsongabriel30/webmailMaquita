@@ -18,13 +18,14 @@ interface Vista {
   modo?: string;
   anchoLista?: number;
   anchoCarpetas?: number;
+  coloresCarpetas?: Record<string, string>;
 }
 
 function vistaActual(): Vista {
   const s = useMailStore.getState();
   return {
     densidad: s.density, lineas: s.previewLines, orden: s.ordenFila, modo: s.viewMode,
-    anchoLista: s.messageListWidth, anchoCarpetas: s.anchoCarpetas,
+    anchoLista: s.messageListWidth, anchoCarpetas: s.anchoCarpetas, coloresCarpetas: s.coloresCarpetas,
   };
 }
 
@@ -36,6 +37,7 @@ function aplicar(v: Vista) {
   if (v.modo === 'conversations' || v.modo === 'messages') s.setViewMode(v.modo);
   if (typeof v.anchoLista === 'number') s.setMessageListWidth(v.anchoLista);
   if (typeof v.anchoCarpetas === 'number') s.setAnchoCarpetas(v.anchoCarpetas);
+  if (v.coloresCarpetas && typeof v.coloresCarpetas === 'object') s.setColoresCarpetas(v.coloresCarpetas);
 }
 
 export function usePreferenciasVista() {

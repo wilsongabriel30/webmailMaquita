@@ -50,3 +50,22 @@ def test_vista_solo_claves_conocidas():
     )
     assert limpia == {"densidad": "linea", "lineas": 2, "anchoCarpetas": 310}
     assert pp.limpiar_vista("no es un dict") == {}
+
+
+def test_vista_guarda_colores_de_carpetas_validos():
+    limpia = pp.limpiar_vista(
+        {
+            "densidad": "linea",
+            "coloresCarpetas": {
+                "INBOX.Dirección": "#D13438",
+                "INBOX.Mala": "rojo",
+                "INBOX.Script": "#12345g",
+                "": "#107c10",
+            },
+        }
+    )
+    assert limpia == {
+        "densidad": "linea",
+        "coloresCarpetas": {"INBOX.Dirección": "#d13438"},
+    }
+    assert "coloresCarpetas" not in pp.limpiar_vista({"coloresCarpetas": "x"})

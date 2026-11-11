@@ -1,3 +1,4 @@
+import { coloresValidos } from '../lib/coloresCarpetas';
 import type { Editor } from '@tiptap/react';
 import type { Cuenta } from '../lib/cuentas';
 import { create } from 'zustand';
@@ -77,6 +78,9 @@ interface MailState {
   /** Ancho del panel de carpetas en píxeles (11/11/2026). */
   anchoCarpetas: number;
   setAnchoCarpetas: (w: number) => void;
+  /** Color elegido para cada carpeta (clave: nombre completo en el servidor). */
+  coloresCarpetas: Record<string, string>;
+  setColoresCarpetas: (c: Record<string, string>) => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
   // Threading
@@ -200,6 +204,12 @@ export const useMailStore = create<MailState>((set, get) => ({
   setCuentas: (cuentas) => set({ cuentas }),
   setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
   anchoCarpetas: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_ancho_carpetas'))) || ANCHO_CARPETAS_NORMAL,
+  coloresCarpetas: (() => { try { return coloresValidos(JSON.parse(localStorage.getItem('maquita_colores_carpetas') || '{}')); } catch { return {}; } })(),
+  setColoresCarpetas: (c) => {
+    const limpio = coloresValidos(c);
+    try { localStorage.setItem('maquita_colores_carpetas', JSON.stringify(limpio)); } catch { /* ignore */ }
+    set({ coloresCarpetas: limpio });
+  },
   setAnchoCarpetas: (w: number) => {
     const ajustado = Math.max(180, Math.min(520, Math.round(w)));
     try { localStorage.setItem('maquita_ancho_carpetas', String(ajustado)); } catch { /* ignore */ }

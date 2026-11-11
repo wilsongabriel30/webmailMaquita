@@ -7,6 +7,8 @@ antigua, los correos por página y hasta la respuesta automática activa.
 
 from __future__ import annotations
 
+import re
+
 CLAVES_VISTA = {
     "densidad": str,
     "lineas": int,
@@ -30,6 +32,28 @@ def completar(body, fila) -> None:
             setattr(body, campo, guardado[campo])
 
 
+_COLOR = re.compile(r"^#[0-9a-fA-F]{6}$")
+MAX_CARPETAS_CON_COLOR = 500
+
+
+def _colores(crudo) -> dict:
+    """Colores de carpetas: {nombre de carpeta: «#rrggbb»}, acotado."""
+    if not isinstance(crudo, dict):
+        return {}
+    colores = {}
+    for carpeta, color in crudo.items():
+        if (
+            isinstance(carpeta, str)
+            and 0 < len(carpeta) <= 255
+            and isinstance(color, str)
+            and _COLOR.match(color)
+        ):
+            colores[carpeta] = color.lower()
+        if len(colores) >= MAX_CARPETAS_CON_COLOR:
+            break
+    return {"coloresCarpetas": colores} if colores else {}
+
+
 def limpiar_vista(vista) -> dict:
     """Solo las claves conocidas, con su tipo y un tamaño razonable."""
     limpia: dict = {}
@@ -43,4 +67,5 @@ def limpiar_vista(vista) -> dict:
             limpia[clave] = int(valor)
         elif tipo is str and isinstance(valor, str) and 0 < len(valor) <= 32:
             limpia[clave] = valor
+    limpia.update(_colores(vista.get("coloresCarpetas")))
     return limpia
