@@ -40,10 +40,41 @@ async def alternar(db, message_id: str, usuario: str, emoji: str) -> str:
     return "cambiada" if actual else "puesta"
 
 
+async def fijar(
+    db, message_id: str, usuario: str, emoji: str | None, nombre: str = ""
+) -> str:
+    """Deja la reacción de la persona exactamente como se indica (None = sin reacción).
+
+    La usa el aviso que llega de otro servidor: allí ya se decidió el estado final.
+    """
+    actual = await db.fetchval(
+        "SELECT emoji FROM mail_reacciones WHERE message_id = $1 AND usuario = $2",
+        message_id,
+        usuario,
+    )
+    if emoji is None:
+        await db.execute(
+            "DELETE FROM mail_reacciones WHERE message_id = $1 AND usuario = $2",
+            message_id,
+            usuario,
+        )
+        return "quitada"
+    await db.execute(
+        """INSERT INTO mail_reacciones (message_id, usuario, emoji, nombre) VALUES ($1, $2, $3, $4)
+           ON CONFLICT (message_id, usuario)
+           DO UPDATE SET emoji = EXCLUDED.emoji, nombre = EXCLUDED.nombre, creado = now()""",
+        message_id,
+        usuario,
+        emoji,
+        nombre or None,
+    )
+    return "cambiada" if actual else "puesta"
+
+
 async def resumen(db, message_id: str, usuario: str) -> list[dict]:
     """Reacciones del correo agrupadas por emoji, en el orden del catálogo."""
     filas = await db.fetch(
-        """SELECT r.usuario, r.emoji, COALESCE(NULLIF(m.name, ''), r.usuario) AS nombre
+        """SELECT r.usuario, r.emoji, COALESCE(NULLIF(m.name, ''), NULLIF(r.nombre, ''), r.usuario) AS nombre
              FROM mail_reacciones r LEFT JOIN mailbox m ON m.username = r.usuario
             WHERE r.message_id = $1 ORDER BY r.creado""",
         message_id,

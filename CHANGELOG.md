@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Reacciones entre servidores de la suite.** Si quienes tienen el correo están en otro servidor que usa esta suite, la reacción también les llega (y se actualiza o se quita allí). El otro servidor solo la acepta de alguien que figura en ese correo y si el servidor de esa persona confirma el aviso; sin claves compartidas. A servidores que no usan la suite (Gmail, Outlook…) no se envía nada. `REACCIONES_ENTRE_SERVIDORES=false` lo apaga. Migración `2026-11-11-reacciones-entre-servidores.sql`.
+
 ### Corregido
 - **El contador de no leídos no aparecía en las carpetas con tildes o caracteres especiales** (Dirección, Planificación…): el nombre se codificaba dos veces al pedir el conteo y el servidor respondía que la carpeta no existía.
 

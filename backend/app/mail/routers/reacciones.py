@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import email
 import json
 import logging
@@ -12,6 +13,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
+from app.federacion import reacciones_cliente
 from app.mail.clients.imap_client import _quote_folder
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services import reacciones
@@ -21,6 +23,8 @@ logger = logging.getLogger("maquita.webmail.reacciones")
 router = APIRouter(prefix="/api/mail/reacciones", tags=["mail-reacciones"])
 
 _CAMPOS = "(BODY.PEEK[HEADER.FIELDS (MESSAGE-ID FROM TO CC SUBJECT)])"
+# Avisos a otros servidores en curso (se guardan para que no se pierdan a medias).
+_TAREAS: set = set()
 
 
 class Reaccion(BaseModel):
@@ -102,11 +106,29 @@ async def reaccionar(
             "asunto": _asunto(msg),
         }
         redis = request.app.state.redis
-        for cuenta in await reacciones.cuentas_locales(db, todos - {username}):
+        locales = await reacciones.cuentas_locales(db, todos)
+        for cuenta in locales:
+            if cuenta == username:
+                continue
             await redis.publish(
                 f"ws:user:{cuenta}",
                 json.dumps({**aviso, "para_autor": cuenta == autor}),
             )
+        # Quienes tienen el correo en OTRO servidor de la suite: se avisa sin frenar la respuesta.
+        externos = todos - set(locales) - {username}
+        if externos:
+            tarea = asyncio.create_task(
+                reacciones_cliente.avisar_otros_servidores(
+                    redis,
+                    message_id,
+                    username,
+                    aviso["de"],
+                    None if estado == "quitada" else body.emoji,
+                    externos,
+                )
+            )
+            _TAREAS.add(tarea)
+            tarea.add_done_callback(_TAREAS.discard)
     except Exception as exc:
         logger.warning("reacciones: no se pudo avisar (%s): %s", message_id, exc)
 

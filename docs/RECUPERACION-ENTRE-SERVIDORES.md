@@ -59,3 +59,16 @@ Cualquier fallo responde `{"estado":"no_recuperado"}`, sin detalles, para no rev
   `deploy/ajustes/80-rspamd-cabecera-de-autenticacion.sh`, que el actualizador aplica solo.
 - El correo debe salir firmado con DKIM (la instalación lo deja así) para que el otro servidor lo autentique.
 - Salida HTTPS (443) desde el backend hacia los otros servidores.
+
+## Reacciones entre servidores
+
+Las reacciones a un correo (👍 ❤️ 🎉 😂 😮 😢) usan el mismo esquema: cuando alguien reacciona, su servidor
+avisa a los servidores de la suite de las demás personas del correo (`POST /api/federacion/v1/reacciones/avisar`).
+El servidor que recibe el aviso solo lo acepta si:
+
+- alguno de los destinatarios indicados es un buzón suyo y tiene ese correo;
+- quien reacciona figura en el De/Para/CC de la copia guardada allí;
+- el servidor del dominio de esa persona confirma el aviso (`…/reacciones/confirmar`).
+
+No se envía ningún correo. A los servidores que no usan la suite (Gmail, Outlook…) no se les envía nada.
+`REACCIONES_ENTRE_SERVIDORES=false` lo apaga en los dos sentidos.
