@@ -55,7 +55,7 @@ Cualquier fallo responde `{"estado":"no_recuperado"}`, sin detalles, para no rev
 - El host del registro MX de cada dominio debe servir `https://<MX>/api/` con certificado válido (en una instalación
   normal es el mismo host del webmail). Un dominio alojado cuyo MX tiene otro nombre necesita ese nombre en nginx y
   en el certificado.
-- rspamd debe añadir la cabecera  a lo que entra: lo deja así el ajuste
-  Sin cambios: rspamd ya añade Authentication-Results., que el actualizador aplica solo.
+- rspamd debe añadir la cabecera `Authentication-Results` a lo que entra: lo deja así el ajuste
+  `deploy/ajustes/80-rspamd-cabecera-de-autenticacion.sh`, que el actualizador aplica solo.
 - El correo debe salir firmado con DKIM (la instalación lo deja así) para que el otro servidor lo autentique.
 - Salida HTTPS (443) desde el backend hacia los otros servidores.
