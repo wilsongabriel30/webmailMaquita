@@ -4,6 +4,7 @@
 // menú contextual completo, renombrar con doble click, confirmaciones,
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
+import { EntradaProgramados } from '../mail/Programados';
 import { PaletaColorCarpeta } from './PaletaColorCarpeta';
 import { quitarDeColores, renombrarEnColores } from '../../lib/coloresCarpetas';
 import { DivisorCarpetas } from './DivisorCarpetas';
@@ -544,6 +545,7 @@ export function MailSidebar() {
         {!collapsed.all && (
           <>
             {otherNodes.map(node => renderNode(node, 0))}
+            <EntradaProgramados />
             {creating ? (
               <div className="flex items-center gap-1 px-2 py-1 ml-3">
                 <input value={newName} onChange={e => setNewName(e.target.value)}

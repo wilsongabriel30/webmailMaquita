@@ -130,6 +130,15 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'programado_enviado':
+            case 'programado_fallido': {
+              // Un envío programado salió o falló: se avisa y la sección «Programados» se actualiza.
+              window.dispatchEvent(new CustomEvent('programados-cambio'));
+              if (data.type === 'programado_fallido') showToast(`No se pudo enviar el correo programado «${data.asunto || '(sin asunto)'}». Revíselo en Programados.`, undefined, { fijo: true });
+              else showToast(`Se envió el correo programado «${data.asunto || '(sin asunto)'}»`);
+              break;
+            }
+
             case 'correo_recuperado': {
               // El remitente recuperó un correo de este buzón: la lista debe refrescarse al
               // instante, sin aviso ni sonido de «correo nuevo» (incidente 09/11/2026).

@@ -1192,7 +1192,8 @@ export function ComposePanel({ win }: Props) {
         importance,
       });
       closeCompose(win.id); setShowScheduleModal(false);
-      showToast(`Envío programado para ${new Date(scheduleDate).toLocaleString('es-EC')}`);
+      showToast(`Envío programado para ${new Date(scheduleDate).toLocaleString('es-EC')}. Puede verlo o cambiarlo en «Programados».`);
+      window.dispatchEvent(new CustomEvent('programados-cambio'));
     } catch { showToast('No se pudo programar el envío. Inténtelo de nuevo.', undefined, { fijo: true }); }
   }, [to, cc, bcc, subject, editor, win, scheduleDate, trackingState, importance, closeCompose, attachments]);
 
