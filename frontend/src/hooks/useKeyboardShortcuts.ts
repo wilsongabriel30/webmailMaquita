@@ -13,10 +13,13 @@ import { accionDeshacer, deshacerUltimo, loteDeRespuesta, recordarParaDeshacer, 
 // Shift + flechas: ancla y selección previa al empezar a extender (como Outlook, 10/11/2026)
 let anclaShift = -1;
 let seleccionBase: Set<number> | null = null;
+// Último correo al que llegó la extensión: si el resaltado ya no está ahí (hubo un clic o cambió la
+// lista), la siguiente Shift + flecha empieza de nuevo desde el correo resaltado (11/11/2026).
+let ultimoExtendido = -1;
 
 function extenderSeleccionConFlecha(idx: number, newIdx: number, uids: number[]) {
   const st = useMailStore.getState();
-  if (anclaShift < 0 || anclaShift >= uids.length || !seleccionBase) {
+  if (anclaShift < 0 || anclaShift >= uids.length || !seleccionBase || idx !== ultimoExtendido) {
     anclaShift = idx >= 0 ? idx : newIdx;
     seleccionBase = new Set(st.selectedUids);
   }
@@ -25,6 +28,7 @@ function extenderSeleccionConFlecha(idx: number, newIdx: number, uids: number[])
   for (let i = desde; i <= hasta; i++) s.add(uids[i]);
   useMailStore.setState({ selectedUids: s });
   st.setActiveIndex(newIdx);
+  ultimoExtendido = newIdx;
 }
 
 
@@ -94,7 +98,7 @@ export function useKeyboardShortcuts() {
       // reenvío. Ctrl+A se atiende aparte, más abajo.
       if (e.key.length === 1 && (e.ctrlKey || e.metaKey || e.altKey) && !['a', 'z'].includes(e.key.toLowerCase())) return;
       // Sin Shift se olvida el ancla de la selección con flechas
-      if (!e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { anclaShift = -1; seleccionBase = null; }
+      if (!e.shiftKey && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { anclaShift = -1; seleccionBase = null; ultimoExtendido = -1; }
 
       // Se navega la lista VISIBLE (05/11/2026): «Otros» y chinchetas hacen que messages[idx]
       // no sea el correo resaltado. Ver components/mail/listaVisible.ts.

@@ -74,6 +74,9 @@ interface MailState {
   setPageSize: (n: number) => void;
   setBlockRemoteImages: (v: boolean) => void;
   setMessageListWidth: (w: number) => void;
+  /** Ancho del panel de carpetas en píxeles (11/11/2026). */
+  anchoCarpetas: number;
+  setAnchoCarpetas: (w: number) => void;
   // Compose — multiple drafts
   composeWindows: DraftWindow[];
   // Threading
@@ -151,6 +154,9 @@ function leerPreviewLinesGuardado(): 1 | 2 | 3 {
   return 1;
 }
 
+/** Ancho normal del panel de carpetas. */
+export const ANCHO_CARPETAS_NORMAL = 220;
+
 export const useMailStore = create<MailState>((set, get) => ({
   folders: [],
   currentFolder: 'INBOX',
@@ -193,6 +199,12 @@ export const useMailStore = create<MailState>((set, get) => ({
   cuentas: [],
   setCuentas: (cuentas) => set({ cuentas }),
   setBlockRemoteImages: (v) => set({ blockRemoteImages: v }),
+  anchoCarpetas: (typeof window !== 'undefined' && Number(localStorage.getItem('maquita_ancho_carpetas'))) || ANCHO_CARPETAS_NORMAL,
+  setAnchoCarpetas: (w: number) => {
+    const ajustado = Math.max(180, Math.min(520, Math.round(w)));
+    try { localStorage.setItem('maquita_ancho_carpetas', String(ajustado)); } catch { /* ignore */ }
+    set({ anchoCarpetas: ajustado });
+  },
   setMessageListWidth: (w: number) => {
     const clamped = Math.max(260, Math.min(720, Math.round(w)));
     try { localStorage.setItem('maquita_list_width', String(clamped)); } catch { /* ignore */ }

@@ -1,6 +1,7 @@
 """User settings router — signature, display name, preferences."""
 
 import asyncio
+import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -8,6 +9,7 @@ from pydantic import BaseModel
 
 from app.auth.dependencies import get_current_user
 from app.mail.firmas import normalizar_firma
+from app.settings import preferencias_parciales  # noqa: E402
 
 router = APIRouter(prefix="/api/settings", tags=["settings"])
 
@@ -25,6 +27,8 @@ class UserSettings(BaseModel):
     # Qué hacer cuando un correo recibido pide confirmación de lectura (09/11/2026):
     # preguntar | siempre (enviar sin preguntar si el acuse va al remitente) | nunca.
     acuse_lectura: str = "preguntar"
+    # Preferencias de la cinta «Vista» (densidad, anchos…): app/settings/preferencias_parciales.py
+    vista: Optional[dict] = None
 
 
 class SignatureCreate(BaseModel):
@@ -84,6 +88,11 @@ async def get_settings(request: Request, username: str = Depends(get_current_use
     )
     if row:
         result = dict(row)
+        if isinstance(result.get("vista"), str):
+            try:
+                result["vista"] = json.loads(result["vista"])
+            except ValueError:
+                result["vista"] = {}
         # Fallback: if display_name is empty, use email local part
         if not result.get("display_name"):
             result["display_name"] = username.split("@")[0].replace(".", " ").title()
@@ -99,6 +108,13 @@ async def update_settings(
     body: UserSettings, request: Request, username: str = Depends(get_current_user)
 ):
     db = request.app.state.db_pool
+    # Solo cambia lo que llega en la petición; lo demás conserva lo guardado (11/11/2026).
+    preferencias_parciales.completar(
+        body,
+        await db.fetchrow(
+            "SELECT * FROM user_preferences WHERE username = $1", username
+        ),
+    )
     if body.acuse_lectura not in ("preguntar", "siempre", "nunca"):
         raise HTTPException(
             status_code=400, detail="Valor no válido para la confirmación de lectura"
@@ -134,6 +150,12 @@ async def update_settings(
         body.auto_reply_body,
         body.acuse_lectura,
     )
+    if body.vista is not None:
+        await db.execute(
+            "UPDATE user_preferences SET vista = $2::jsonb WHERE username = $1",
+            username,
+            json.dumps(preferencias_parciales.limpiar_vista(body.vista)),
+        )
     return {"status": "saved"}
 
 

@@ -1,3 +1,4 @@
+import { BotonIrAlInicio } from './BotonIrAlInicio';
 import { loadOfflineMessagesBuscando } from "../../hooks/useOfflineSync";
 import React, { useEffect, useCallback, useRef, useState, useMemo, memo } from 'react';
 import { useMailStore } from '../../store/mailStore';
@@ -618,6 +619,7 @@ export function MessageList() {
       e.preventDefault();
       toggleSelection(uid);
       lastClickIdx.current = idx;
+      setActiveIndex(idx);
       return;
     }
     if (e.shiftKey) {
@@ -788,6 +790,7 @@ export function MessageList() {
       toggleSelection(filtered[idx].uid);
     }
     lastClickIdx.current = idx;
+    setActiveIndex(idx);   // Shift + flechas sigue desde aquí
   };
 
   const quickAction = (uid: number, action: string, dest?: string) => {
@@ -1351,6 +1354,7 @@ export function MessageList() {
 
       {/* List */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto relative" style={{ overflowAnchor: 'none' }}>
+        <BotonIrAlInicio contenedor={scrollRef} />
         <EnviosEnCurso />
         {unaLinea && filtered.length > 0 && (
           /* Cabecera de columnas (06/11/2026): los anchos siguen a FilaCorreoLinea */
