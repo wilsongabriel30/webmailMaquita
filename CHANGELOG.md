@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- **Borradores repetidos.** Dos guardados casi simultáneos del mismo borrador dejaban dos copias (el segundo llegaba con el identificador viejo, o sin él). Ahora el servidor pone en fila los guardados de cada persona, traduce un identificador viejo al vigente y no duplica un borrador nuevo idéntico a otro creado hace segundos (`app/mail/services/borrador_cadena.py`).
+
 ## [1.16.0] - 2026-11-11
 
 Toda la personalización se guarda en la cuenta, colores para las carpetas, búsqueda que se acota con un clic y

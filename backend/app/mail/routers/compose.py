@@ -15,6 +15,7 @@ from app.mail.clients.imap_client import get_imap_connection
 from app.mail.clients.smtp_client import OutgoingEmail
 from app.mail.firmas import preparar_envio
 from app.mail.schemas.messages import ComposeRequest, DraftRequest, ScheduleRequest
+from app.mail.services import borrador_cadena
 from app.mail.services.adjuntos_borrador import (
     adjuntos_del_borrador_anterior,
     adjuntos_desde_peticion,
@@ -457,7 +458,10 @@ async def send(
                 bcc=body.bcc,
                 in_reply_to=body.in_reply_to,
                 references=body.references,
-                draft_uid=body.draft_uid,
+                # El UID que trae la ventana puede ser de un guardado anterior: se borra el vigente.
+                draft_uid=await borrador_cadena.vigente(
+                    request.app.state.redis, username, body.draft_uid
+                ),
                 display_name=display_name,
                 db=db,
                 attachments=attachments,
@@ -580,7 +584,9 @@ async def send_multipart(
             bcc=bcc_list,
             in_reply_to=in_reply_to,
             references=references,
-            draft_uid=draft_uid,
+            draft_uid=await borrador_cadena.vigente(
+                request.app.state.redis, username, draft_uid
+            ),
             display_name=display_name,
             attachments=attachments,
         )
@@ -607,27 +613,39 @@ async def create_draft(
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
+    redis = request.app.state.redis
+    marca = borrador_cadena.huella(body.subject, body.to, body.in_reply_to)
     try:
         rechazar_peligrosos(a.filename for a in body.attachments)
         adjuntos = adjuntos_desde_peticion(body.attachments)
-        if not adjuntos and body.mantener_adjuntos and body.existing_draft_uid:
-            adjuntos = await adjuntos_del_borrador_anterior(
-                imap, body.existing_draft_uid
+        async with borrador_cadena.candado(redis, username):
+            # El UID que llega puede ser viejo (otro guardado lo reemplazó) o faltar (dos guardados
+            # «nuevos» casi a la vez): se usa el vigente para no dejar dos borradores iguales.
+            if body.existing_draft_uid:
+                uid_previo = await borrador_cadena.vigente(
+                    redis, username, body.existing_draft_uid
+                )
+            else:
+                uid_previo = await borrador_cadena.recien_creado(redis, username, marca)
+            if not adjuntos and body.mantener_adjuntos and uid_previo:
+                adjuntos = await adjuntos_del_borrador_anterior(imap, uid_previo)
+            email_data = OutgoingEmail(
+                from_addr=username,
+                to=body.to,
+                subject=body.subject,
+                text_body=body.text_body,
+                html_body=body.html_body,
+                cc=body.cc or [],
+                bcc=body.bcc or [],
+                in_reply_to=body.in_reply_to,
+                references=body.references,
+                attachments=adjuntos,
             )
-        email_data = OutgoingEmail(
-            from_addr=username,
-            to=body.to,
-            subject=body.subject,
-            text_body=body.text_body,
-            html_body=body.html_body,
-            cc=body.cc or [],
-            bcc=body.bcc or [],
-            in_reply_to=body.in_reply_to,
-            references=body.references,
-            attachments=adjuntos,
-        )
-        new_uid = await save_draft(imap, email_data, body.existing_draft_uid)
-        return {"status": "saved", "draft_uid": new_uid}
+            new_uid = await save_draft(imap, email_data, uid_previo)
+            await borrador_cadena.anotar(
+                redis, username, marca, new_uid, uid_previo, body.existing_draft_uid
+            )
+            return {"status": "saved", "draft_uid": new_uid}
     finally:
         try:
             await imap.logout()
