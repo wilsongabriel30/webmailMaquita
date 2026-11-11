@@ -192,8 +192,10 @@ async def list_folders(imap: aioimaplib.IMAP4) -> list[dict]:
         if "Noselect" in folder["flags"]:
             continue
         try:
+            # Con el nombre legible: _quote_folder lo codifica a UTF-7. Pasarle el ya codificado
+            # lo codificaba dos veces y las carpetas con tildes quedaban sin contador (11/11/2026).
             status_resp = await imap.status(
-                _quote_folder(folder["imap_name"]), "(UNSEEN MESSAGES)"
+                _quote_folder(folder["name"]), "(UNSEEN MESSAGES)"
             )
             if status_resp.result == "OK":
                 for sline in _decode_lines(status_resp.lines):
