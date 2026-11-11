@@ -44,6 +44,8 @@ class Settings(BaseSettings):
     bienvenida_desde: str = ""
     bienvenida_dias: int = 3
     refresh_token_expire_days: int = 7
+    # Recuperar un correo enviado: minutos de plazo desde la entrega (app/mail/services/plazo_recuperacion.py).
+    recall_max_minutos: int = 60
     # Sesiones de la app de escritorio (Teams Maquita): duran hasta que la persona cierra
     # sesión. Ver app/auth/sesion_app.py.
     app_sesion_dias: int = 365

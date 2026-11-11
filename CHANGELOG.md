@@ -76,6 +76,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `/var/lib/maquita-webmail/`. Para las 4 cuentas con etiquetas repartidas entre `.org` y `.com.ec`.
 
 ### Corregido
+- **Recuperar un correo tiene plazo.** Solo se puede recuperar durante 1 hora desde la entrega (`RECALL_MAX_MINUTOS`); antes no había límite y se podían retirar correos de hace semanas. Pasado el plazo el servidor no toca el buzón del destinatario, la pantalla avisa con la fecha de entrega y el intento queda en la auditoría (`app/mail/services/plazo_recuperacion.py`).
 - En móvil, «Más acciones → Mover a…» carga las carpetas aunque el cajón lateral nunca se haya abierto; muestra un aviso y permite reintentar si la carga falla.
 - El atajo E archiva también los correos seleccionados mediante la casilla de la lista y permite deshacer el archivo.
 - Ajustes muestra los avisos de las reglas, incluido el fallo al aplicar una regla a correos anteriores y el resultado de «Aplicar ahora».

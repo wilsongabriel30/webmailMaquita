@@ -22,7 +22,7 @@ from app.branding.service import marca_corta
 from app.config import get_settings
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_pool import get_pooled_imap
-from app.mail.services import recuperar_correo
+from app.mail.services import plazo_recuperacion, recuperar_correo
 from app.mail.services.cache_uids import invalidar_uids
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,8 @@ class RecallRequest(BaseModel):
 
 class RecallResult(BaseModel):
     recipient: str
-    status: str  # "recalled", "not_found", "external", "external_request_sent", "error"
+    # "recalled", "not_found", "external", "external_request_sent", "fuera_de_plazo", "error"
+    status: str
     detail: str
     # ¿El destinatario ya lo había leído? (None para externos o no encontrados)
     was_read: Optional[bool] = None
@@ -155,7 +156,7 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
                 "fetch",
                 "-u",
                 recipient,
-                "mailbox uid hdr.subject flags",
+                "mailbox uid hdr.subject flags date.received",
                 "header",
                 "message-id",
                 message_id,
@@ -179,9 +180,50 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
             elif line.startswith("flags:"):
                 info["flags"] = line.split(":", 1)[1].strip()
                 info["was_read"] = "\\Seen" in info["flags"]
+            elif line.startswith("date.received:"):
+                info["received"] = plazo_recuperacion.mas_antigua(
+                    info.get("received"),
+                    plazo_recuperacion.interpretar_fecha(line.split(":", 1)[1]),
+                )
         return info
     except Exception:
         return {}
+
+
+def _fecha_en_enviados(username: str, message_id: str):
+    """Cuándo se guardó el correo en «Enviados» del remitente (None si no se puede saber)."""
+    try:
+        result = subprocess.run(
+            [
+                "sudo",
+                "-n",
+                MAQUITA_SUDO,
+                "doveadm",
+                "fetch",
+                "-u",
+                username,
+                "date.received",
+                "mailbox",
+                "Sent",
+                "header",
+                "message-id",
+                message_id,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        if result.returncode != 0:
+            return None
+        fecha = None
+        for line in result.stdout.split("\n"):
+            if line.startswith("date.received:"):
+                fecha = plazo_recuperacion.mas_antigua(
+                    fecha, plazo_recuperacion.interpretar_fecha(line.split(":", 1)[1])
+                )
+        return fecha
+    except Exception:
+        return None
 
 
 async def _send_external_recall_request(
@@ -301,12 +343,22 @@ async def recall_message(
         )
 
     results = []
+    fecha_envio = _fecha_en_enviados(username, msg_id)
 
     for recipient in body.recipients:
         recipient = recipient.strip().lower()
 
         # External domain — send recall request (like Outlook)
         if not _is_local_domain(recipient, local_domains):
+            if plazo_recuperacion.vencido(fecha_envio):
+                results.append(
+                    RecallResult(
+                        recipient=recipient,
+                        status=plazo_recuperacion.ESTADO_FUERA_DE_PLAZO,
+                        detail=plazo_recuperacion.motivo(fecha_envio),
+                    )
+                )
+                continue
             if body.action == "delete":
                 # Send a recall request email to the recipient
                 recall_sent = await _send_external_recall_request(
@@ -355,6 +407,18 @@ async def recall_message(
         info = _doveadm_fetch_info(recipient, msg_id)
         was_read = info.get("was_read", False)
         carpetas_mensaje = list(info.get("folders") or [])
+
+        # Plazo máximo (11/11/2026): pasado el plazo no se toca el buzón del destinatario.
+        if plazo_recuperacion.vencido(info.get("received")):
+            results.append(
+                RecallResult(
+                    recipient=recipient,
+                    status=plazo_recuperacion.ESTADO_FUERA_DE_PLAZO,
+                    detail=plazo_recuperacion.motivo(info.get("received")),
+                    was_read=bool(was_read),
+                )
+            )
+            continue
 
         # Delete the message. Decisión de la dirección (09/11/2026): se quita del buzón
         # aunque el destinatario ya lo haya leído; la lectura solo se informa.
@@ -446,6 +510,11 @@ async def recall_message(
         mensaje += f" ({external_count} externos: solo solicitud)"
     if movido.get("movido"):
         mensaje = "Mensaje recuperado. Lo encontrará en Borradores para corregirlo y volverlo a enviar."
+    fuera_de_plazo = [
+        r for r in results if r.status == plazo_recuperacion.ESTADO_FUERA_DE_PLAZO
+    ]
+    if fuera_de_plazo and recalled_count == 0:
+        mensaje = fuera_de_plazo[0].detail
 
     return {
         "results": resultados,
@@ -455,7 +524,9 @@ async def recall_message(
             "external": external_count,
             "not_found": sum(1 for r in results if r.status == "not_found"),
             "errors": sum(1 for r in results if r.status == "error"),
+            "fuera_de_plazo": len(fuera_de_plazo),
         },
+        "plazo_minutos": plazo_recuperacion.minutos_maximos(),
         "movido_a_borradores": bool(movido.get("movido")),
         "message": mensaje,
     }
@@ -497,10 +568,23 @@ async def check_recallable(
     local_domains = [r["domain"] for r in domain_rows if r["domain"] != "ALL"]
 
     checks = []
+    fecha_envio = _fecha_en_enviados(username, msg_id)
     for recipient in body.recipients:
         recipient = recipient.strip().lower()
 
         if not _is_local_domain(recipient, local_domains):
+            if plazo_recuperacion.vencido(fecha_envio):
+                checks.append(
+                    {
+                        "recipient": recipient,
+                        "can_recall": False,
+                        "can_request": False,
+                        "fuera_de_plazo": True,
+                        "reason": plazo_recuperacion.motivo(fecha_envio),
+                        "was_read": None,
+                    }
+                )
+                continue
             checks.append(
                 {
                     "recipient": recipient,
@@ -526,6 +610,17 @@ async def check_recallable(
 
         info = _doveadm_fetch_info(recipient, msg_id)
         was_read = info.get("was_read", None)
+        if plazo_recuperacion.vencido(info.get("received")):
+            checks.append(
+                {
+                    "recipient": recipient,
+                    "can_recall": False,
+                    "fuera_de_plazo": True,
+                    "reason": plazo_recuperacion.motivo(info.get("received")),
+                    "was_read": was_read,
+                }
+            )
+            continue
         checks.append(
             {
                 "recipient": recipient,
@@ -538,4 +633,15 @@ async def check_recallable(
             }
         )
 
-    return {"checks": checks}
+    vencidos = [c for c in checks if c.get("fuera_de_plazo")]
+    return {
+        "checks": checks,
+        "plazo_minutos": plazo_recuperacion.minutos_maximos(),
+        # Aviso para mostrar en pantalla cuando ya no se puede recuperar a nadie por el plazo.
+        "aviso": (
+            vencidos[0]["reason"]
+            if vencidos
+            and not any(c.get("can_recall") or c.get("can_request") for c in checks)
+            else None
+        ),
+    }
