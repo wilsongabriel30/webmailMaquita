@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- **Los errores de la interfaz llegan a la telemetría con su ubicación** (archivo, línea, primeras líneas de la pila y pantalla), también desde un navegador normal; antes solo los enviaba la aplicación de escritorio y sin decir dónde. Sin contenido de correos; como mucho 10 por sesión (lib/erroresNavegador.ts).
+
 ### Cambiado
 - **El correo nuevo aparece en segundos.** El webmail preguntaba al buzón cada 45 s; ahora el filtro de correo avisa al reinyectar cada mensaje (`scripts/aviso_entrega_filtro.py` → `POST /api/interno/correo-en-camino`, solo desde la propia máquina) y el sondeo de ese destinatario corre enseguida. Los 45 s quedan como tope. Instalaciones existentes: copiar `scripts/aviso_entrega_filtro.py` junto al filtro (`/opt/maquita-mail-filter/`) y actualizar `spam-filter-service.py`.
 

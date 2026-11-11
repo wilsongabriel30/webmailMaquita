@@ -1,4 +1,5 @@
 // Multicuenta: antes de cualquier petición, cada fetch a /api/ lleva la cuenta de esta pestaña.
+import { vigilarErroresDeLaInterfaz } from './lib/erroresNavegador';
 import { instalarCuentaActiva } from './lib/cuentaActiva';
 instalarCuentaActiva();
 import { aplicarEscala, escalaActual } from './lib/escala';
@@ -47,6 +48,7 @@ window.addEventListener("vite:preloadError", (event) => {
   }
 });
 
+vigilarErroresDeLaInterfaz();   // errores de la interfaz con su ubicación, a la telemetría
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
