@@ -48,6 +48,8 @@ class Settings(BaseSettings):
     recall_max_minutos: int = 60
     # Recuperación entre servidores que usan esta suite (docs/RECUPERACION-ENTRE-SERVIDORES.md).
     recall_entre_servidores: bool = True
+    # Reacciones a correos entre servidores de la suite (mismo esquema de confianza).
+    reacciones_entre_servidores: bool = True
     # Servidores hermanos alcanzables por la red privada (nombres MX separados por coma).
     recall_federado_hosts_internos: str = ""
     # Nombre con que este servidor firma Authentication-Results (vacío = el de public_base_url).
