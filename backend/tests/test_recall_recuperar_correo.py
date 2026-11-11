@@ -361,3 +361,36 @@ def test_fetch_info_lee_la_fecha_de_entrega_mas_antigua(monkeypatch):
     info = recall._doveadm_fetch_info("a@example.org", "<x>")
     assert info["received"] == datetime(2026, 11, 10, 7, 0, 0)
     assert info["folders"] == ["INBOX", "Archive"]
+
+
+# ----------------------------------------------------------------------------- aviso a externos (11/11/2026)
+from app.mail.services import aviso_envio_por_error as aviso  # noqa: E402
+
+
+def test_aviso_externo_responde_en_la_misma_conversacion():
+    correo = aviso.construir(
+        "ana@example.org",
+        "cliente@externo.test",
+        "<abc@example.org>",
+        "Cotización <b>1</b>",
+        datetime(2026, 11, 11, 8, 30),
+        "Maquita",
+    )
+    assert correo.subject == "RE: Cotización <b>1</b>"
+    assert (
+        correo.in_reply_to == "<abc@example.org>"
+        and correo.references == "<abc@example.org>"
+    )
+    assert correo.to == ["cliente@externo.test"]
+    # Constancia para quien envió.
+    assert correo.bcc == ["ana@example.org"]
+    assert "se envió por error" in correo.text_body
+    assert "11/11/2026 a las 08:30" in correo.text_body
+    # El asunto no se inyecta como HTML.
+    assert "<b>1</b>" not in correo.html_body
+
+
+def test_aviso_externo_asuntos():
+    assert aviso.asunto_respuesta("RE: Hola") == "RE: Hola"
+    assert aviso.asunto_respuesta("") == "RE: (Sin asunto)"
+    assert aviso.decodificar_asunto("\n =?utf-8?B?Q290aXphY2nDs24=?=") == "Cotización"

@@ -11,7 +11,6 @@ import subprocess
 
 # [S7-1] Envoltorio con validación propia; sudoers ya no tiene comodines.
 MAQUITA_SUDO = "/usr/local/sbin/maquita-sudo"
-import html as html_lib
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -22,7 +21,11 @@ from app.branding.service import marca_corta
 from app.config import get_settings
 from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_pool import get_pooled_imap
-from app.mail.services import plazo_recuperacion, recuperar_correo
+from app.mail.services import (
+    aviso_envio_por_error,
+    plazo_recuperacion,
+    recuperar_correo,
+)
 from app.mail.services.cache_uids import invalidar_uids
 
 logger = logging.getLogger(__name__)
@@ -229,50 +232,24 @@ def _fecha_en_enviados(username: str, message_id: str):
 async def _send_external_recall_request(
     request, sender: str, recipient: str, msg_id: str, original_msg_id: str
 ) -> bool:
-    """
-    Send a recall/retract request to external recipient.
-    Uses two methods:
-    1. MDN (Message Disposition Notification) requesting deletion
-    2. A polite email explaining the recall request
+    """Destinatario externo: no se puede retirar el correo de un buzón ajeno.
+
+    Se responde en la misma conversación avisando de que el mensaje se envió por error
+    (app/mail/services/aviso_envio_por_error.py); el remitente recibe copia como constancia.
     """
     try:
-        from app.core.session import get_user_password
-        from app.mail.clients.smtp_client import OutgoingEmail, send_email
+        from app.mail.clients.smtp_client import send_email
 
         password = await get_user_password(request, sender)
-
-        sender_name = sender.split("@")[0].replace(".", " ").title()
-
-        # Send recall notification email
-        recall_email = OutgoingEmail(
-            from_addr=sender,
-            to=[recipient],
-            subject=f"Solicitud de recuperación: mensaje {original_msg_id}",
-            html_body=f"""
-            <div style="font-family:Calibri,sans-serif;max-width:600px;margin:0 auto">
-                <div style="background:#fff4ce;border:1px solid #f8d22a;border-radius:4px;padding:16px;margin-bottom:16px">
-                    <p style="margin:0;font-weight:600;color:#323130">
-                        Solicitud de recuperación de mensaje
-                    </p>
-                </div>
-                <p>Estimado/a destinatario,</p>
-                <p><b>{sender_name}</b> ({sender}) solicita la eliminación del mensaje con ID:</p>
-                <p style="font-family:monospace;background:#f3f2f1;padding:8px;border-radius:4px;font-size:12px;word-break:break-all">
-                    {original_msg_id}
-                </p>
-                <p>El remitente indica que este mensaje fue enviado por error o contiene información incorrecta.</p>
-                <p><b>Por favor, considere eliminar el mensaje original de su buzón.</b></p>
-                <hr style="border:none;border-top:1px solid #edebe9;margin:20px 0">
-                <p style="font-size:11px;color:#a19f9d">
-                    Este es un mensaje automático generado por el sistema de correo de {html_lib.escape(marca_corta())}.
-                    La eliminación del mensaje original queda a discreción del destinatario.
-                </p>
-            </div>
-            """,
-            text_body=f"Solicitud de recuperación: {sender_name} ({sender}) solicita la eliminación del mensaje {original_msg_id}. Por favor elimine el mensaje original.",
+        aviso = aviso_envio_por_error.construir(
+            sender,
+            recipient,
+            msg_id,
+            aviso_envio_por_error.asunto_en_enviados(sender, msg_id),
+            _fecha_en_enviados(sender, msg_id),
+            marca_corta(),
         )
-
-        await send_email(recall_email, password)
+        await send_email(aviso, password)
         return True
     except Exception:
         return False
@@ -369,11 +346,11 @@ async def recall_message(
                         recipient=recipient,
                         status="external_request_sent" if recall_sent else "external",
                         detail=(
-                            "Solicitud de recuperación enviada al destinatario externo. "
-                            "NOTA: el servidor destino puede aceptar o rechazar esta solicitud. "
-                            "No se garantiza la eliminación del mensaje."
+                            "Destinatario externo: no se puede retirar el correo de su buzón. "
+                            "Se le envió, en la misma conversación, el aviso de que el mensaje se envió por error; "
+                            "usted recibió una copia como constancia."
                             if recall_sent
-                            else "Destinatario externo — no se pudo enviar la solicitud de recuperación"
+                            else "Destinatario externo: no se pudo enviar el aviso de envío por error"
                         ),
                     )
                 )
@@ -382,7 +359,7 @@ async def recall_message(
                     RecallResult(
                         recipient=recipient,
                         status="external",
-                        detail="Destinatario externo — solo se puede enviar solicitud de recuperación",
+                        detail="Destinatario externo: solo se puede enviar el aviso de envío por error",
                     )
                 )
             continue
@@ -507,7 +484,7 @@ async def recall_message(
 
     mensaje = f"Recuperados: {recalled_count}/{len(results)}"
     if external_count:
-        mensaje += f" ({external_count} externos: solo solicitud)"
+        mensaje += f" ({external_count} externos: aviso de envío por error)"
     if movido.get("movido"):
         mensaje = "Mensaje recuperado. Lo encontrará en Borradores para corregirlo y volverlo a enviar."
     fuera_de_plazo = [
@@ -590,7 +567,7 @@ async def check_recallable(
                     "recipient": recipient,
                     "can_recall": False,
                     "can_request": True,
-                    "reason": "Dominio externo — se puede enviar solicitud de recuperación (no garantizada)",
+                    "reason": "Externo: no se puede retirar de su buzón; se le enviará el aviso de «enviado por error» en la misma conversación",
                     "was_read": None,
                 }
             )
