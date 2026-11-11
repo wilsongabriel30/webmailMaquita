@@ -20,6 +20,7 @@ from app.mail.clients.imap_client import (
     uid_set_flags,
 )
 from app.mail.clients.imap_pool import es_conexion_caida, get_pooled_imap
+from app.mail.nombre_carpeta import nombre_valido
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
 from app.mail.services import etiquetas_reubicar
 from app.mail.services.cache_uids import invalidar_uids
@@ -29,7 +30,7 @@ from app.rag import eliminar as rag_eliminar
 
 def _validate_folder(folder: str) -> str:
     """Validate IMAP folder name: allow letters, digits, spaces, dots, hyphens, underscores, slashes."""
-    if not _re.match(r"^[\w\s.\-/&+,()@]+$", folder, _re.UNICODE) or len(folder) > 200:
+    if not nombre_valido(folder):
         from fastapi import HTTPException
 
         raise HTTPException(status_code=400, detail="Nombre de carpeta inválido")
