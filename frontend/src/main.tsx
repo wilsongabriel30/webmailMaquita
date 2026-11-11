@@ -69,7 +69,8 @@ if ("serviceWorker" in navigator) {
     navigator.serviceWorker.register("/webmail/sw.js")
       .then((reg) => {
         // Check for updates cada 30 min (no en cada carga)
-        setInterval(() => reg.update(), 30 * 60 * 1000);
+        // Sin red o en pleno despliegue la actualización falla: no es un error (llenaba la telemetría).
+        setInterval(() => { reg.update().catch(() => { /* se reintenta en la siguiente vuelta */ }); }, 30 * 60 * 1000);
 
         reg.addEventListener("updatefound", () => {
           const newSW = reg.installing;

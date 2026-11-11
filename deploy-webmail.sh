@@ -204,6 +204,8 @@ if [[ "${1:-}" == "--solo-frontend" ]]; then
         echo -e "${RED}AVISO: el backend está caído — revisar: journalctl -u ${BACKEND_SERVICE}${NC}"
     fi
 else
+# Durante el reinicio hay respuestas 502/503 esperadas: el vigía de capacidad no las toma por avería.
+touch /run/maquita-despliegue 2>/dev/null || true
 echo -e "\n${YELLOW}[4/5] Reiniciando backend...${NC}"
 systemctl restart "${BACKEND_SERVICE}"
 sleep 2
