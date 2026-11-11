@@ -19,7 +19,8 @@ from flask import jsonify, request
 from interfaces.api.chat_base import bp_chat, obtener_usuario_id, requiere_autenticacion
 
 _tabla_lista = False
-_NOMBRE = re.compile(r'^[A-Za-z0-9áéíóúñÁÉÍÓÚÑüÜ _.\-]{1,60}$')
+# Nombre de tono: lo decide la app (no hay lista en el servidor). Letras, números, espacios y . - _ , ( ) hasta 60.
+_NOMBRE = re.compile(r'^[A-Za-z0-9áéíóúñÁÉÍÓÚÑüÜ _.,()\-]{1,60}$')
 
 # clave -> (tipo, descripción). Lo que no esté aquí se rechaza.
 ADMITIDAS = {
@@ -55,7 +56,7 @@ def _validar(clave, valor):
     if tipo == 'nombre':
         if isinstance(valor, str) and _NOMBRE.match(valor.strip()):
             return True, valor.strip()
-        return False, 'debe ser un nombre corto (letras, números, espacios, punto, guion; hasta 60)'
+        return False, 'debe ser un nombre corto (letras, números, espacios, punto, coma, guion y paréntesis; hasta 60)'
     if tipo == 'porcentaje':
         if isinstance(valor, bool) or not isinstance(valor, (int, float)) or not 0 <= valor <= 100:
             return False, 'debe ser un número de 0 a 100'
