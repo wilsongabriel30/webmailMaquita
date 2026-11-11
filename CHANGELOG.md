@@ -8,6 +8,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Toda la personalización se guarda en la cuenta**: tema claro/oscuro, carpetas favoritas, orden de la lista, chinchetas, secciones plegadas, cinta contraída, «Mi día», zoom, ajustes de firma, vistas de Tareas, Seguimiento y la Nube, entre otras. Siguen a la persona en cualquier navegador o equipo (`lib/preferenciasCuenta.ts`). Lo propio del equipo (cachés, cifrado, descargas sin conexión) no se sincroniza.
+
+### Cambiado
+- `PUT /api/settings`: el campo `vista` se fusiona por clave en lugar de reemplazarse entero.
+
+### Añadido
 - **Pedir siempre confirmación de lectura**: Configuración → General → «Pedir siempre confirmación de lectura en los correos que envío». Queda guardado en la cuenta; cada correo nuevo sale con la confirmación marcada y se puede quitar en uno concreto desde Opciones → Seguimiento.
 
 ### Añadido
