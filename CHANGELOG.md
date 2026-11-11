@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- **El correo nuevo aparece en segundos.** El webmail preguntaba al buzón cada 45 s; ahora el filtro de correo avisa al reinyectar cada mensaje (`scripts/aviso_entrega_filtro.py` → `POST /api/interno/correo-en-camino`, solo desde la propia máquina) y el sondeo de ese destinatario corre enseguida. Los 45 s quedan como tope. Instalaciones existentes: copiar `scripts/aviso_entrega_filtro.py` junto al filtro (`/opt/maquita-mail-filter/`) y actualizar `spam-filter-service.py`.
+
 ### Añadido
 - **Reacciones: aviso en la campanita y marca en la lista.** Quien envió el correo recibe una notificación en la campanita cuando alguien reacciona (aunque no esté conectado en ese momento), y los correos con reacciones llevan una marca con los emojis y el total en la lista.
 

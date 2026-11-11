@@ -24,7 +24,7 @@ from app.auth.sesiones import (
     credencial_de_alguna_sesion,
     sesion_valida,
 )
-from app.websocket import sondeo_unico
+from app.websocket import despertador, sondeo_unico
 from app.websocket.resumen_correo_nuevo import (  # 06/11/2026
     resumen_correo,
     textos_aviso,
@@ -188,6 +188,7 @@ async def _redis_subscriber(app_state):
             redis = app_state.redis
             pubsub = redis.pubsub()
             await pubsub.psubscribe("ws:user:*")
+            await pubsub.psubscribe(despertador.CANAL + "*")
             await pubsub.subscribe(CANAL_REVOCACION)
             logger.info("Redis subscriber started")
 
@@ -208,6 +209,12 @@ async def _redis_subscriber(app_state):
                     continue
                 try:
                     channel = message["channel"]
+                    if isinstance(channel, bytes):
+                        channel = channel.decode()
+                    # Correo en camino para esta persona: su sondeo corre ya (aviso inmediato).
+                    if channel.startswith(despertador.CANAL):
+                        despertador.despertar(channel[len(despertador.CANAL) :])
+                        continue
                     # channel = "ws:user:username@domain.com"
                     username = (
                         channel.split("ws:user:", 1)[1]
@@ -233,7 +240,8 @@ async def _poll_user_inbox(username: str, app_state):
     Publishes to Redis when unseen count changes."""
     while True:
         try:
-            await asyncio.sleep(45)
+            # 45 s como tope; antes si el servidor de correo avisa de un mensaje en camino.
+            await despertador.esperar(username, 45)
 
             # Check user still has active connections on this worker
             if username not in _connections or not _connections[username]:

@@ -136,6 +136,7 @@ from app.tasks.router import router as tasks_router
 from app.telemetria.router import asegurar_tabla as asegurar_tabla_telemetria
 from app.telemetria.router import router as telemetria_router
 from app.webhooks.router import router as webhooks_router
+from app.websocket.aviso_entrega import router as aviso_entrega_router
 from app.websocket.router import router as ws_router
 from app.websocket.router import start_redis_subscriber
 
@@ -700,6 +701,7 @@ app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
 app.include_router(reacciones_router)
 app.include_router(programados_router)
+app.include_router(aviso_entrega_router)
 app.include_router(federacion_recuperacion_router)
 app.include_router(federacion_reacciones_router)
 app.include_router(stats_router)

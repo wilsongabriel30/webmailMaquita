@@ -56,6 +56,13 @@ except Exception:  # sin el módulo, el filtro sigue igual que antes
     def rescatar_por_rspamd(_m, _s, _r):
         return False, None
 SCORE_THRESHOLD = 3  # (se sobreescribe con FILTRO_CFG['umbral'] mas abajo)
+# 11/11/2026: aviso inmediato de correo nuevo al webmail (módulo aparte)
+try:
+    from aviso_entrega_filtro import avisar as avisar_entrega
+except Exception:  # sin el módulo, el filtro sigue igual
+    def avisar_entrega(_destinatarios):
+        return False
+
 REINJECT_HOST = "127.0.0.1"
 REINJECT_PORT = 10025
 
@@ -927,6 +934,9 @@ def main():
         except Exception as smtp_err:
             logging.error("SMTP reinject failed: %s", str(smtp_err))
             sys.exit(75)  # EX_TEMPFAIL
+
+        # 11/11/2026: aviso inmediato al webmail (cortesía; nunca frena el filtro)
+        avisar_entrega(recipients)
 
         sys.exit(0)
 
