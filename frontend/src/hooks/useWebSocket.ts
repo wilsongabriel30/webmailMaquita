@@ -120,6 +120,16 @@ export function useWebSocket(enabled: boolean = true) {
               break;
             }
 
+            case 'reaccion_correo': {
+              // Alguien reaccionó a un correo que esta persona tiene: se refresca si está abierto y,
+              // si es quien lo envió, se le avisa (sin correo nuevo ni sonido).
+              window.dispatchEvent(new CustomEvent('reaccion-correo', { detail: data }));
+              if (data.para_autor && data.emoji && data.estado !== 'quitada') {
+                showToast(`${data.de || 'Alguien'} reaccionó ${data.emoji} a «${data.asunto || 'su correo'}»`);
+              }
+              break;
+            }
+
             case 'correo_recuperado': {
               // El remitente recuperó un correo de este buzón: la lista debe refrescarse al
               // instante, sin aviso ni sonido de «correo nuevo» (incidente 09/11/2026).

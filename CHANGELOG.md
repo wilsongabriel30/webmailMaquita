@@ -8,6 +8,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Añadido
+- **Reacciones a los correos**, como en Outlook: carita junto a Responder con 👍 ❤️ 🎉 😂 😮 😢. No envía ningún correo: la reacción se guarda junto al mensaje y la ven al instante quienes tienen ese correo en este servidor; a quien lo envió le sale un aviso. Una por persona (otra la cambia, la misma la quita); al pasar el cursor se ve quién reaccionó. Migración `2026-11-11-reacciones-correo.sql`.
+
+### Añadido
 - **El panel de carpetas se puede ensanchar**: barra arrastrable en su borde derecho (doble clic vuelve al ancho normal); el ancho se recuerda.
 - **Las preferencias de «Vista» se guardan en la cuenta** (densidad, líneas de vista previa, orden de la fila, conversaciones, anchos): ya no se pierden al cambiar de navegador, de equipo o tras reinstalar la aplicación. Migración `2026-11-11-preferencias-vista.sql`.
 - Botón «Ir al inicio» cuando la lista está muy abajo.

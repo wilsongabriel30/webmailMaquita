@@ -91,6 +91,7 @@ from app.mail.routers.labels_mensajes import router as labels_mensajes_router
 from app.mail.routers.messages import router as messages_router
 from app.mail.routers.onlyoffice import router as onlyoffice_router
 from app.mail.routers.priority import router as priority_router
+from app.mail.routers.reacciones import router as reacciones_router
 from app.mail.routers.recall import router as recall_router
 from app.mail.routers.remitente import router as remitente_router
 from app.mail.routers.shared import router as shared_mail_router
@@ -695,6 +696,7 @@ app.include_router(
 )  # Responder confirmaciones de lectura (09/11/2026)
 app.include_router(envio_segundo_plano_router)  # envío inmediato (por detrás)
 app.include_router(recall_router)
+app.include_router(reacciones_router)
 app.include_router(federacion_recuperacion_router)
 app.include_router(stats_router)
 app.include_router(labels_router)
