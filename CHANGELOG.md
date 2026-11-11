@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.14.0] - 2026-11-11
+
+Recuperar un correo enviado por error funciona también entre servidores distintos que usan esta suite. El actualizador
+aplica solo el ajuste 80 (rspamd añade `Authentication-Results`) e instala la dependencia nueva (`dnspython`).
+
 ### Añadido
 - **Recuperación entre servidores.** Si el destinatario está en otro servidor que usa esta misma suite, «Recuperar mensaje»
   le pide a ese servidor que retire el correo de su buzón (mismo plazo, auditoría en ambos lados). El otro servidor solo
