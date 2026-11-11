@@ -25,11 +25,7 @@ from interfaces.api.chat_base import bp_chat, obtener_usuario_id, requiere_auten
 
 bp_archivos_pagina = Blueprint('chat_archivos_pagina', __name__)
 
-CLASES = {
-    'fotos': "md.media_type IN ('image', 'video')",
-    'archivos': "md.media_type NOT IN ('image', 'video', 'gif')",
-    'todos': "md.media_type <> 'gif'",
-}
+CLASES = ('archivos', 'fotos', 'todos')
 _PREFIJO_FECHA = re.compile(r'^(\d{8}_\d{9,}_)+')
 
 
@@ -62,15 +58,9 @@ def _listar(usuario_id, conversacion_id=None):
     limite = _entero(request.args.get('limite'), 50, 1, 100)
     desde = _entero(request.args.get('desde'), 0, 0, 2 ** 62)
 
-    donde = ["p.user_id = %s", "p.is_active", "NOT COALESCE(m.is_deleted, FALSE)",
-             "(p.cleared_at IS NULL OR m.created_at > p.cleared_at)", CLASES[clase]]
-    valores = [usuario_id]
-    if conversacion_id is not None:
-        donde.append("m.conversation_id = %s"); valores.append(conversacion_id)
-    if texto:
-        donde.append("md.file_name ILIKE %s"); valores.append('%' + texto.replace('%', r'\%').replace('_', r'\_') + '%')
-    if desde:
-        donde.append("md.id < %s"); valores.append(desde)
+    # Consulta fija: todo lo variable entra como parámetro (ningún trozo de SQL se arma con texto).
+    valores = {'uid': usuario_id, 'clase': clase, 'conv': conversacion_id, 'desde': desde,
+               'q': ('%' + texto.replace('\\', '\\\\').replace('%', r'\%').replace('_', r'\_') + '%') if texto else None}
 
     with _conexion() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
         if conversacion_id is not None:
@@ -82,7 +72,8 @@ def _listar(usuario_id, conversacion_id=None):
         cur.execute("""SELECT DISTINCT nombre_chat FROM chat_media_drive
                        WHERE usuario_id = %s AND estado IN ('papelera', 'eliminado')""", (usuario_id,))
         ocultos = {f[0] for f in cur.fetchall()}
-        cur.execute(f"""
+        valores['limite'] = limite + 1 + len(ocultos)
+        cur.execute("""
             SELECT md.id, md.message_id, md.media_type, md.file_path, md.file_name, md.file_size, md.mime_type, md.created_at,
                    m.conversation_id, m.sender_id,
                    COALESCE(NULLIF(TRIM(u.full_name), ''), u.username, 'Usuario') AS remitente,
@@ -92,9 +83,18 @@ def _listar(usuario_id, conversacion_id=None):
             JOIN chat_participants p ON p.conversation_id = m.conversation_id
             JOIN chat_conversations c ON c.id = m.conversation_id
             LEFT JOIN usuarios u ON u.id = m.sender_id
-            WHERE {' AND '.join(donde)}
+            WHERE p.user_id = %(uid)s AND p.is_active
+              AND NOT COALESCE(m.is_deleted, FALSE)
+              AND (p.cleared_at IS NULL OR m.created_at > p.cleared_at)
+              AND md.media_type <> 'gif'
+              AND (%(clase)s = 'todos'
+                   OR (%(clase)s = 'fotos' AND md.media_type IN ('image', 'video'))
+                   OR (%(clase)s = 'archivos' AND md.media_type NOT IN ('image', 'video')))
+              AND (%(conv)s::bigint IS NULL OR m.conversation_id = %(conv)s::bigint)
+              AND (%(q)s::text IS NULL OR md.file_name ILIKE %(q)s::text)
+              AND (%(desde)s::bigint = 0 OR md.id < %(desde)s::bigint)
             ORDER BY md.id DESC
-            LIMIT %s""", valores + [limite + 1 + len(ocultos)])
+            LIMIT %(limite)s""", valores)
         filas = [f for f in cur.fetchall() if _basename(f['file_path']) not in ocultos]
         hay_mas = len(filas) > limite
         filas = filas[:limite]
