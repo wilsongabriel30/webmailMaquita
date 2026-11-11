@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.13.0] - 2026-11-11
+
+Recuperar un correo enviado tiene plazo (1 hora) y a los destinatarios externos se les avisa en la misma conversación;
+las reglas de correo se pueden aplicar a lo ya recibido y siguen a la carpeta cuando se renombra; «Mover a…» en árbol con
+«Deshacer», y la lectura cabe en portátiles de 1366×768. Sin pasos manuales para instalaciones existentes.
+
 ### Añadido
 - Reglas de correo: casilla «Aplicar también a los correos que ya están en la Bandeja de entrada» al crear o editar
   una regla, y botón «Aplicar ahora» en Ajustes › Reglas de correo. El servidor busca por IMAP los correos que cumplen
