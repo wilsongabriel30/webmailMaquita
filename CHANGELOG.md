@@ -7,6 +7,18 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Cuentas solo webmail** (panel de administración → Seguridad): cierra IMAP, POP3 y SMTP cuenta por cuenta, sin
+  tocar el resto del servidor. En una cuenta protegida, quien pruebe la contraseña desde fuera recibe «contraseña
+  incorrecta» aunque acierte; el webmail y las contraseñas de aplicación siguen funcionando. La pantalla muestra
+  si está activo o inactivo y una indicación por cuenta (si usa Outlook o celular, si recibe intentos fallidos).
+  Requiere la migración `2026-11-12-cuentas-solo-webmail.sql` y el ajuste 81.
+- **Alertas de seguridad** (panel de administración): al entrar, una franja avisa si hay algo pendiente. La sección
+  explica en lenguaje llano qué cuentas reciben intentos de adivinar su contraseña (tres o más direcciones que fallan
+  y nunca acertaron), sugiere la acción y ofrece el botón «Cerrar IMAP y SMTP»; reúne también los inicios de sesión
+  riesgosos y las anomalías abiertas.
+
 ## [1.17.0] - 2026-11-11
 
 El correo nuevo aparece en segundos, sección «Programados» (los envíos salen aunque no haya sesión iniciada), borradores

@@ -27,6 +27,8 @@ import { Rebotados } from "./pages/Rebotados";  // reenvio de correos devueltos
 import { Quarantine } from "./pages/Quarantine";
 import { Recovery } from "./pages/Recovery";
 import { PasswordAudit } from "./pages/PasswordAudit";
+import { SoloWebmail } from "./pages/SoloWebmail";
+import { AlertasSeguridad } from "./pages/AlertasSeguridad";
 import { Health } from "./pages/Health";
 import { Audit } from "./pages/Audit";
 import { Admins } from "./pages/Admins";
@@ -141,6 +143,8 @@ function App() {
             <Route path="dnscheck" element={<DnsCheck />} />
             <Route path="recovery" element={<Recovery />} />
             <Route path="/password-audit" element={<PasswordAudit />} />
+            <Route path="/solo-webmail" element={<SoloWebmail />} />
+            <Route path="/alertas-seguridad" element={<AlertasSeguridad />} />
             <Route path="services" element={<Services />} />
             <Route path="health" element={<Health />} />
             <Route path="audit" element={<Audit />} />

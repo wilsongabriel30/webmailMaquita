@@ -77,6 +77,8 @@ from app.agents.router import router as agents_router
 from app.copiloto.router import router as copiloto_router
 from app.conditional_access.router import router as condaccess_router
 from app.geo_access.router import router as geoaccess_router
+from app.solo_webmail.router import router as solo_webmail_router
+from app.alertas_seguridad.router import router as alertas_seguridad_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
 from app.sitios.dominios import router as sitios_dominios_router
@@ -288,6 +290,8 @@ app.include_router(flota_equipos_router)  # T-88 Flota Maquita
 app.include_router(flota_codigos_router)
 app.include_router(flota_ordenes_router)
 app.include_router(geoaccess_router)
+app.include_router(solo_webmail_router)
+app.include_router(alertas_seguridad_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)
 app.include_router(sitios_router)
