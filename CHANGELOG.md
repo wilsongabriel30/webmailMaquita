@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Búsqueda avanzada en lenguaje llano**: el panel pregunta («¿Quién lo envió?», «¿Qué decía el asunto?», «¿De cuándo es?»),
+  guarda lo poco usado en «Más opciones», ofrece el tamaño como lista y dice en una frase lo que va a buscar, en lugar
+  de mostrar la consulta con operadores. Botón «Limpiar».
 - **Búsqueda por remitente con reenviados**: `de:persona` (y el botón «Solo de «…»» de la barra «Acotar») trae también los
   correos que esa persona escribió y otro reenvió: asunto con marca de reenvío y su nombre en el cuerpo. Solo en buzones
   con índice de texto. Operador nuevo `reenviado:persona` para ver únicamente esos.
