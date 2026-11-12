@@ -1,3 +1,4 @@
+import { BotonAgregarContacto } from './BotonAgregarContacto';
 import SafeEmailViewer from './SafeEmailViewer';
 import AvisoImagenesBloqueadas from './AvisoImagenesBloqueadas';
 import CuerpoHtmlConImagenes from './CuerpoHtmlConImagenes';
@@ -92,27 +93,7 @@ function decodeUnicodeEscapes(text: string): string {
 // buildQuoteHtml, escapeHtml y extractEmail viven en lib/citaRespuesta.ts (27/10/2026).
 
 
-/* ── Add to contacts button (Fase 1 Premium) ── */
-const AddToContactBtn: React.FC<{ name: string; email: string }> = ({ name, email }) => {
-  const [status, setStatus] = React.useState<'idle' | 'saving' | 'done' | 'exists'>('idle');
-  const handleAdd = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (status !== 'idle') return;
-    setStatus('saving');
-    try {
-      const res = await api.post<{ status: string; id: number }>('/contacts/from-email', { name, email });
-      setStatus(res.status === 'exists' ? 'exists' : 'done');
-    } catch { setStatus('idle'); }
-  };
-  if (status === 'done') return <span style={{ fontSize: 11, color: '#498205', marginLeft: 4 }} title="Contacto agregado">✓</span>;
-  if (status === 'exists') return <span style={{ fontSize: 11, color: '#0078d4', marginLeft: 4 }} title="Ya existe en contactos">✓</span>;
-  return (
-    <button onClick={handleAdd} disabled={status === 'saving'} title="Agregar a contactos"
-      style={{ background: 'none', border: 'none', cursor: 'pointer', padding: '0 4px', fontSize: 13, color: '#0078d4', fontWeight: 600, marginLeft: 2 }}>
-      {status === 'saving' ? '...' : '+'}
-    </button>
-  );
-};
+/* El «+» de agregar a contactos vive en BotonAgregarContacto.tsx (12/11/2026). */
 
 
 
@@ -132,7 +113,7 @@ const EmailsWithContacts: React.FC<{ raw: string; completo?: boolean }> = ({ raw
           <span key={i}>
             {i > 0 && ', '}
             <DireccionConNombre texto={addr} completo={completo} />
-            <AddToContactBtn name={name} email={email} />
+            <BotonAgregarContacto name={name} email={email} />
           </span>
         );
       })}
@@ -1267,7 +1248,7 @@ const MessageView: React.FC = () => {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 600, fontSize: 14, color: '#323130' }}><DireccionConNombre texto={msg.from} /></span>
               <span style={{ fontSize: 12, color: '#605e5c' }}>&lt;{senderEmail}&gt;</span>
-              <AddToContactBtn name={senderName} email={senderEmail} />
+              <BotonAgregarContacto name={senderName} email={senderEmail} />
               {/* Como Outlook (07/11/2026): acciones rápidas arriba a la derecha y la fecha debajo */}
               <span className="lectura-acciones-fecha" style={{ marginLeft: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
                 <AccionesRapidasCorreo folder={msg.folder || currentFolder} uid={msg.uid} from={msg.from || ''}

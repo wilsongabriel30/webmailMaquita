@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Contactos**: el «+» junto al remitente ya no se queda en un visto mudo cuando la dirección existía. Si el contacto
+  estaba sin nombre (importado del historial) le pone el del correo; si tenía otro nombre, pregunta antes de cambiarlo;
+  y dice en una frase qué hizo. El nombre nuevo se refleja también en el autocompletado de destinatarios.
 - **Panel de carpetas**: la barra para ensanchar el panel ya no tapa la barra de desplazamiento de las carpetas; cada
   una tiene su propia franja y se puede arrastrar la de desplazamiento con el ratón.
 
