@@ -4,8 +4,16 @@ Estrategia de bloqueo geográfico por país, **solo en puertos autenticados**.
 Sí se trae al repo como scripts/sets (no queda como guía manual).
 
 ## Principio clave
-- **Puertos de login** (443, 465, 587, 143, 993, 4190): solo se permite el acceso
-  desde los países donde hay usuarios reales. Todo lo demás se descarta.
+- **Puertos de login del correo** (465, 587, 143, 993, 4190): solo se permite el acceso
+  desde los países donde hay usuarios reales. Todo lo demás se descarta en el cortafuegos.
+- **Puerto 443: el filtro por país lo hace nginx, no el cortafuegos** (desde la 1.19). El
+  cortafuegos filtra en bloque y no distingue rutas; con el 443 cerrado por país, un servidor
+  de otro país no puede pedir la recuperación de un correo ni avisar una reacción
+  (`/api/federacion/`), y quien recibe fuera un enlace seguro (`/api/safelink`) no puede
+  abrirlo. nginx corta el webmail y la API fuera de los países permitidos (444) y deja abiertas
+  solo esas rutas y `/.well-known/`. La lista de nginx la genera `deploy/tools/geo-nginx-rebuild.sh`
+  a partir de los mismos conjuntos del cortafuegos (`paises_permitidos` y la nube de Microsoft):
+  abrir o cerrar un país en el panel vale para los dos. Instalaciones anteriores: ajuste 82.
 - **Puerto 25 (SMTP entrante): NUNCA se geo-bloquea.** Gmail/Outlook/Microsoft
   envían desde USA; bloquear por país en el 25 haría perder correo legítimo.
   El 25 se defiende por otras capas (AUTH off, postscreen+DNSBL, blacklist de
@@ -30,7 +38,7 @@ table inet filter {
         # redes internas siempre permitidas
         ip saddr { <LAN_CIDR>, 10.0.0.0/8, 192.168.0.0/16, 172.16.0.0/12 } accept
         # geo-block SOLO en puertos autenticados (NO el 25)
-        tcp dport { 443, 465, 587, 143, 993, 4190 } ip saddr != @paises_permitidos drop
+        tcp dport { 465, 587, 143, 993, 4190 } ip saddr != @paises_permitidos drop   # el 443 lo filtra nginx
         # blacklist de IPs maliciosas (incluye sync de correo)
         ip saddr @blacklist_ips drop
         ...

@@ -80,3 +80,9 @@ fi
 echo "$(date '+%F %T'): rebuild OK — paises=[$CODES] rangos=$N" >> "$LOG"
 logger "GeoIP webmail actualizado: paises=[$CODES] rangos=$N" 2>/dev/null || true
 echo "conjunto reconstruido: paises=[$CODES] rangos=$N"
+
+# La lista de nginx (filtro por país del 443) sale de este mismo conjunto: se regenera enseguida.
+# Si este proceso corre confinado y no puede escribirla, el cron de geo-nginx-rebuild.sh lo hace en minutos.
+if [ -x /usr/local/sbin/geo-nginx-rebuild.sh ]; then
+  /usr/local/sbin/geo-nginx-rebuild.sh >> "$LOG" 2>&1 || true
+fi

@@ -415,6 +415,13 @@ install -d -m 755 "${APP_DIR}/descargas-app"
 install -m644 "${APP_DIR}/deploy/webmail/nginx/descargas-app.conf" /etc/nginx/snippets/descargas-app.conf
 # Perfil TLS que incluyen los server{} HTTPS (webmail.conf y autodiscover-dominios.conf)
 install -m644 "${APP_DIR}/deploy/webmail/nginx/tls-intermedio.conf" /etc/nginx/snippets/tls-intermedio.conf
+# Filtro por país del 443 en nginx (webmail.conf y autodiscover lo incluyen). Sin filtro por país en el
+# cortafuegos la lista deja pasar a todos; al activarlo (deploy/hardening/nftables) se llena sola.
+install -m644 "${APP_DIR}/deploy/webmail/nginx/filtro-pais.conf" /etc/nginx/conf.d/maquita-filtro-pais.conf
+install -m644 "${APP_DIR}/deploy/webmail/nginx/filtro-pais-servidor.conf" /etc/nginx/snippets/filtro-pais.conf
+install -m755 "${APP_DIR}/deploy/tools/geo-nginx-rebuild.sh" "${APP_DIR}/deploy/tools/geo-nginx-lista.py" /usr/local/sbin/
+/usr/local/sbin/geo-nginx-rebuild.sh || true
+printf '%s\n' '*/10 * * * * root /usr/local/sbin/geo-nginx-rebuild.sh >/dev/null 2>&1' > /etc/cron.d/geo-nginx-rebuild
 # Referrer-Policy por ruta (webmail.conf usa $politica_referer): no-referrer en enlaces públicos del Almacén
 install -m644 "${APP_DIR}/deploy/hardening/seguridad-correo-web/politica-referer.conf" /etc/nginx/conf.d/maquita-politica-referer.conf
 # Autodiscover/autoconfig de CUALQUIER dominio: puerto 80 (respaldo mientras el certificado no cubra el
