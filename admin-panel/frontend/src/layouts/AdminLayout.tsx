@@ -3,6 +3,7 @@ import { NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
 import { api } from "../api/client";
 import { useAuth } from "../api/auth";
 import { MyAccountModal } from "../components/MyAccountModal";
+import { AvisoAlertas } from "../components/AvisoAlertas";
 
 const navSections = [
   {
@@ -47,6 +48,7 @@ const navSections = [
   {
     title: "Seguridad",
     items: [
+      { to: "/alertas-seguridad", label: "Alertas de seguridad", help: "Lo que necesita atención hoy: cuentas cuya contraseña intentan adivinar (con el botón para cerrarles IMAP y SMTP), inicios de sesión riesgosos y anomalías.", icon: "M12 9v2m0 4h.01M5.07 19h13.86c1.54 0 2.5-1.67 1.73-3L13.73 4c-.77-1.33-2.69-1.33-3.46 0L3.34 16c-.77 1.33.19 3 1.73 3z" },
       { to: "/seguridad/tableros", label: "Tableros", help: "Tableros de seguridad: flujo de correo, inicios de sesión por servicio y país, actividad de cumplimiento, anomalías con avisos y escalamiento, informes CSV y PDF, y el agente Wazuh (opcional).", icon: "M3 3v18h18M7 15l3-3 3 3 5-6" },
     ],
   },
@@ -77,6 +79,7 @@ const navSections = [
       { to: "/phishsim", label: "Simulación de phishing", help: "Campañas simuladas de phishing para entrenar y medir a los usuarios.", icon: "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
       { to: "__rspamd__", label: "Rspamd Antispam", help: "Abre la consola nativa del antispam Rspamd en una pestaña nueva.", icon: "M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z", external: "/rspamd/" },
       { to: "/password-audit", label: "Cuentas sin clave válida", help: "Cuentas cuya contraseña no es válida en Dovecot: detección y corrección.", icon: "M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" },
+      { to: "/solo-webmail", label: "Cuentas solo webmail", help: "Cierra IMAP, POP3 y SMTP por cuenta: desde fuera la contraseña deja de servir; el webmail sigue igual. Para cuentas atacadas o sensibles.", icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" },
       { to: "/login-health", label: "Accesos externos", help: "Monitoreo de accesos IMAP/POP externos; alerta si hay 0 accesos en 24 h.", icon: "M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" },
       { to: "/outbound", label: "Protección de salida", help: "Límite de envío por usuario (anti cuenta comprometida) y contención de cuentas.", icon: "M12 2l7 4v6c0 5-3.5 8-7 10-3.5-2-7-5-7-10V6l7-4z M9 12l3 3M12 8v4" },
     ],
@@ -235,6 +238,7 @@ export function AdminLayout() {
 
         {/* Main */}
         <main className="flex-1 overflow-auto bg-ms-gray-10">
+          <AvisoAlertas />
           {primerosPendientes && ubicacion.pathname !== "/primeros-pasos" && (
             <div className="mx-6 mt-4 px-4 py-2 rounded bg-amber-50 border border-amber-200 text-sm text-amber-800">
               Quedan primeros pasos por completar (logo, información de la institución, dominio…). <NavLink to="/primeros-pasos" className="underline font-medium">Continuar</NavLink>
