@@ -9,6 +9,8 @@ import email.utils
 import re
 from dataclasses import dataclass, field
 
+from app.mail.parsers import asunto_limpio
+
 
 @dataclass
 class AttachmentInfo:
@@ -88,7 +90,7 @@ def parse_headers(
         from_addr=msg.get("From", "") or "",
         to_addr=msg.get("To", "") or "",
         cc_addr=msg.get("Cc", "") or "",
-        subject=msg.get("Subject", "") or "(No Subject)",
+        subject=asunto_limpio.limpiar(msg.get("Subject", "") or "") or "(No Subject)",
         date=date_parsed,
         date_raw=date_str,
         size=size,
@@ -130,7 +132,7 @@ def parse_full_message(
         from_addr=msg.get("From", "") or "",
         to_addr=msg.get("To", "") or "",
         cc_addr=msg.get("Cc", "") or "",
-        subject=msg.get("Subject", "") or "(No Subject)",
+        subject=asunto_limpio.limpiar(msg.get("Subject", "") or "") or "(No Subject)",
         date=date_parsed,
         date_raw=date_str,
         size=len(raw_email),
