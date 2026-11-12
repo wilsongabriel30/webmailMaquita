@@ -12,6 +12,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **Enlace seguro**: al enviar un correo (también al responder o reenviar), los enlaces de nuestra pasarela vuelven a
   su destino real, de modo que quien los recibe en cualquier país puede abrirlos sin pasar por el servidor de correo.
   Los enlaces de los dominios de la casa ya no se envuelven.
+- **Enlace seguro al copiar**: en el lector, el enlace que se copia («Copiar dirección de enlace», o seleccionar y
+  copiar) es el destino real y no la envoltura; el clic sigue pasando por la revisión del enlace seguro. Así un enlace
+  pegado en un chat u otro programa abre en cualquier país.
 
 ## [1.18.0] - 2026-11-12
 

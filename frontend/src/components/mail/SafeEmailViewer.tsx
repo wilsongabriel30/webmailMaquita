@@ -3,6 +3,7 @@ import { sanitizeHtml } from '../../lib/sanitize';
 import { corregirTablasSinAncho } from '../../lib/tablasSinAncho';   // tablas de Excel con width:0 (05/11/2026)
 import VisorImagenCuerpo, { type ImagenCuerpo } from './VisorImagenCuerpo';
 import { abrirEnlacePropio } from './enlacePropio';
+import { abrirPorEnlaceSeguro, mostrarDestinosReales } from '../../lib/enlacesReales';
 
 interface SafeEmailViewerProps {
   htmlBody: string;
@@ -64,9 +65,13 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
     };
     marcar();
     doc.querySelectorAll('img').forEach(img => img.addEventListener('load', marcar));
+    // Lo que se copia de un enlace es su destino real; el clic sigue pasando por el enlace seguro.
+    const envolturas = mostrarDestinosReales(doc);
+    doc.addEventListener('auxclick', (e) => { abrirPorEnlaceSeguro(e, envolturas); });
     doc.addEventListener('click', (e) => {
       // Enlaces al propio webmail («Abrir la tarea»…): en esta misma pestaña, no en otra.
       if (abrirEnlacePropio(e)) return;
+      if (abrirPorEnlaceSeguro(e, envolturas)) return;
       const el = e.target as HTMLElement | null;
       if (!el || el.tagName !== 'IMG' || !el.hasAttribute('data-ampliable')) return;
       e.preventDefault();
