@@ -119,3 +119,15 @@ def test_las_plantillas_del_443_llevan_el_filtro_y_mta_sts_no():
         "maquita-filtro-pais.conf" in instalador
         and "geo-nginx-rebuild.sh" in instalador
     )
+
+
+def test_el_ajuste_82_no_busca_con_grep_q_al_final_de_una_tuberia():
+    """Con «pipefail», «orden | grep -q» falla a ratos (tubería rota): la detección tiene que ser estable."""
+    import re
+
+    guion = (RAIZ / "deploy/ajustes/82-filtro-pais-en-nginx.sh").read_text(
+        encoding="utf-8"
+    )
+    codigo = "\n".join(l for l in guion.splitlines() if not l.lstrip().startswith("#"))
+    assert "set -euo pipefail" in codigo
+    assert not re.search(r"\|\s*grep\s+-q", codigo)

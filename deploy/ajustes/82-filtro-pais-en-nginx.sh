@@ -18,8 +18,17 @@ AQUI="$(cd "$(dirname "$0")" && pwd)"; RAIZ="$(cd "$AQUI/../.." && pwd)"
 REGLA='tcp dport 443 ip saddr != @paises_permitidos drop'
 
 command -v nginx >/dev/null 2>&1 || { echo "Sin cambios: este servidor no tiene nginx."; exit 0; }
-hay_regla() { command -v nft >/dev/null 2>&1 && nft list chain inet filter input 2>/dev/null | grep -qF "$REGLA"; }
-nginx_filtra() { nginx -T 2>/dev/null | grep -q 'if (\$fuera_de_pais)'; }
+# La salida se guarda antes de buscar en ella: con «pipefail», «orden | grep -q» falla a ratos, porque
+# grep termina al primer acierto y la orden de la izquierda muere por tubería rota.
+hay_regla() {
+    command -v nft >/dev/null 2>&1 || return 1
+    local reglas; reglas="$(nft list chain inet filter input 2>/dev/null || true)"
+    grep -qF "$REGLA" <<<"$reglas"
+}
+nginx_filtra() {
+    local conf; conf="$(nginx -T 2>/dev/null || true)"
+    grep -q 'if (\$fuera_de_pais)' <<<"$conf"
+}
 
 if nginx_filtra && ! hay_regla; then
     echo "Sin cambios: el filtro por país del 443 ya está en nginx."; exit 0
@@ -88,7 +97,9 @@ nginx -s reload 2>/dev/null || systemctl reload nginx
 if hay_regla; then
     nginx_filtra || { echo "nginx no muestra el filtro activo: el cortafuegos se deja como está." >&2; exit 1; }
     nft list ruleset > "$RESPALDO/nftables-antes.nft"
-    manejador="$(nft -a list chain inet filter input | grep -F "$REGLA" | grep -oE 'handle [0-9]+' | awk '{print $2}' | head -1)"
+    reglas_con_manejador="$(nft -a list chain inet filter input)"
+    manejador="$(grep -F "$REGLA" <<<"$reglas_con_manejador" | grep -oE 'handle [0-9]+' | awk 'NR==1 {print $2}')"
+    [ -n "$manejador" ] || { echo "No se pudo ubicar la regla del 443 en el cortafuegos: se deja como está." >&2; exit 1; }
     nft delete rule inet filter input handle "$manejador"
     if nft list ruleset > /etc/nftables.conf.nuevo 2>/dev/null && nft -c -f /etc/nftables.conf.nuevo 2>/dev/null; then
         mv /etc/nftables.conf.nuevo /etc/nftables.conf
