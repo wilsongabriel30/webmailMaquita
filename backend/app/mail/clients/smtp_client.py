@@ -26,7 +26,7 @@ Supports text+HTML multipart, file attachments, inline CID images.
 import hmac
 import os as _os
 import re as _re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from email import encoders
 from email.header import Header
 from email.mime.base import MIMEBase
@@ -188,6 +188,16 @@ def build_mime_message(email_data: OutgoingEmail) -> MIMEMultipart:
     - Sin headers prohibidos (_FORBIDDEN_HEADERS)
     """
     settings = get_settings()
+    # Los enlaces de nuestra pasarela salen con su destino real: quien recibe fuera no depende de
+    # nuestro servidor para abrirlos (app/safelinks/salida.py, 12/11/2026).
+    from app.safelinks import salida
+
+    html_real, _ = salida.desenvolver_html(email_data.html_body)
+    texto_real, _ = salida.desenvolver_texto(email_data.text_body)
+    if html_real != email_data.html_body or texto_real != email_data.text_body:
+        email_data = replace(
+            email_data, html_body=html_real or "", text_body=texto_real or ""
+        )
     has_attachments = any(not a.is_inline for a in email_data.attachments)
     has_inline = any(a.is_inline for a in email_data.attachments)
 

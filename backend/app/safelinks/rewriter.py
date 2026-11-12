@@ -44,8 +44,15 @@ def gateway_link(url: str, base: str | None = None) -> str:
     # (rompia activaciones y restablecimientos de clave con varios parametros).
     # Ya es un enlace de la pasarela (correo citado o reenviado): no se envuelve otra vez
     # (05/11/2026; la doble envoltura hacía saltar el aviso contra nuestro propio dominio).
-    if propios.es_pasarela(html_lib.unescape(url)):
-        return html_lib.unescape(url)
+    limpio = html_lib.unescape(url)
+    if propios.es_pasarela(limpio):
+        # Envoltura antigua de un enlace de la casa (Drive, sistema de gestión…): se muestra directa.
+        destino = propios.desenvolver(limpio)
+        return destino if propios.es_de_la_casa(propios._host(destino)) else limpio
+    # Los enlaces de la casa no se envuelven (12/11/2026): no son un riesgo y, envueltos, dejan de
+    # abrir para quien los recibe reenviados fuera de los países permitidos.
+    if propios.es_de_la_casa(propios._host(limpio)):
+        return limpio
     ub = encode_url(html_lib.unescape(url))
     base = (base or get_settings().public_base_url or organizacion.url_correo()).rstrip(
         "/"

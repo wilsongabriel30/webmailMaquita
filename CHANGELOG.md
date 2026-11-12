@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Enlace seguro**: al enviar un correo (también al responder o reenviar), los enlaces de nuestra pasarela vuelven a
+  su destino real, de modo que quien los recibe en cualquier país puede abrirlos sin pasar por el servidor de correo.
+  Los enlaces de los dominios de la casa ya no se envuelven.
+
 ## [1.18.0] - 2026-11-12
 
 Seguridad: cuentas «solo webmail» (cierra IMAP, POP3 y SMTP por cuenta) y sección «Alertas de seguridad» en el panel,
