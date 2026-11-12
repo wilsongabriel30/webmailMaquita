@@ -215,6 +215,9 @@ def test_editar_un_paso_ajeno_se_rechaza(monkeypatch):
         async def fetchval(self, sql, *args):
             return "tarea-de-otro"
 
+        async def fetchrow(self, sql, *args):
+            return None  # tampoco es una tarea asignada a esta persona
+
     async def no_ve(db, card_id, user):
         return False
 
