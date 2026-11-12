@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Panel de carpetas**: la barra para ensanchar el panel ya no tapa la barra de desplazamiento de las carpetas; cada
+  una tiene su propia franja y se puede arrastrar la de desplazamiento con el ratón.
+
 ### Añadido
 
 - **Cuentas solo webmail** (panel de administración → Seguridad): cierra IMAP, POP3 y SMTP cuenta por cuenta, sin
