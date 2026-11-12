@@ -249,13 +249,21 @@ def regla_webview_reconstruido(cur, dry):
 
 
 def regla_socket_chat(cur, dry):
-    """(g) el socket de notificaciones se cae: si pasa 3 o más veces en una hora, esa
+    """(g) el socket de notificaciones se cae: si se CAE 3 o más veces en una hora (sin contar reintentos), esa
     persona se está quedando sin avisos de chat aunque la app parezca normal."""
+    # 10/11/2026: se cuentan solo las CAÍDAS (socket_chat_perdido). Los socket_chat_error son los reintentos mientras sigue
+    # caído (cada 5-10 s): un portátil que vuelve de suspensión y tarda 11 min en tener WiFi daba «77 veces».
+    # Tampoco cuentan las caídas del mismo minuto en 3 o más equipos: eso es un reinicio del servidor, no un problema del equipo.
     cur.execute("""
+        WITH caidas AS (
+            SELECT equipo, usuario, detalle, date_trunc('minute', COALESCE(ocurrido, recibido)) AS minuto
+            FROM app_telemetria
+            WHERE recibido > NOW() - INTERVAL '60 minutes' AND evento = 'socket_chat_perdido' AND equipo <> ''
+        ), generales AS (
+            SELECT minuto FROM caidas GROUP BY minuto HAVING count(DISTINCT equipo) >= 3
+        )
         SELECT equipo, max(usuario) AS usuario, count(*) AS veces, max(left(detalle, 90)) AS motivo
-        FROM app_telemetria
-        WHERE recibido > NOW() - INTERVAL '60 minutes'
-          AND evento IN ('socket_chat_perdido', 'socket_chat_error')
+        FROM caidas WHERE minuto NOT IN (SELECT minuto FROM generales)
         GROUP BY equipo HAVING count(*) >= 3
     """)
     enviados = 0

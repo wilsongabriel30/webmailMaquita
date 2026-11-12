@@ -22,6 +22,7 @@ import { InstallPrompt } from "../common/InstallPrompt";
 import { ReminderPopup } from "../common/ReminderPopup";
 import { AvisoCookies } from "../common/AvisoCookies";
 import { esModoApp } from "../../lib/modoApp"
+import { esClienteEscritorio } from "../../lib/clienteEscritorio"
 import { useDeepLinkCorreo } from "../../lib/deepLinkCorreo";
 import { PanelAsistente } from "../asistente-lateral";
 
@@ -118,7 +119,7 @@ export function AppLayout() {
       {/* Bienvenida tras una migración de correo (solo si el servidor dice que corresponde) */}
       <BienvenidaServidorNuevo />
       <Topbar />
-      {!esModoApp() && <ChatFlotante />}
+      {!esModoApp() && !esClienteEscritorio() && <ChatFlotante />}
       <div className="flex-1 flex overflow-hidden">
         {/* Desktop: show NavRail always, Sidebar only for mail */}
         {!isMobile && <nav role="navigation" aria-label="Navegación principal"><NavRail /></nav>}

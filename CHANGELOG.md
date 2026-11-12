@@ -7,6 +7,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Burbuja del chat con el tema nuevo**: en la burbuja del correo y de la nube, y en teléfonos, la lista de
+  conversaciones quedaba en 352 px y el alto reservaba una barra que ahí no existe; se veía cortada. Ahora ocupa
+  todo el recuadro. En «Llamadas», la hora ya no se sale de la fila.
+- **Burbuja del chat dentro de la app de escritorio**: ya no se pinta, porque la app tiene su propio botón Chat
+  (requiere la marca de nginx de `deploy/webmail/nginx/cliente-escritorio.conf`; sin ella nada cambia).
+- **Alerta «el socket del chat se cae»**: cuenta solo las caídas, no los reintentos mientras sigue caído, y descarta
+  las que ocurren en el mismo minuto en tres o más equipos (reinicio del servidor). Antes daba falsas alarmas.
+
 ## [1.21.0] - 2026-11-12
 
 Avisos de «correo no entregado» explicados en español para quien no es técnico, asuntos sin marcas de SPAM puestas
