@@ -14,6 +14,7 @@ from app.tasks import (
     acceso,
     adjuntos,
     correo_marcado,
+    pasos_asignada,
     repeticion,
     seguimiento_en_lista,
     tiempo_real,
@@ -546,18 +547,9 @@ StepUpdate.model_rebuild()
 StepOut.model_rebuild()
 
 
-async def _verify_card_access(db, card_id, user: str):
-    """La persona ve la lista de la tarea (propia o compartida)."""
-    if not await acceso.puede_ver_tarea(db, card_id, user):
-        raise HTTPException(403, "No tiene acceso a esta tarea")
-
-
 async def _verify_step_access(db, step_id, user: str):
-    """Antes no se comprobaba: con el id de un paso se podía editar o borrar el de otra persona."""
-    card_id = await db.fetchval("SELECT card_id FROM task_steps WHERE id = $1", step_id)
-    if card_id is None:
-        raise HTTPException(404, "Paso no encontrado")
-    await _verify_card_access(db, card_id, user)
+    """Editar o borrar un paso: quien tiene la tarea en sus listas o quien la asignó (ver pasos_asignada)."""
+    await pasos_asignada.exigir_paso(db, step_id, user, "editar")
 
 
 _steps_table_ready = False
@@ -595,7 +587,7 @@ async def list_steps(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
-    await _verify_card_access(db, card_id, user)
+    await pasos_asignada.exigir(db, card_id, user, "ver")
     rows = await db.fetch(
         "SELECT * FROM task_steps WHERE card_id = $1 ORDER BY position, created_at",
         card_id,
@@ -612,7 +604,7 @@ async def create_step(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
-    await _verify_card_access(db, card_id, user)
+    await pasos_asignada.exigir(db, card_id, user, "crear")
     max_pos = await db.fetchval(
         "SELECT COALESCE(MAX(position), -1) FROM task_steps WHERE card_id = $1", card_id
     )
@@ -621,6 +613,9 @@ async def create_step(
         card_id,
         data.title.strip(),
         (max_pos or 0) + 1,
+    )
+    await pasos_asignada.avisar_subtareas(
+        db, getattr(request.app.state, "redis", None), card_id, user
     )
     return StepOut(**dict(row))
 
@@ -634,7 +629,10 @@ async def update_step(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
-    await _verify_step_access(db, step_id, user)
+    solo_marca = data.title is None and data.position is None
+    await pasos_asignada.exigir_paso(
+        db, step_id, user, "marcar" if solo_marca else "editar"
+    )
     sets, vals, idx = [], [], 1
     if data.title is not None:
         sets.append(f"title = ${idx}")
@@ -665,7 +663,7 @@ async def delete_step(
 ):
     db = _db(request)
     await _ensure_steps_table(db)
-    await _verify_step_access(db, step_id, user)
+    await pasos_asignada.exigir_paso(db, step_id, user, "borrar")
     result = await db.execute("DELETE FROM task_steps WHERE id = $1", step_id)
     if result == "DELETE 0":
         raise HTTPException(404, "Paso no encontrado")
