@@ -117,3 +117,9 @@ html.mq-fluent .llam-buscar input#llamBuscar:focus { background: var(--fl-fondo-
 .llam-grabacion .llam-foto { font-size: 12px; }
 /* dentro del panel flotante del correo no hay barra de Raíces que esquivar */
 html.chat-embed .main-content { padding: 0 !important; margin: 0 !important; }
+
+/* 12/11/2026 · recuadro angosto (burbuja del correo, teléfonos): la hora («Ayer 02:40 p. m.») no cabía en 64 px
+   y la fila se salía por la derecha. La columna de la hora toma lo que necesita y el nombre se acorta. */
+@media (max-width: 480px) {
+    .llam-fila { grid-template-columns: 32px minmax(0, 1fr) auto max-content; }
+}
