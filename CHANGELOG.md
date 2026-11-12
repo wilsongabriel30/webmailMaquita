@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Contactos**: el «+» junto al remitente ya no se queda en un visto mudo cuando la dirección existía. Si el contacto
+  estaba sin nombre (importado del historial) le pone el del correo; si tenía otro nombre, pregunta antes de cambiarlo;
+  y dice en una frase qué hizo. El nombre nuevo se refleja también en el autocompletado de destinatarios.
 - **Tareas asignadas**: quien recibe una tarea ya ve sus subtareas y puede marcarlas como hechas (el servidor se las
   negaba porque la tarea no está en sus listas). Al añadir subtareas a una tarea asignada se avisa a las demás
   personas de la tarea, una vez por tanda.
