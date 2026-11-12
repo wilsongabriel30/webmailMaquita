@@ -9,6 +9,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Tareas asignadas**: quien recibe una tarea ya ve sus subtareas y puede marcarlas como hechas (el servidor se las
+  negaba porque la tarea no está en sus listas). Al añadir subtareas a una tarea asignada se avisa a las demás
+  personas de la tarea, una vez por tanda.
 - **Panel de carpetas**: la barra para ensanchar el panel ya no tapa la barra de desplazamiento de las carpetas; cada
   una tiene su propia franja y se puede arrastrar la de desplazamiento con el ratón.
 
