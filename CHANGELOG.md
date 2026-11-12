@@ -20,6 +20,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   «***SPAM***», «[SPAM]»…), que volvían en cada respuesta y hacían creer que nuestro servidor consideraba spam la
   conversación. También los «�» que traen algunos boletines con emojis dañados.
 
+### Corregido
+
+- **Firma electrónica de PDF**: el sello visible (QR y «Firmado electrónicamente por…») se dibuja con trazos y texto
+  reales en lugar de una imagen. Antes el visor reducía esa imagen y el sello salía gris y borroso junto a los de
+  FirmaEC; ahora se ve negro y definido a cualquier tamaño y al imprimir. Si no se pudiera generar, se usa el anterior.
+
 ## [1.20.0] - 2026-11-12
 
 Búsqueda más útil para quien no es técnico: buscar por una persona trae también lo que ella escribió y otro reenvió, y
