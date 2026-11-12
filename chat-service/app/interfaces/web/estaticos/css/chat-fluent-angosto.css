@@ -1,0 +1,21 @@
+/* ============================================================================
+ * Tema nuevo en pantallas angostas: burbuja del chat en el correo y en la nube
+ * (/chat/?embed=1, recuadro de unos 440 px) y teléfonos.
+ * chat-fluent-lista.css fija la lista en 352 px para el escritorio; en angosto
+ * hay una sola columna y debe ocupar todo el ancho, sin franja blanca.
+ * ========================================================================== */
+@media (max-width: 768px) {
+    html.mq-fluent .chat-sidebar {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-width: none !important;
+        border-right: 0 !important;
+    }
+    html.mq-fluent .chat-container.mobile-chat-open .chat-main { width: 100% !important; }
+}
+
+/* Incrustado no hay barra superior de Raíces: el chat usa todo el alto del recuadro. */
+html.chat-embed .chat-container {
+    height: 100vh !important;
+    min-height: 0 !important;
+}
