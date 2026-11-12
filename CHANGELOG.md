@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.18.0] - 2026-11-12
+
+Seguridad: cuentas «solo webmail» (cierra IMAP, POP3 y SMTP por cuenta) y sección «Alertas de seguridad» en el panel,
+con aviso al entrar. Correcciones en tareas asignadas (subtareas visibles para quien recibe la tarea), contactos y panel
+de carpetas. Para instalaciones existentes: aplicar `migrations/2026-11-12-cuentas-solo-webmail.sql` y el ajuste 81
+(`deploy/ajustes/81-dovecot-cuentas-solo-webmail.sh`), y compilar de nuevo el panel de administración.
+
 ### Corregido
 
 - **Contactos**: el «+» junto al remitente ya no se queda en un visto mudo cuando la dirección existía. Si el contacto
