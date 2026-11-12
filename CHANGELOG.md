@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.19.0] - 2026-11-12
+
+La recuperación de correos y las reacciones entre servidores funcionan entre instalaciones de países distintos: el filtro
+por país del puerto 443 pasa del cortafuegos a nginx, que cierra el webmail por país y deja abiertas las rutas entre
+servidores y el enlace seguro. Las instalaciones existentes lo reciben con el ajuste 82 (automático al actualizar).
+
 ### Cambiado
 
 - **Filtro por país del puerto 443: de nftables a nginx.** El webmail sigue cerrado fuera de los países permitidos,
