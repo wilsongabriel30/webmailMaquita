@@ -7,6 +7,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Filtro por país del puerto 443: de nftables a nginx.** El webmail sigue cerrado fuera de los países permitidos,
+  pero quedan abiertas a todo el mundo las rutas entre servidores (`/api/federacion/`: recuperación y reacciones), el
+  enlace seguro (`/api/safelink`) y `/.well-known/`. Sin esto, dos instalaciones en países distintos no podían
+  recuperar correos ni intercambiar reacciones si alguna filtraba por país. La lista de nginx sale de los mismos
+  conjuntos del cortafuegos (`geo-nginx-rebuild.sh`); IMAP y envío siguen filtrados en el cortafuegos. Instalaciones
+  existentes: ajuste 82 (respalda, valida nginx y solo entonces retira la regla del 443). De paso queda filtrado HTTP/3.
+
 ## [1.18.1] - 2026-11-12
 
 Enlace seguro: los enlaces que salen de la instalación (al enviar, responder, reenviar o copiar desde el lector) llevan
