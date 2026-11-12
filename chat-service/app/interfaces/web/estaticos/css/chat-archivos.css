@@ -1,0 +1,136 @@
+/* ============================================================================
+ * T-101 · Lista de archivos del chat (pestañas «Archivos» y «Fotos» de una
+ * conversación y sección «Archivos»). Usa los tokens del tema nuevo y, si no
+ * está activo, los mismos valores del tema claro como respaldo: se ve bien
+ * con la ventana de siempre y con la nueva.
+ * ========================================================================== */
+
+/* en la conversación: el panel ocupa el sitio del hilo y de la caja de escribir */
+#chatActiveArea.mq-viendo-archivos > #chatMessages,
+#chatActiveArea.mq-viendo-archivos > #typingIndicator,
+#chatActiveArea.mq-viendo-archivos > .chat-input-area,
+#chatActiveArea.mq-viendo-archivos .mq-ir-final { display: none !important; }
+#mqArchivosPanel { flex: 1 1 auto; min-height: 0; overflow-y: auto; padding: 12px 20px 16px; background: var(--fl-lienzo, #ffffff); }
+#mqArchivosPanel[hidden] { display: none; }
+
+.mq-arch { font: 400 14px/20px var(--fl-fuente, "Segoe UI", system-ui, sans-serif); color: var(--fl-texto-1, #242424); }
+.mq-arch-barra { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+.mq-arch-buscar { position: relative; flex: 0 1 320px; }
+.mq-arch-buscar i { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); font-size: 12px; color: var(--fl-texto-3, #616161); }
+.mq-arch .mq-arch-buscar input {
+    width: 100%; height: 32px; padding: 0 12px 0 30px;
+    font: inherit; color: var(--fl-texto-1, #242424) !important;
+    background: var(--fl-fondo-1, #ffffff) !important;
+    border: 1px solid var(--fl-trazo-2, #e0e0e0); border-bottom-color: var(--fl-trazo-accesible, #616161);
+    border-radius: var(--fl-radio-medio, 4px); outline: 0; box-shadow: none;
+}
+.mq-arch .mq-arch-buscar input::placeholder { color: var(--fl-texto-4, #707070); }
+.mq-arch .mq-arch-buscar input:focus { border-bottom-color: var(--fl-marca-trazo, #0060A0); box-shadow: inset 0 -1px 0 var(--fl-marca-trazo, #0060A0); }
+.mq-arch-cuenta { margin-left: auto; font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); white-space: nowrap; }
+
+/* ---- tabla de documentos ---- */
+.mq-arch-fila {
+    display: grid; grid-template-columns: 32px minmax(0, 1fr) 52px 72px 84px auto; align-items: center; column-gap: 12px;
+    min-height: 48px; padding: 6px 8px;
+    border-bottom: 1px solid var(--fl-trazo-3, #f0f0f0); border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-arch-fila:hover, .mq-arch-fila:focus-within { background: var(--fl-sutil-encima, #f5f5f5); }
+.mq-arch-icono {
+    width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--fl-marca-texto, #0060A0);
+    background: var(--fl-marca-fondo-suave, #EBF4FB); border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-arch-quien { min-width: 0; }
+.mq-arch-nombre { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--fl-texto-1, #242424); text-decoration: none; }
+.mq-arch-nombre:hover { color: var(--fl-marca-enlace, #00558E); text-decoration: underline; }
+.mq-arch-detalle { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); }
+.mq-arch-tipo, .mq-arch-peso, .mq-arch-fecha { font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); white-space: nowrap; }
+.mq-arch-peso, .mq-arch-fecha { text-align: right; }
+.mq-arch-acciones { display: flex; align-items: center; gap: 2px; }
+.mq-arch-boton {
+    width: 32px; height: 32px; padding: 0; cursor: pointer;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--fl-texto-2, #424242); text-decoration: none;
+    background: transparent; border: 0; border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-arch-boton:hover { background: var(--fl-sutil-pulsado, #e0e0e0); color: var(--fl-marca-texto, #0060A0); }
+.mq-arch-drive { width: 24px; text-align: center; font-size: 12px; color: var(--fl-texto-4, #707070); cursor: help; }
+
+/* ---- rejilla de fotos ---- */
+.mq-arch-rejilla { display: grid; grid-template-columns: repeat(auto-fill, minmax(128px, 1fr)); gap: 8px; }
+.mq-arch-foto {
+    display: block; aspect-ratio: 1 / 1; overflow: hidden;
+    background: var(--fl-fondo-3, #f5f5f5); border: 1px solid var(--fl-trazo-3, #f0f0f0); border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-arch-foto img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.mq-arch-foto:hover { border-color: var(--fl-marca-trazo, #0060A0); }
+.mq-arch-video { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: var(--fl-texto-3, #616161); }
+
+.mq-arch-vacio { grid-column: 1 / -1; padding: 24px 8px; text-align: center; color: var(--fl-texto-3, #616161); }
+.mq-arch-pie { padding: 12px 0 0; text-align: center; }
+.mq-arch-mas {
+    padding: 5px 12px; cursor: pointer;
+    font: 600 14px/20px var(--fl-fuente, "Segoe UI", system-ui, sans-serif); color: var(--fl-texto-1, #242424);
+    background: var(--fl-fondo-1, #ffffff); border: 1px solid var(--fl-trazo-1, #d1d1d1); border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-arch-mas:hover { background: var(--fl-sutil-encima, #f5f5f5); }
+.mq-arch-mas[hidden] { display: none; }
+
+/* ---- sección «Archivos» (página propia) ---- */
+.arch-pagina { max-width: 1120px; margin: 0 auto; padding: 16px 24px 24px; font-family: var(--fl-fuente, "Segoe UI", system-ui, sans-serif); color: var(--fl-texto-1, #242424); }
+.arch-titulo { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; font: var(--fl-subtitulo-1, 600 20px/28px "Segoe UI", system-ui, sans-serif); }
+.arch-volver {
+    width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; color: var(--fl-texto-2, #424242); text-decoration: none; border-radius: var(--fl-radio-medio, 4px);
+}
+.arch-volver:hover { background: var(--fl-sutil-encima, #f5f5f5); color: var(--fl-marca-texto, #0060A0); }
+.arch-filtros { display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 12px; }
+.arch-filtro {
+    padding: 3px 10px; cursor: pointer;
+    font: 400 12px/16px var(--fl-fuente, "Segoe UI", system-ui, sans-serif); color: var(--fl-texto-2, #424242);
+    background: var(--fl-fondo-4, #f0f0f0); border: 1px solid transparent; border-radius: 10000px;
+}
+.arch-filtro:hover { background: var(--fl-sutil-pulsado, #e0e0e0); }
+.arch-filtro[aria-pressed="true"] { font-weight: 600; color: var(--fl-marca-texto, #0060A0); background: var(--fl-marca-fondo-suave, #EBF4FB); border-color: var(--fl-marca-trazo-suave, #BCDDF1); }
+.arch-nota { margin: 12px 0 0; font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); }
+
+@media (max-width: 760px) {
+    #mqArchivosPanel { padding: 8px 12px 12px; }
+    .arch-pagina { padding: 12px; }
+    .mq-arch-fila { grid-template-columns: 32px minmax(0, 1fr) 64px auto; }
+    .mq-arch-tipo, .mq-arch-peso { display: none; }
+    .mq-arch-rejilla { grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); }
+    .mq-arch-cuenta { display: none; }
+}
+
+/* ---- aviso «ya hay un archivo con ese nombre» ---- */
+.mq-mn-fondo { position: fixed; inset: 0; z-index: 100340; display: flex; align-items: center; justify-content: center; padding: 16px; background: rgba(0, 0, 0, .4); }
+.mq-mn-caja {
+    width: min(92vw, 520px); max-height: 92vh; overflow-y: auto; padding: 24px;
+    font: 400 14px/20px var(--fl-fuente, "Segoe UI", system-ui, sans-serif); color: var(--fl-texto-1, #242424);
+    background: var(--fl-fondo-1, #ffffff); border: 1px solid var(--fl-trazo-3, #f0f0f0);
+    border-radius: var(--fl-radio-xgrande, 8px); box-shadow: var(--fl-sombra-16, 0 0 2px rgba(0,0,0,.12), 0 8px 16px rgba(0,0,0,.14));
+}
+.mq-mn-titulo { margin: 0 0 8px; font: var(--fl-subtitulo-1, 600 20px/28px "Segoe UI", system-ui, sans-serif); }
+.mq-mn-texto { margin: 0 0 12px; overflow-wrap: anywhere; }
+.mq-mn-comparar { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 16px; }
+.mq-mn-comparar > div { padding: 8px 12px; background: var(--fl-fondo-3, #f5f5f5); border-radius: var(--fl-radio-medio, 4px); }
+.mq-mn-comparar span, .mq-mn-comparar small { display: block; font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); }
+.mq-mn-comparar b { display: block; font-weight: 600; }
+.mq-mn-opciones { display: flex; flex-direction: column; gap: 8px; }
+.mq-mn-boton {
+    display: block; width: 100%; padding: 8px 12px; cursor: pointer; text-align: left;
+    font: inherit; color: var(--fl-texto-1, #242424);
+    background: var(--fl-fondo-1, #ffffff); border: 1px solid var(--fl-trazo-1, #d1d1d1); border-radius: var(--fl-radio-medio, 4px);
+}
+.mq-mn-boton b { display: block; font-weight: 600; }
+.mq-mn-boton small { display: block; font-size: 12px; line-height: 16px; color: var(--fl-texto-3, #616161); }
+.mq-mn-boton:hover { background: var(--fl-sutil-encima, #f5f5f5); }
+.mq-mn-boton:focus-visible, .mq-mn-cancelar:focus-visible { outline: 2px solid var(--fl-marca-trazo, #0060A0); outline-offset: 2px; }
+.mq-mn-principal { color: var(--fl-texto-sobre-marca, #ffffff); background: var(--fl-marca-fondo, #0060A0); border-color: transparent; }
+.mq-mn-principal small { color: inherit; opacity: .9; }
+.mq-mn-principal:hover { background: var(--fl-marca-fondo-encima, #00558E); }
+.mq-mn-pie { margin-top: 12px; text-align: right; }
+.mq-mn-cancelar { padding: 5px 12px; cursor: pointer; font: 600 14px/20px inherit; font-family: inherit; color: var(--fl-texto-1, #242424); background: transparent; border: 0; border-radius: var(--fl-radio-medio, 4px); }
+.mq-mn-cancelar:hover { background: var(--fl-sutil-encima, #f5f5f5); }
+@media (max-width: 480px) { .mq-mn-comparar { grid-template-columns: 1fr; } .mq-mn-caja { padding: 16px; } }

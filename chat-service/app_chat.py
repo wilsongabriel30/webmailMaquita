@@ -344,8 +344,10 @@ def crear_app():
     def _direcciones_de_la_organizacion():
         # Las plantillas no llevan direcciones escritas: las reciben de la configuración.
         import organizacion
+        # CHAT_TEMA_PREVIA_USUARIOS: ids (separados por comas) de quienes ven el tema nuevo antes que el resto.
+        previa = [x.strip() for x in os.getenv('CHAT_TEMA_PREVIA_USUARIOS', '').split(',') if x.strip()]
         return {'url_reuniones': organizacion.url_reuniones(), 'url_correo': organizacion.url_correo(),
-                'url_intranet': organizacion.url_intranet()}
+                'url_intranet': organizacion.url_intranet(), 'tema_previa_usuarios': previa}
 
     @app.context_processor
     def _inyectar_usuario():
@@ -525,6 +527,12 @@ def crear_app():
         from interfaces.api.drive_eventos_api import bp_drive_eventos, asegurar_tabla as _tabla_drive
         _tabla_drive()
         app.register_blueprint(bp_drive_eventos)
+        # T-101: página de la sección «Archivos» (/chat/archivos). Con su propio try: si fallara, el chat sigue montado.
+        try:
+            from interfaces.api.chat_archivos_lista import bp_archivos_pagina
+            app.register_blueprint(bp_archivos_pagina)
+        except Exception as e_arch:
+            print(f"[chat] la sección Archivos no se montó: {e_arch}", file=sys.stderr)
     except Exception as e:
         app.config["CHAT_MONTADO"] = False
         app.config["CHAT_ERROR"] = str(e)

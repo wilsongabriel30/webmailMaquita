@@ -25,6 +25,38 @@ def _destino_permitido(usuario_id, target_user_id, chat_id, evento):
     return ok
 
 
+# ---- Un solo timbre por persona (05/11/2026) ----
+# La misma persona puede tener abiertos el chat web, Raíces y Teams Maquita: la llamada suena
+# en todos. Al contestar en uno, los demás deben callarse, y sus rechazos automáticos
+# (ocupado, 30 s sin respuesta) no deben cortar la llamada ya contestada.
+# Un solo proceso atiende el chat, así que basta con memoria.
+_SONANDO = {}      # (destino, llamante) -> instante de la invitación
+_CERRADA = {}      # (destino, llamante) -> (instante, 'contestada'|'rechazada')
+_RECHAZO_AUTOMATICO_S = 1.5   # nadie rechaza a mano tan rápido: es un «ocupado» automático
+_VIGENCIA_S = 90
+
+
+def _clave(destino, llamante):
+    return (str(destino), str(llamante))
+
+
+def _limpiar_viejas():
+    ahora = time.time()
+    for d in (_SONANDO, _CERRADA):
+        for k in [k for k, v in d.items() if ahora - (v[0] if isinstance(v, tuple) else v) > _VIGENCIA_S]:
+            d.pop(k, None)
+
+
+def _callar_otras_sesiones(socketio, usuario_id, llamante_id, motivo):
+    """Cierra el aviso de llamada entrante en las demás sesiones de la persona."""
+    try:
+        socketio.emit('call_cancelled', {'from': llamante_id, 'caller_id': llamante_id, 'motivo': motivo,
+                                         'llamada_id': f"llamada_{min(int(usuario_id), int(llamante_id))}_{max(int(usuario_id), int(llamante_id))}"},
+                      room=f"user_{usuario_id}", skip_sid=request.sid)
+    except Exception as exc:
+        logger.warning("[WebRTC] no se pudo callar las otras sesiones de %s: %s", usuario_id, exc)
+
+
 def registrar(socketio):
     # =========================================================================
     # LLAMADAS WebRTC P2P (senalizacion)
@@ -47,6 +79,9 @@ def registrar(socketio):
             emit('call_error', {'motivo': 'destino_no_permitido'})
             return
         print(f"[WebRTC] Emitiendo call_incoming de {usuario_id} a user_{target_user_id}")
+        _limpiar_viejas()
+        _SONANDO[_clave(target_user_id, usuario_id)] = time.time()
+        _CERRADA.pop(_clave(target_user_id, usuario_id), None)
         try:
             from interfaces.websocket.notificaciones_globales import avatar_usuario, emitir, URL_BASE
             _avatar = avatar_usuario(usuario_id)
@@ -67,7 +102,12 @@ def registrar(socketio):
                 emitir([int(target_user_id)], 'llamada', _nombre,
                        ('Videollamada' if _tipo == 'video' else 'Llamada de voz') + ' entrante · toca para contestar',
                        f"{URL_BASE}/chat/llamada?role=callee&tipo={_tipo}&peer_id={usuario_id}&peer_name={_nombre}&conv={data.get('chat_id') or ''}",
-                       {'origen': 'llamadas', 'avatar': _avatar, 'llamada': {'tipo': _tipo, 'peer_id': usuario_id, 'peer_name': _nombre, 'conversacion_id': data.get('chat_id')}})
+                       {'origen': 'llamadas', 'avatar': _avatar,
+                        # T-101: la app ofrece «contestar con vídeo», «con voz» o «rechazar»
+                        'url_video': f"{URL_BASE}/chat/llamada?role=callee&tipo={_tipo}&responder=video&peer_id={usuario_id}&peer_name={_nombre}&conv={data.get('chat_id') or ''}",
+                        'url_voz': f"{URL_BASE}/chat/llamada?role=callee&tipo={_tipo}&responder=voz&peer_id={usuario_id}&peer_name={_nombre}&conv={data.get('chat_id') or ''}",
+                        'llamada_id': f"llamada_{min(int(usuario_id), int(target_user_id))}_{max(int(usuario_id), int(target_user_id))}",
+                        'llamada': {'tipo': _tipo, 'peer_id': usuario_id, 'peer_name': _nombre, 'conversacion_id': data.get('chat_id')}})
         except Exception as _e:
             print(f"[notificaciones] llamada: {_e}")
         logger.info(f"[WebRTC] call_invite de {usuario_id} a {target_user_id}")
@@ -85,6 +125,9 @@ def registrar(socketio):
         if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
         print(f"[WebRTC] Emitiendo call_accepted a user_{target_user_id}")
+        _SONANDO.pop(_clave(usuario_id, target_user_id), None)
+        _CERRADA[_clave(usuario_id, target_user_id)] = (time.time(), 'contestada')
+        _callar_otras_sesiones(socketio, usuario_id, target_user_id, 'contestada_en_otro_dispositivo')
         socketio.emit('call_accepted', {
             'accepted_by': usuario_id
         }, room=f"user_{target_user_id}")
@@ -151,6 +194,7 @@ def registrar(socketio):
             return
         if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
+        _SONANDO.pop(_clave(target_user_id, usuario_id), None)
         socketio.emit('call_hangup', {
             'from': usuario_id
         }, room=f"user_{target_user_id}")
@@ -167,6 +211,21 @@ def registrar(socketio):
             return
         if not _destino_permitido(usuario_id, target_user_id, data.get('chat_id'), 'senalizacion'):
             return
+        clave = _clave(usuario_id, target_user_id)
+        cerrada = _CERRADA.get(clave)
+        if cerrada and time.time() - cerrada[0] < _VIGENCIA_S:
+            # Ya contestó (o ya rechazó) en otro dispositivo: este rechazo es el de una sesión
+            # que seguía sonando. No se reenvía: cortaría la llamada contestada.
+            logger.info("[WebRTC] call_reject ignorado de %s a %s: ya %s", usuario_id, target_user_id, cerrada[1])
+            return
+        inicio = _SONANDO.get(clave)
+        if inicio and time.time() - inicio < _RECHAZO_AUTOMATICO_S:
+            # Rechazo inmediato = una sesión «ocupada» lo hizo sola; las demás siguen sonando.
+            logger.info("[WebRTC] call_reject automático ignorado de %s a %s", usuario_id, target_user_id)
+            return
+        _SONANDO.pop(clave, None)
+        _CERRADA[clave] = (time.time(), 'rechazada')
+        _callar_otras_sesiones(socketio, usuario_id, target_user_id, 'rechazada_en_otro_dispositivo')
         socketio.emit('call_rejected', {
             'rejected_by': usuario_id
         }, room=f"user_{target_user_id}")

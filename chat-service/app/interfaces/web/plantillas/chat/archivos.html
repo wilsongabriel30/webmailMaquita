@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{# T-101 (11/11/2026) · Sección «Archivos»: todo lo enviado y recibido por el chat, en una lista.
+   Estilos en css/chat-fluent-tokens.css y css/chat-archivos.css; lógica en js/chat-archivos-nucleo.js y js/chat-archivos-seccion.js. #}
+{% block title %}Archivos{% endblock %}
+{% block extra_css %}
+<script>
+(function () {
+  var raiz = document.documentElement, tema = null;
+  try { tema = localStorage.getItem('mq_chat_tema'); } catch (e) {}
+  raiz.classList.add('mq-fluent');
+  if (new URLSearchParams(location.search).get('embed') === '1') raiz.classList.add('chat-embed');
+  if (tema === 'fluent-oscuro' || (tema === 'fluent-auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) raiz.classList.add('mq-fluent-oscuro');
+})();
+</script>
+<link rel="stylesheet" href="/static/css/chat-fluent-tokens.css?v=20261111-t101u">
+<link rel="stylesheet" href="/static/css/chat-archivos.css?v=20261111-t101v">
+<link rel="stylesheet" href="/static/css/chat-fluent-iconos.css?v=20261111-t101u">
+<style>
+  html.mq-fluent body, html.mq-fluent .main-content { background: var(--fl-fondo-2) !important; }
+  html.chat-embed .main-content { padding: 0 !important; margin: 0 !important; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="arch-pagina">
+  <h1 class="arch-titulo"><a class="arch-volver" id="archVolver" href="/chat/" title="Volver al chat" aria-label="Volver al chat"><i class="fas fa-arrow-left" aria-hidden="true"></i></a>Archivos</h1>
+  <div class="arch-filtros" role="group" aria-label="Qué mostrar">
+    <button class="arch-filtro" data-clase="archivos" aria-pressed="true">Documentos</button>
+    <button class="arch-filtro" data-clase="fotos" aria-pressed="false">Fotos y vídeos</button>
+    <button class="arch-filtro" data-clase="todos" aria-pressed="false">Todo</button>
+  </div>
+  <div id="archLista"></div>
+  <p class="arch-nota">Cada archivo del chat queda también en tu Drive, en «Archivos del chat», dentro de la carpeta de cada conversación.</p>
+</div>
+{% endblock %}
+{% block extra_js %}
+<script src="/static/js/chat-archivos-nucleo.js?v=20261111-t101u"></script>
+<script src="/static/js/chat-archivos-seccion.js?v=20261111-t101u"></script>
+{% endblock %}

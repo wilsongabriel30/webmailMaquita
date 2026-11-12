@@ -75,7 +75,13 @@ class ConversacionDTO:
             avatar_ruta=conv.avatar_ruta,
             ultimo_mensaje_en=conv.ultimo_mensaje_en.isoformat() if conv.ultimo_mensaje_en else None,
             ultimo_mensaje_preview=conv.ultimo_mensaje_preview,
-            mensajes_no_leidos=no_leidos
+            mensajes_no_leidos=no_leidos,
+            # 05/11/2026: el detalle (GET /conversations/<id>) los perdía y la llamada grupal
+            # creía que el grupo no tenía a nadie más. La lista los vuelve a fijar después.
+            participantes=[
+                {"usuario_id": p.usuario_id, "rol": getattr(p.rol, "value", p.rol)}
+                for p in (getattr(conv, "participantes", None) or [])
+            ]
         )
 
 

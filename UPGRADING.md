@@ -339,6 +339,7 @@ ejemplo: **defínelas antes de actualizar**.
 | `FARO_PUBLIC_URL` | intranet: perfiles, fotos, archivos |
 | `JITSI_URL`, `JITSI_DOMAIN` | servidor de reuniones |
 | `CHAT_CORS_ORIGENES` | todos los sitios que embeben el chat, separados por comas |
+| `CHAT_TEMA_PREVIA_USUARIOS` | ids de usuario, separados por comas, que ven el tema nuevo del chat antes que el resto (vacío: nadie; cualquiera puede probarlo con `/chat/?tema=fluent`) |
 | `CORREO_API_URL` | API del correo (calendario y tareas) |
 | `DOMINIOS_EQUIVALENTES` | dominios en los que la misma parte local es la misma persona |
 | `NOMINA_DB_HOST` | base de datos del directorio |

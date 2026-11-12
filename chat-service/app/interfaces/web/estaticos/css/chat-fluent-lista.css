@@ -1,0 +1,261 @@
+/* ============================================================================
+ * T-101 · Lista de conversaciones (panel izquierdo) con Fluent 2.
+ * Solo estilo y solo con tokens de chat-fluent-tokens.css. Todo cuelga de
+ * html.mq-fluent: sin esa clase, el chat se ve como antes.
+ * ========================================================================== */
+
+/* ---- marco general: menos caja, sin sombra ni esquinas grandes ---- */
+html.mq-fluent .chat-container {
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1);
+    background: var(--fl-lienzo);
+    border-radius: 0;
+    box-shadow: none;
+}
+html.mq-fluent .chat-container button,
+html.mq-fluent .chat-container input,
+html.mq-fluent .chat-container textarea { font-family: var(--fl-fuente); }
+html.mq-fluent body,
+html.mq-fluent .main-content { background: var(--fl-lienzo) !important; }
+
+/* ---- panel ---- */
+html.mq-fluent .chat-sidebar {
+    width: 352px !important;
+    background: var(--fl-panel);
+    border-right: 1px solid var(--fl-trazo-3);
+}
+
+/* cabecera del panel: neutra, sin franja de color */
+html.mq-fluent .chat-sidebar-header {
+    padding: var(--fl-esp-12) var(--fl-esp-16) var(--fl-esp-8) !important;
+    background: transparent !important;
+    color: var(--fl-texto-1) !important;
+    border-bottom: 0;
+}
+html.mq-fluent .chat-sidebar-header h5 { font: var(--fl-subtitulo-1) !important; color: var(--fl-texto-1) !important; margin: 0; }
+html.mq-fluent .chat-sidebar-header h5 i { display: none; }
+html.mq-fluent .chat-sidebar-header .btn {
+    width: 32px; height: 32px; padding: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    border: 0; border-radius: var(--fl-radio-medio);
+    background: transparent; color: var(--fl-texto-2);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-sidebar-header .btn:hover { background: var(--fl-sutil-encima); color: var(--fl-marca-texto); }
+html.mq-fluent .chat-sidebar-header .btn:active { background: var(--fl-sutil-pulsado); }
+
+/* ---- buscador ---- */
+html.mq-fluent .chat-search {
+    padding: var(--fl-esp-4) var(--fl-esp-16) var(--fl-esp-8) !important;
+    background: transparent !important;
+    border-bottom: 0;
+}
+html.mq-fluent .chat-search input {
+    height: 32px;
+    padding: 0 var(--fl-esp-12) 0 32px;
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1) !important;
+    background: var(--fl-fondo-1) !important;
+    border: 1px solid var(--fl-trazo-2);
+    border-bottom-color: var(--fl-trazo-accesible);
+    border-radius: var(--fl-radio-medio);
+    outline: 0;
+    transition: border-color var(--fl-rapido) var(--fl-curva), box-shadow var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-search input::placeholder { color: var(--fl-texto-4); }
+html.mq-fluent .chat-search input:focus {
+    border-bottom-color: var(--fl-marca-trazo);
+    box-shadow: inset 0 -1px 0 var(--fl-marca-trazo);
+}
+html.mq-fluent .chat-search .search-icon { left: 26px; font-size: 12px; color: var(--fl-texto-3); }
+
+/* ---- pestañas: texto con subrayado corto de acento ---- */
+html.mq-fluent .chat-tabs {
+    gap: 0;
+    padding: 0 var(--fl-esp-8);
+    overflow-x: auto; scrollbar-width: none;
+    border-bottom: 1px solid var(--fl-trazo-3);
+}
+html.mq-fluent .chat-tab {
+    flex: 0 1 auto;
+    position: relative;
+    padding: var(--fl-esp-8) var(--fl-esp-8) 10px;
+    font: var(--fl-leyenda-1);
+    white-space: nowrap;
+    color: var(--fl-texto-2);
+    border-bottom: 0;
+    transition: color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-tab i { display: none; }
+html.mq-fluent .chat-tab:hover:not(.active) { background: transparent; color: var(--fl-texto-1); }
+html.mq-fluent .chat-tab.active { color: var(--fl-texto-1); font-weight: 600; border-bottom: 0; }
+html.mq-fluent .chat-tab.active::after {
+    content: '';
+    position: absolute; left: var(--fl-esp-8); right: var(--fl-esp-8); bottom: 0;
+    height: 3px; border-radius: var(--fl-radio-circular);
+    background: var(--fl-marca-trazo);
+}
+html.mq-fluent .chat-tabs .mq-filtro {
+    padding: var(--fl-esp-8) var(--fl-esp-8) 10px;
+    font: var(--fl-leyenda-1); white-space: nowrap;
+    border: 0; border-radius: 0;
+    background: transparent; color: var(--fl-texto-2);
+}
+html.mq-fluent .chat-tabs .mq-filtro.active { background: transparent; color: var(--fl-texto-1); font-weight: 600; }
+
+/* ---- títulos de sección (Favoritos, Chats) ---- */
+html.mq-fluent .mq-seccion-lista {
+    padding: var(--fl-esp-12) var(--fl-esp-16) var(--fl-esp-4);
+    font: var(--fl-leyenda-1); font-weight: 600; letter-spacing: 0;
+    color: var(--fl-texto-3);
+}
+
+/* ---- fila de conversación ---- */
+html.mq-fluent .conversations-list { padding: var(--fl-esp-4) 0 var(--fl-esp-8); }
+html.mq-fluent .conversations-list .conversation-item {
+    min-height: 48px;
+    margin: 1px var(--fl-esp-8);
+    padding: 6px var(--fl-esp-12);
+    border: 0;
+    border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .conversations-list .conversation-item:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .conversations-list .conversation-item.active {
+    background: var(--fl-fila-activa);
+    border-left: 0;
+    box-shadow: none;
+}
+/* barra de acento a la izquierda de la conversación abierta */
+html.mq-fluent .conversations-list .conversation-item.active::after {
+    content: none;
+    position: absolute; left: 0; top: 25%; bottom: 25%;
+    width: 3px; border-radius: var(--fl-radio-circular);
+    background: var(--fl-marca-trazo);
+}
+
+/* avatar */
+html.mq-fluent .conversation-avatar {
+    width: 32px; height: 32px; flex: 0 0 32px;
+    margin-right: var(--fl-esp-12);
+    font: var(--fl-cuerpo-1-fuerte);
+    background: var(--fl-marca-fondo);
+    color: var(--fl-texto-sobre-marca);
+    overflow: visible;
+}
+html.mq-fluent .conversation-avatar img,
+html.mq-fluent .conversation-avatar .avatar-initials { border-radius: 50%; }
+html.mq-fluent .conversation-avatar.group { background: var(--fl-marca-fondo-suave); color: var(--fl-marca-texto); }
+
+/* presencia: punto fijo, sin latido */
+html.mq-fluent .presence-indicator {
+    right: -2px; bottom: -2px;
+    width: 10px; height: 10px;
+    border: 2px solid var(--fl-panel) !important;
+    box-shadow: none; animation: none;
+    z-index: 2;
+}
+html.mq-fluent .conversation-item.active .presence-indicator { border-color: var(--fl-fila-activa) !important; }
+html.mq-fluent .presence-indicator.online { background-color: var(--fl-presencia-disponible) !important; animation: none; }
+/* desconectado: aro hueco, como en Teams */
+html.mq-fluent .presence-indicator.offline {
+    background: var(--fl-panel) !important;
+    box-shadow: inset 0 0 0 1.5px var(--fl-presencia-desconectado);
+}
+/* un grupo o «Mis notas» no tienen presencia */
+html.mq-fluent .conversation-avatar.group .presence-indicator,
+html.mq-fluent .conversation-item.conversation-notas .presence-indicator { display: none; }
+
+/* textos: nombre Body 1 seminegrita, vista previa Caption 1, hora Caption 2 */
+html.mq-fluent .conversations-list .conversation-item .conversation-name {
+    font: var(--fl-cuerpo-1) !important;
+    color: var(--fl-texto-1);
+}
+html.mq-fluent .conversations-list .conversation-item .conversation-preview {
+    font: var(--fl-leyenda-1) !important;
+    color: var(--fl-texto-3);
+}
+html.mq-fluent .conversation-meta { margin-left: var(--fl-esp-8); align-self: flex-start; padding-top: 2px; }
+html.mq-fluent .conversation-time { font: var(--fl-leyenda-2); color: var(--fl-texto-3); }
+
+/* sin leer: el punto y el número, en el acento */
+html.mq-fluent .conversation-item.mq-no-leida .conversation-name { font-weight: 700 !important; color: var(--fl-texto-1); }
+html.mq-fluent .conversation-item.mq-no-leida .conversation-preview { font-weight: 600 !important; color: var(--fl-texto-1); }
+html.mq-fluent .conversation-item.mq-no-leida::before { left: 2px; width: 6px; height: 6px; background: var(--fl-marca-fondo); }
+html.mq-fluent .conversation-badge {
+    min-width: 16px; padding: 1px 5px; margin-top: var(--fl-esp-4);
+    font: var(--fl-leyenda-2); font-weight: 600; text-align: center;
+    color: var(--fl-texto-sobre-marca);
+    background: var(--fl-marca-fondo);
+    border-radius: var(--fl-radio-circular);
+}
+
+/* fijar en favoritos */
+html.mq-fluent .mq-fijar { color: var(--fl-texto-3); transition: opacity var(--fl-rapido) var(--fl-curva); }
+html.mq-fluent .conversation-item.mq-favorita .mq-fijar { color: var(--fl-marca-texto); }
+
+/* textos auxiliares de la lista (cargando, sin resultados) */
+html.mq-fluent .conversations-list .text-muted { color: var(--fl-texto-3) !important; }
+
+/* barras de desplazamiento discretas */
+html.mq-fluent .conversations-list,
+html.mq-fluent .chat-messages { scrollbar-width: thin; scrollbar-color: var(--fl-trazo-1) transparent; }
+
+/* «Mis notas»: una fila más, sin verde (único acento) */
+html.mq-fluent .conversation-item.conversation-notas { background: transparent; border-left: 0; }
+html.mq-fluent .conversation-item.conversation-notas:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .conversation-item.conversation-notas.active { background: var(--fl-fila-activa); }
+html.mq-fluent .conversation-item.conversation-notas .conversation-avatar {
+    background: var(--fl-marca-fondo-suave) !important; color: var(--fl-marca-texto); font-size: 14px;
+}
+html.mq-fluent .badge-tu {
+    padding: 0 var(--fl-esp-4);
+    font: var(--fl-leyenda-2); font-weight: 600;
+    color: var(--fl-texto-3); background: transparent;
+    border: 1px solid var(--fl-trazo-1); border-radius: var(--fl-radio-medio);
+}
+/* tamaño del avatar: las capas anteriores lo fijan con !important */
+html.mq-fluent .conversation-avatar,
+html.mq-fluent .conversation-avatar img { width: 32px !important; height: 32px !important; }
+
+/* Estados de presencia (T-48): mismos puntos, con los tokens del tema.
+   Donde ya hay estado, el indicador antiguo sobra; un grupo o «Mis notas» no llevan ninguno. */
+html.mq-fluent .mq-estado .presence-indicator { display: none; }
+html.mq-fluent .mq-estado::after { border-color: var(--fl-panel); }
+html.mq-fluent .conversation-item.active .mq-estado::after { border-color: var(--fl-fila-activa); }
+html.mq-fluent .chat-main-header .mq-estado::after { border-color: var(--fl-lienzo); }
+html.mq-fluent .mq-estado[data-estado="disponible"]::after { background: var(--fl-presencia-disponible); }
+html.mq-fluent .mq-estado[data-estado="ocupado"]::after,
+html.mq-fluent .mq-estado[data-estado="no_molestar"]::after { background: var(--fl-presencia-ocupado); }
+html.mq-fluent .mq-estado[data-estado="vuelvo_enseguida"]::after,
+html.mq-fluent .mq-estado[data-estado="ausente"]::after { background: var(--fl-presencia-ausente); }
+html.mq-fluent .mq-estado[data-estado="desconectado"]::after { background: var(--fl-presencia-desconectado); }
+html.mq-fluent .conversation-avatar.group.mq-estado::after,
+html.mq-fluent .conversation-avatar.group.mq-estado::before,
+html.mq-fluent .conversation-item.conversation-notas .mq-estado::after,
+html.mq-fluent .conversation-item.conversation-notas .mq-estado::before { display: none; }
+html.mq-fluent .mq-estado-texto { font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+
+/* ---- v2: los filtros son píldoras con borde, como en Teams ---- */
+html.mq-fluent .chat-tabs { flex-wrap: wrap; gap: var(--fl-esp-4); padding: var(--fl-esp-4) var(--fl-esp-16) var(--fl-esp-8); border-bottom: 0; overflow: visible; }
+html.mq-fluent .chat-tab,
+html.mq-fluent .chat-tabs .mq-filtro {
+    flex: 0 0 auto;
+    padding: 3px 10px;
+    font: var(--fl-leyenda-1); white-space: nowrap;
+    color: var(--fl-texto-2);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-1) !important;
+    border-radius: var(--fl-radio-circular);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .chat-tab:hover:not(.active),
+html.mq-fluent .chat-tabs .mq-filtro:hover:not(.active) { background: var(--fl-sutil-encima); color: var(--fl-texto-1); }
+html.mq-fluent .chat-tab.active,
+html.mq-fluent .chat-tabs .mq-filtro.active {
+    font-weight: 600;
+    color: var(--fl-texto-sobre-marca);
+    background: var(--fl-marca-fondo);
+    border-color: var(--fl-marca-fondo) !important;
+}
+html.mq-fluent .chat-tab.active::after { content: none; }

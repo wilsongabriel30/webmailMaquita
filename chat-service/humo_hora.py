@@ -14,6 +14,7 @@ import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import jwt
+from cuenta_pruebas import token as token_pruebas  # sesión real del correo (12/10/2026)
 
 BASE = 'https://mail.example.org'
 CONV = 52
@@ -32,8 +33,7 @@ def galletas(correo):
         if '=' in l and not l.strip().startswith('#'):
             k, v = l.strip().split('=', 1)
             env[k] = v.strip('"\'')
-    t = jwt.encode({'sub': correo, 'type': 'access', 'exp': int(time.time()) + 900},
-                   env['CHAT_JWT_SECRET'], algorithm='HS256')
+    t = token_pruebas(correo)
     r = urllib.request.Request(BASE + '/chat/')
     r.add_header('Cookie', 'access_token=' + t)
     with urllib.request.urlopen(r, timeout=20) as x:

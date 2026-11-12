@@ -109,6 +109,10 @@ def registrar(socketio):
                        f"{URL_BASE}/chat/conferencia?role=guest&room={quote(str(room_id))}&name={quote(str(room_name))}"
                        f"&conv={conversation_id or ''}{'&video=1' if tipo_llamada == 'video' else ''}",
                        {'origen': 'llamadas', 'avatar': _avatar,
+                        # T-101: entrar con cámara o solo con voz; el id de la llamada es el de la sala
+                        'url_video': f"{URL_BASE}/chat/conferencia?role=guest&room={quote(str(room_id))}&name={quote(str(room_name))}&conv={conversation_id or ''}&video=1",
+                        'url_voz': f"{URL_BASE}/chat/conferencia?role=guest&room={quote(str(room_id))}&name={quote(str(room_name))}&conv={conversation_id or ''}",
+                        'llamada_id': str(room_id),
                         'llamada': {'grupal': True, 'tipo': tipo_llamada, 'room_id': room_id, 'room_name': room_name, 'conversacion_id': conversation_id,
                                     'caller_id': usuario_id, 'caller_name': usuario_nombre}})
         except Exception as _e:
@@ -151,6 +155,12 @@ def registrar(socketio):
 
         # Agregar nuevo participante
         conf['participants'][str(usuario_id)] = usuario_nombre
+        # 05/11/2026: se unió en un dispositivo → las demás sesiones de la persona dejan de sonar.
+        try:
+            socketio.emit('call_cancelled', {'room_id': room_id, 'motivo': 'unido_en_otro_dispositivo'},
+                          room=f"user_{usuario_id}", skip_sid=request.sid)
+        except Exception as _e:
+            logger.warning(f"[Conference] no se pudo callar las otras sesiones: {_e}")
 
         # Unirse a la sala Socket.IO
         join_room(f"conference_{room_id}")
@@ -275,6 +285,25 @@ def registrar(socketio):
             return
 
         conf = active_conferences[room_id]
+
+        # 05/11/2026: si ya está dentro (se unió en otro dispositivo), o es el rechazo automático
+        # de una sesión «ocupada», no se avisa al creador ni se callan las demás sesiones.
+        if str(usuario_id) in conf.get('participants', {}):
+            return
+        rechazos = conf.setdefault('rechazos', set())
+        if str(usuario_id) in rechazos:
+            return
+        try:
+            if time.time() - float(conf.get('created_at') or 0) < 1.5:
+                return
+        except Exception:
+            pass
+        rechazos.add(str(usuario_id))
+        try:
+            socketio.emit('call_cancelled', {'room_id': room_id, 'motivo': 'rechazada_en_otro_dispositivo'},
+                          room=f"user_{usuario_id}", skip_sid=request.sid)
+        except Exception:
+            pass
 
         # Notificar al creador
         socketio.emit('conference_user_rejected', {

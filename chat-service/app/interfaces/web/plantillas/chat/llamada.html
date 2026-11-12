@@ -45,6 +45,7 @@
         }
         #localVideo {
             position: absolute;
+            z-index: 3;   /* 05/11/2026: el panel del avatar la tapaba en llamadas de voz */
             bottom: 18px;
             right: 18px;
             width: 200px;
@@ -190,6 +191,22 @@
         }
         .agregar-cancelar:hover { background: rgba(255,255,255,.2); }
     </style>
+    <!-- T-101: aspecto Fluent 2 de la ventana de llamada. Vista previa: mismas condiciones que el chat
+         (cuentas de revisión o tema «fluent» elegido en este equipo). Solo estilo: no cambia la llamada. -->
+    <script>
+    (function () {
+      var previa = {{ 'true' if (session.get('usuario_id')|string) in (tema_previa_usuarios or []) else 'false' }}, tema = null;
+      try { tema = localStorage.getItem('mq_chat_tema'); } catch (e) {}
+      if (tema === 'clasico' || (!previa && String(tema || '').indexOf('fluent') !== 0)) return;
+      // Sigue el tema del chat: claro por defecto; oscuro solo con el tema oscuro (o el del sistema en «auto»).
+      var raiz = document.documentElement;
+      raiz.classList.add('mq-fluent');
+      if (tema === 'fluent-oscuro' || (tema === 'fluent-auto' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) raiz.classList.add('mq-fluent-oscuro');
+      ['chat-fluent-tokens', 'chat-fluent-llamada', 'chat-fluent-iconos'].forEach(function (hoja) {
+        document.write('<link rel="stylesheet" href="/static/css/' + hoja + '.css?v=20261111-t101t">');
+      });
+    })();
+    </script>
 </head>
 <body>
     <div class="media-unlock" id="mediaUnlock" onclick="desbloquearMedia()">
@@ -280,7 +297,10 @@
         // ===== Parámetros =====
         const Q = new URLSearchParams(location.search);
         const ROLE = Q.get('role') === 'callee' ? 'callee' : 'caller';
-        const TIPO = Q.get('tipo') === 'video' ? 'video' : 'audio';
+        // T-101: quien contesta puede elegir cómo entra, sea cual sea el tipo con que le llamaron:
+        //   &responder=video -> con cámara ; &responder=voz -> solo micrófono. Sin ese parámetro, como siempre.
+        const RESPONDER = Q.get('responder');
+        const TIPO = RESPONDER === 'video' ? 'video' : (RESPONDER === 'voz' ? 'audio' : (Q.get('tipo') === 'video' ? 'video' : 'audio'));
         const PEER_ID = parseInt(Q.get('peer_id'), 10);
         const PEER_NAME = Q.get('peer_name') || 'Usuario';
         const CONV_ID = Q.get('conv') || '';
@@ -308,10 +328,44 @@
         // Antes la cámara se encendía al aceptar la llamada, así que quien llamaba miraba un
         // avatar sin saber si su cámara funcionaba. Aquí se enciende ya, mientras timbra: se ve
         // a sí mismo y, si los permisos están bloqueados, se entera antes y no en mitad.
+        // 05/11/2026: si Windows no entrega el micrófono (NotReadableError) o la cámara, se prueba
+        // por partes y con cada micrófono; si nada sirve, se entra igual a escuchar y ver.
+        async function obtenerFlujoLocal(permitirVacio) {
+            const md = navigator.mediaDevices;
+            const quiereVideo = TIPO === 'video';
+            let primerError = null;
+            try { return await md.getUserMedia({ audio: true, video: quiereVideo }); }
+            catch (e) { primerError = e; console.warn('Medios fallaron:', e && e.name, e && e.message); }
+            const flujo = new MediaStream();
+            try { (await md.getUserMedia({ audio: true })).getTracks().forEach(t => flujo.addTrack(t)); }
+            catch (e) {
+                let lista = [];
+                try { lista = (await md.enumerateDevices()).filter(d => d.kind === 'audioinput' && d.deviceId && d.deviceId !== 'default' && d.deviceId !== 'communications'); } catch (e2) {}
+                for (const d of lista) {
+                    try { (await md.getUserMedia({ audio: { deviceId: { exact: d.deviceId } } })).getTracks().forEach(t => flujo.addTrack(t)); break; }
+                    catch (e3) { console.warn('Micrófono', d.label || d.deviceId, 'falló:', e3 && e3.name); }
+                }
+            }
+            if (quiereVideo) {
+                try { (await md.getUserMedia({ video: true })).getTracks().forEach(t => flujo.addTrack(t)); }
+                catch (e) { console.warn('Cámara falló:', e && e.name, e && e.message); }
+            }
+            const sinMic = !flujo.getAudioTracks().length;
+            const sinCam = quiereVideo && !flujo.getVideoTracks().length;
+            if (!flujo.getTracks().length && !permitirVacio) throw primerError;
+            if (sinMic || sinCam) {
+                est.avisoMedios = (sinMic ? 'Windows no deja usar el micrófono' : 'Windows no deja usar la cámara') +
+                    (primerError && primerError.message ? ' [' + primerError.message + ']' : '') +
+                    '. Estás en la llamada para escuchar' + (sinCam ? '' : ' y ver') +
+                    '. Revisa Configuración → Privacidad → Micrófono/Cámara → «Permitir que las aplicaciones de escritorio accedan».';
+            }
+            return flujo;
+        }
+
         async function mostrarVistaPrevia() {
             if (est.localStream) return;
             try {
-                est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
+                est.localStream = await obtenerFlujoLocal(false);
             } catch (e) {
                 setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') +
                            '. Revisa los permisos del navegador.');
@@ -369,7 +423,17 @@
         mostrarVistaPrevia();
         // Tras pedir la cámara ya hay nombres de dispositivos que enseñar.
         setTimeout(ponerSelectoresDeDispositivos, 800);
-        if (TIPO === 'video') document.getElementById('btnCam').style.display = '';
+        // T-82 (05/11/2026): el botón de cámara está siempre. En llamada de voz empieza apagado y
+        // se puede encender en cualquier momento sin cortar la llamada.
+        (function () {
+            const b = document.getElementById('btnCam');
+            b.style.display = '';
+            if (TIPO !== 'video') {
+                b.classList.add('active');
+                b.innerHTML = '<i class="fas fa-video-slash"></i>';
+                b.title = 'Encender cámara';
+            }
+        })();
         document.title = (TIPO === 'video' ? 'Videollamada' : 'Llamada') + ' con ' + PEER_NAME;
 
 
@@ -497,10 +561,10 @@
         // ===== Media remota =====
         function refrescarVideoRemoto() {
             const rv = document.getElementById('remoteVideo');
-            const track = est.screenTrack || est.camTrack;
+            const track = est.screenTrack || (est.camMuted ? null : est.camTrack);
             if (track) {
+                rv.style.display = '';   // primero visible: con adaptiveStream, oculto = sin imagen
                 track.attach(rv);
-                rv.style.display = '';
                 document.getElementById('vcEstado').style.display = 'none';
             } else {
                 rv.style.display = 'none';
@@ -522,12 +586,12 @@
             // timbrar; en ese caso se reutiliza y no se vuelve a pedir.
             if (!est.localStream) {
                 try {
-                    est.localStream = await navigator.mediaDevices.getUserMedia({ audio: true, video: TIPO === 'video' });
+                    est.localStream = await obtenerFlujoLocal(true);
                 } catch (e) {
-                    setDetalle('No se pudo acceder al micrófono' + (TIPO === 'video' ? '/cámara' : '') + '. Revisa los permisos.');
-                    return;
+                    est.localStream = new MediaStream();
                 }
             }
+            if (est.avisoMedios) setDetalle(est.avisoMedios);
             if (TIPO === 'video') {
                 const lv = document.getElementById('localVideo');
                 lv.srcObject = est.localStream;
@@ -539,7 +603,7 @@
                 const data = await resp.json();
                 if (!resp.ok || !data.exito) throw new Error(data.error || 'token');
 
-                const room = new LivekitClient.Room({ adaptiveStream: true, dynacast: true });
+                const room = new LivekitClient.Room({ adaptiveStream: { pixelDensity: 'screen' }, dynacast: true });
 
                 // ===== Cómo va la conexión, dicho en pantalla =====
                 // Sin esto, LiveKit baja la calidad en silencio y la persona no sabe si el
@@ -573,6 +637,15 @@
                         if (TIPO === 'audio') setDetalle('En llamada');
                     }
                     iniciarTimer();
+                });
+                // T-82: el otro enciende o apaga su cámara a mitad de la llamada.
+                room.on(LivekitClient.RoomEvent.TrackMuted, (pub, participante) => {
+                    if (!participante || participante.isLocal || pub.kind !== 'video' || pub.source === LivekitClient.Track.Source.ScreenShare) return;
+                    est.camMuted = true; refrescarVideoRemoto();
+                });
+                room.on(LivekitClient.RoomEvent.TrackUnmuted, (pub, participante) => {
+                    if (!participante || participante.isLocal || pub.kind !== 'video' || pub.source === LivekitClient.Track.Source.ScreenShare) return;
+                    est.camMuted = false; refrescarVideoRemoto();
                 });
                 room.on(LivekitClient.RoomEvent.TrackUnsubscribed, (track, pub) => {
                     if (track.kind !== 'video') return;
@@ -617,20 +690,67 @@
             b.classList.toggle('active', est.muted);
             b.innerHTML = est.muted ? '<i class="fas fa-microphone-slash"></i>' : '<i class="fas fa-microphone"></i>';
         }
+        async function camaraDeVoz() {
+            // Llamada que empezó como voz (o sin cámara al inicio): LiveKit enciende/apaga la cámara
+            // en marcha, sin renegociar ni cortar. El otro lado la pinta al llegar (TrackSubscribed).
+            if (!est.room) { setDetalle('Espera a que conecte la llamada'); return; }
+            const b = document.getElementById('btnCam');
+            const lp = est.room.localParticipant;
+            const encender = !lp.isCameraEnabled;
+            try {
+                await lp.setCameraEnabled(encender, { resolution: LivekitClient.VideoPresets.h720.resolution });
+            } catch (e) {
+                console.warn('Cámara no disponible:', e && e.name, e && e.message);
+                setDetalle('Windows no deja usar la cámara' + (e && e.message ? ' [' + e.message + ']' : '') +
+                           '. Revisa Configuración → Privacidad → Cámara.');
+                return;
+            }
+            const lv = document.getElementById('localVideo');
+            const pub = lp.getTrackPublication(LivekitClient.Track.Source.Camera);
+            if (encender && pub && pub.track) { pub.track.attach(lv); lv.style.display = ''; }
+            else { lv.style.display = 'none'; }
+            b.classList.toggle('active', !encender);
+            b.innerHTML = encender ? '<i class="fas fa-video"></i>' : '<i class="fas fa-video-slash"></i>';
+            b.title = encender ? 'Apagar cámara' : 'Encender cámara';
+        }
         function toggleCam() {
-            if (!est.localStream) return;
+            if (!est.localStream || !est.localStream.getVideoTracks().length) { camaraDeVoz(); return; }
             est.camOff = !est.camOff;
             est.localStream.getVideoTracks().forEach(t => t.enabled = !est.camOff);
             const b = document.getElementById('btnCam');
             b.classList.toggle('active', est.camOff);
             b.innerHTML = est.camOff ? '<i class="fas fa-video-slash"></i>' : '<i class="fas fa-video"></i>';
         }
+        // ===== Pantalla compartida nítida (05/11/2026) =====
+        // Antes iba con los valores por defecto: a la mínima bajaba resolución y el texto se veía
+        // pixelado. Ahora: resolución completa, contenido tipo «detalle», hasta 4 Mbps y, si la red
+        // se aprieta, baja los cuadros por segundo y NO la nitidez. Quien tenga una conexión lenta
+        // (sede rural, satélite) recibe la capa de 720p sin frenar a los demás.
+        function opcionesCapturaPantalla(conSonido) {
+            const o = { resolution: { width: 1920, height: 1080, frameRate: 15 }, contentHint: 'detail' };
+            if (conSonido) {
+                o.audio = { echoCancellation: false, noiseSuppression: false, autoGainControl: false };
+                o.systemAudio = 'include';
+            }
+            return o;
+        }
+        function opcionesPublicarPantalla() {
+            const P = LivekitClient.ScreenSharePresets;
+            return {
+                screenShareEncoding: { maxBitrate: 4000000, maxFramerate: 15 },
+                screenShareSimulcastLayers: [P.h720fps5],
+                degradationPreference: 'maintain-resolution',
+                audioPreset: LivekitClient.AudioPresets.musicHighQuality,
+                dtx: false
+            };
+        }
         async function toggleShare() {
             if (!est.room) { setDetalle('Espera a que conecte la llamada'); return; }
             const b = document.getElementById('btnShare');
             try {
                 const activo = est.room.localParticipant.isScreenShareEnabled;
-                await est.room.localParticipant.setScreenShareEnabled(!activo);
+                if (activo) await est.room.localParticipant.setScreenShareEnabled(false);
+                else await est.room.localParticipant.setScreenShareEnabled(true, opcionesCapturaPantalla(true), opcionesPublicarPantalla());
                 const ahora = est.room.localParticipant.isScreenShareEnabled;
                 b.classList.toggle('sharing', ahora);
                 b.title = ahora ? 'Dejar de compartir' : 'Compartir pantalla';
@@ -699,7 +819,11 @@
         // ===== Señalización =====
         const socket = io({ transports: ['websocket', 'polling'] });
         est.socket = socket;
+        let senalizacionHecha = false;
         socket.on('connect', () => {
+            // 05/11/2026: al reconectar NO se repite la invitación (volvía a timbrar en plena llamada).
+            if (senalizacionHecha) return;
+            senalizacionHecha = true;
             if (ROLE === 'callee') {
                 socket.emit('call_accepted', { target_user_id: PEER_ID });
                 empezar();
@@ -755,6 +879,8 @@
             }
         });
     </script>
-    <script src="/static/js/llamada-p2p.js?v=20260901-t25"></script>
+    {# T-57 (28/09/2026): capa directa T-25 desactivada; la llamada va por LiveKit. Para reactivar, restaurar: <script src="/static/js/llamada-p2p.js?v=20260901-t25"></script> #}
+<!-- T-101: funciones estables para la app de escritorio (atajos y mini ventana) -->
+<script src="/static/js/chat-api-app.js?v=20261111-t101w"></script>
 </body>
 </html>

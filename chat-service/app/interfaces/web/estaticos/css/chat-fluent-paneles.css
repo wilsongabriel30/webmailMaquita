@@ -1,0 +1,144 @@
+/* ============================================================================
+ * T-101 · Lo que se abre sobre el chat, con Fluent 2: ventanas (chat nuevo,
+ * información, editar y borrar mensaje, grupos), panel «Información del
+ * grupo» (T-94), ficha de persona (T-43) y resultados de búsqueda.
+ * Solo estilo y solo tokens de chat-fluent-tokens.css; claro y oscuro.
+ * ========================================================================== */
+
+/* ---- ventanas ---- */
+html.mq-fluent .modal { font-family: var(--fl-fuente); }
+html.mq-fluent .modal-backdrop.show { opacity: .4; }
+html.mq-fluent .modal-content {
+    color: var(--fl-texto-1) !important;
+    background: var(--fl-fondo-1) !important;
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .modal-header { padding: var(--fl-esp-16) var(--fl-esp-24) var(--fl-esp-8); border-bottom: 0; background: transparent !important; color: var(--fl-texto-1) !important; }
+html.mq-fluent .modal-title { font: var(--fl-subtitulo-1); color: var(--fl-texto-1) !important; }
+html.mq-fluent .modal-title i { display: none; }
+html.mq-fluent .modal-body { padding: var(--fl-esp-8) var(--fl-esp-24) var(--fl-esp-16); font: var(--fl-cuerpo-1); color: var(--fl-texto-1) !important; background: transparent !important; }
+html.mq-fluent .modal-footer { background: transparent !important; padding: var(--fl-esp-8) var(--fl-esp-24) var(--fl-esp-24); border-top: 0; gap: var(--fl-esp-8); }
+html.mq-fluent .modal .btn-close { opacity: .7; }
+html.mq-fluent.mq-fluent-oscuro .modal .btn-close { filter: invert(1); }
+html.mq-fluent .modal .text-muted, html.mq-fluent .modal small { color: var(--fl-texto-3) !important; }
+html.mq-fluent .modal label { font: var(--fl-cuerpo-1); color: var(--fl-texto-1); }
+
+/* campos */
+html.mq-fluent .modal .form-control,
+html.mq-fluent .modal .form-select,
+html.mq-fluent .modal input[type="text"],
+html.mq-fluent .modal input[type="search"],
+html.mq-fluent .modal textarea {
+    min-height: 32px; padding: 5px var(--fl-esp-12);
+    font: var(--fl-cuerpo-1);
+    color: var(--fl-texto-1) !important;
+    background: var(--fl-fondo-1) !important;
+    border: 1px solid var(--fl-trazo-1);
+    border-bottom-color: var(--fl-trazo-accesible);
+    border-radius: var(--fl-radio-medio);
+    box-shadow: none;
+}
+html.mq-fluent .modal .form-control:focus,
+html.mq-fluent .modal textarea:focus { border-bottom-color: var(--fl-marca-trazo); box-shadow: inset 0 -1px 0 var(--fl-marca-trazo); outline: 0; }
+html.mq-fluent .modal .form-control::placeholder { color: var(--fl-texto-4); }
+
+/* botones: uno principal en el acento, el resto con borde */
+html.mq-fluent .modal .btn { padding: 5px var(--fl-esp-12); font: var(--fl-cuerpo-1-fuerte); border-radius: var(--fl-radio-medio); box-shadow: none; }
+html.mq-fluent .modal .btn-primary,
+html.mq-fluent .modal .btn-success { color: var(--fl-texto-sobre-marca); background: var(--fl-marca-fondo); border: 1px solid transparent; }
+html.mq-fluent .modal .btn-primary:hover,
+html.mq-fluent .modal .btn-success:hover { background: var(--fl-marca-fondo-encima); }
+html.mq-fluent .modal .btn-secondary,
+html.mq-fluent .modal .btn-light,
+html.mq-fluent .modal .btn-outline-secondary,
+html.mq-fluent .modal .btn-outline-primary { color: var(--fl-texto-1); background: var(--fl-fondo-1); border: 1px solid var(--fl-trazo-1); }
+html.mq-fluent .modal .btn-secondary:hover,
+html.mq-fluent .modal .btn-light:hover,
+html.mq-fluent .modal .btn-outline-secondary:hover,
+html.mq-fluent .modal .btn-outline-primary:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .modal .btn-danger { color: #ffffff; background: var(--fl-presencia-ocupado); border: 1px solid transparent; }
+
+/* listas de personas dentro de las ventanas */
+html.mq-fluent .modal .list-group-item,
+html.mq-fluent .modal .user-item,
+html.mq-fluent .grupo-resultado,
+html.mq-fluent .grupo-miembro {
+    color: var(--fl-texto-1); background: transparent;
+    border-color: var(--fl-trazo-3);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .modal .list-group-item:hover,
+html.mq-fluent .modal .user-item:hover,
+html.mq-fluent .grupo-resultado:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .grupo-avatar,
+html.mq-fluent .grupo-miembro-avatar { background: var(--fl-marca-fondo-suave); color: var(--fl-marca-texto); }
+html.mq-fluent .modal .nav-tabs { border-bottom: 1px solid var(--fl-trazo-3); }
+html.mq-fluent .modal .nav-link { font: var(--fl-cuerpo-1); color: var(--fl-texto-2) !important; border: 0; background: transparent !important; }
+html.mq-fluent .modal .nav-link.active { font-weight: 600; color: var(--fl-texto-1) !important; background: transparent !important; box-shadow: inset 0 -2px 0 var(--fl-marca-trazo); }
+
+/* ---- panel «Información del grupo» (T-94): sus variables pasan a tokens ---- */
+html.mq-fluent .mq-grupo-panel {
+    --gp-fondo: var(--fl-fondo-1); --gp-texto: var(--fl-texto-1); --gp-suave: var(--fl-texto-3);
+    --gp-linea: var(--fl-trazo-3); --gp-hover: var(--fl-sutil-encima);
+    --gp-acento: var(--fl-marca-texto); --gp-peligro: var(--fl-peligro-texto);
+    font: var(--fl-cuerpo-1);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .mq-gp-cabecera h5 { font: var(--fl-subtitulo-2); }
+html.mq-fluent .mq-gp-cerrar, html.mq-fluent .mq-gp-valor button, html.mq-fluent .mq-gp-edicion button { border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-gp-nombre .mq-gp-valor span { font: var(--fl-subtitulo-1); }
+html.mq-fluent .mq-gp-sub, html.mq-fluent .mq-gp-nota, html.mq-fluent .mq-gp-texto { font: var(--fl-leyenda-1); }
+html.mq-fluent .mq-gp-seccion h6 { font: var(--fl-leyenda-1); font-weight: 600; text-transform: none; letter-spacing: 0; }
+html.mq-fluent .mq-gp-menu { border-radius: var(--fl-radio-medio); box-shadow: var(--fl-sombra-16); }
+html.mq-fluent .mq-gp-menu button, html.mq-fluent .mq-gp-resultado, html.mq-fluent .mq-gp-miembro { border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-gp-buscar { border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-gp-edicion input { border-radius: var(--fl-radio-medio); }
+html.mq-fluent .mq-gp-edicion button[type=submit] { background: var(--fl-marca-fondo); color: var(--fl-texto-sobre-marca); }
+html.mq-fluent .mq-gp-recorte-caja { background: var(--fl-fondo-1); color: var(--fl-texto-1); border-radius: var(--fl-radio-xgrande); }
+
+/* ---- ficha de persona (T-43) ---- */
+html.mq-fluent .fp-fondo { background: rgba(0, 0, 0, .4); }
+html.mq-fluent .fp-tarjeta {
+    padding: var(--fl-esp-24);
+    font-family: var(--fl-fuente); color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .fp-cerrar { color: var(--fl-texto-3); }
+html.mq-fluent .fp-foto { width: 96px; height: 96px; margin-bottom: var(--fl-esp-12); font: 600 32px/1 var(--fl-fuente); background: var(--fl-marca-fondo-suave); color: var(--fl-marca-texto); }
+html.mq-fluent .fp-tarjeta h3 { font: var(--fl-subtitulo-1); }
+html.mq-fluent .fp-cargo { font: var(--fl-cuerpo-1); color: var(--fl-texto-3); margin-bottom: var(--fl-esp-16); }
+html.mq-fluent .fp-fila { font: var(--fl-cuerpo-1); }
+html.mq-fluent .fp-fila i { color: var(--fl-texto-3); }
+html.mq-fluent .fp-fila small { font: var(--fl-leyenda-1); color: var(--fl-texto-3); text-transform: none; letter-spacing: 0; }
+html.mq-fluent .fp-nota { font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+
+/* ---- resultados de búsqueda ---- */
+html.mq-fluent #mensajesBusqueda .conversation-preview mark { color: inherit; background: var(--fl-marca-fondo-suave); border-radius: var(--fl-radio-chico); padding: 0 2px; }
+html.mq-fluent .mq-fecha-resultado { font: var(--fl-leyenda-2); color: var(--fl-texto-3); }
+html.mq-fluent .search-section-title { font: var(--fl-leyenda-1); font-weight: 600; color: var(--fl-texto-3); }
+
+/* ---- avisos emergentes (toastr) ---- */
+html.mq-fluent #toast-container > div { font-family: var(--fl-fuente); border-radius: var(--fl-radio-medio); box-shadow: var(--fl-sombra-16); opacity: 1; }
+
+/* ---- menú de opciones del mensaje ---- */
+html.mq-fluent .message-options-menu {
+    padding: var(--fl-esp-4);
+    font: var(--fl-cuerpo-1); color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-medio);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .message-options-menu > * { color: var(--fl-texto-1); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .message-options-menu > *:hover { background: var(--fl-sutil-encima); }
+
+/* «Mis notas» y los grupos no tienen presencia tampoco en la cabecera */
+html.mq-fluent body.conv-notas .chat-main-header .mq-estado::after,
+html.mq-fluent body.conv-notas .chat-main-header .mq-estado::before,
+html.mq-fluent body.conv-grupo .chat-main-header .mq-estado::after,
+html.mq-fluent body.conv-grupo .chat-main-header .mq-estado::before { display: none; }

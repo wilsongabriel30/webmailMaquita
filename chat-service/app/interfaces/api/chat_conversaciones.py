@@ -113,6 +113,9 @@ def obtener_conversaciones():
                 conv_dict = c.__dict__.copy() if hasattr(c, '__dict__') else dict(c)
                 # Mapear campos para compatibilidad
                 conv_dict['conversation_type'] = conv_dict.get('tipo', 'direct')
+                # 05/11/2026: el frontend lee `name`; los grupos solo traían `nombre` → «Usuario».
+                if not conv_dict.get('name') and conv_dict.get('nombre'):
+                    conv_dict['name'] = conv_dict['nombre']
                 conv_dict['unread_count'] = conv_dict.get('mensajes_no_leidos', 0)
                 # Mapear ultimo_mensaje_preview a last_message para frontend
                 conv_dict['last_message'] = conv_dict.get('ultimo_mensaje_preview', '')
@@ -213,9 +216,33 @@ def obtener_conversacion(conversacion_id: int):
                 'mensaje': 'Conversacion no encontrada'
             }), 404
 
+        datos = dict(conversacion.__dict__)
+        datos['conversation_type'] = datos.get('tipo')
+        if not datos.get('name') and datos.get('nombre'):
+            datos['name'] = datos['nombre']
+        # 05/11/2026: nombre de cada participante (la llamada grupal los invita por nombre).
+        participantes = datos.get('participantes') or []
+        if participantes:
+            try:
+                from sqlalchemy import text as _t
+                db_session = g.get('db_session_chat')
+                if not db_session:
+                    db_session = obtener_gestor().session()
+                    g.db_session_chat = db_session
+                ids = [p['usuario_id'] for p in participantes]
+                filas = db_session.execute(_t(
+                    "SELECT id, COALESCE(NULLIF(full_name, ''), username, email) "
+                    "FROM usuarios WHERE id = ANY(:ids)"
+                ), {'ids': ids}).fetchall()
+                nombres = {f[0]: f[1] for f in filas}
+                for p in participantes:
+                    p['nombre'] = nombres.get(p['usuario_id']) or ('Usuario %s' % p['usuario_id'])
+            except Exception:
+                import traceback
+                traceback.print_exc()
         return jsonify({
             'exito': True,
-            'conversacion': conversacion.__dict__
+            'conversacion': datos
         }), 200
 
     except Exception as e:

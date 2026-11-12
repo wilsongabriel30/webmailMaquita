@@ -12,10 +12,15 @@ def enviar_con_archivos(conversacion_id, datos, archivos):
     tipo_mensaje = datos.get('tipo', 'document')
     contenido = datos.get('contenido', '').strip()
 
-    # Guardar en ruta servida por Nginx: /uploads/ -> interfaces/web/estaticos/uploads/
+    # Guardar en la MISMA carpeta desde la que se sirven los adjuntos:
+    # <servicio>/static/uploads/chat/<conversación>/ (ver interfaces/api/archivos_subidos.py).
+    # 21/09/2026: aquí se guardaba en app/interfaces/web/estaticos/uploads/, que es la ruta
+    # heredada de Raíces y que este servicio NO sirve: las imágenes enviadas por esta vía
+    # (mensaje multipart) se subían bien pero daban 404 al mostrarse. La otra vía de subida
+    # (/messages/upload, chat_adjuntos.py) siempre guardó en static/uploads y por eso sí se veía.
     base_upload = os.path.join(
-        os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-        'web', 'estaticos', 'uploads', 'chat', str(conversacion_id)
+        os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))),
+        'static', 'uploads', 'chat', str(conversacion_id)
     )
     os.makedirs(base_upload, exist_ok=True)
 

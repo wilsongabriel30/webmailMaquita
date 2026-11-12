@@ -1,0 +1,127 @@
+/* ============================================================================
+ * T-101 · Ventana de llamada con Fluent 2, según la ventana de llamadas de
+ * Teams: escenario oscuro, barra superior con el nombre y el tiempo a la
+ * izquierda y los controles a la derecha, y «Colgar» como botón rojo.
+ * Solo estilo y solo tokens de chat-fluent-tokens.css. Sigue el tema elegido:
+ * claro por defecto y oscuro solo con el tema oscuro, como en Teams.
+ * Cuelga de html.mq-fluent: sin esa clase, la ventana se ve como antes.
+ * ========================================================================== */
+
+html.mq-fluent body { font-family: var(--fl-fuente); background: var(--fl-fondo-3); color: var(--fl-texto-1); }
+
+/* ---- barra superior ---- */
+html.mq-fluent .vc-header {
+    height: 56px; padding: 0 var(--fl-esp-16);
+    background: var(--fl-fondo-1);
+    border-bottom: 1px solid var(--fl-trazo-3);
+}
+html.mq-fluent .vc-title { gap: var(--fl-esp-8); font: var(--fl-cuerpo-1-fuerte); max-width: calc(100vw - 420px); }
+html.mq-fluent .vc-title > i { font-size: 14px; color: var(--fl-texto-3); }
+html.mq-fluent .vc-timer { font: var(--fl-cuerpo-1); font-variant-numeric: tabular-nums; color: var(--fl-texto-3); opacity: 1; }
+/* la nota larga de la derecha deja su sitio a los controles */
+html.mq-fluent .vc-header > div:last-child:not(.vc-title) { display: none; }
+
+/* ---- controles: arriba a la derecha, cuadrados y sin relleno ---- */
+html.mq-fluent .vc-controls {
+    position: fixed; top: 0; right: var(--fl-esp-12); z-index: 20;
+    height: 56px; padding: 0; gap: var(--fl-esp-4);
+    align-items: center; justify-content: flex-end;
+    background: transparent;
+}
+html.mq-fluent .vc-controls button {
+    width: 40px; height: 40px;
+    font-size: 16px; color: var(--fl-texto-1);
+    background: transparent;
+    border-radius: var(--fl-radio-medio);
+    transition: background var(--fl-rapido) var(--fl-curva), color var(--fl-rapido) var(--fl-curva);
+}
+html.mq-fluent .vc-controls button:hover { transform: none; background: var(--fl-sutil-encima); }
+html.mq-fluent .vc-controls button:active { background: var(--fl-sutil-pulsado); }
+/* micrófono o cámara apagados: el icono en rojo suave, sin mancha de color */
+html.mq-fluent .vc-controls button.active { background: transparent; color: var(--fl-peligro-texto); }
+html.mq-fluent .vc-controls button.active:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .vc-controls .btn-share.sharing { background: var(--fl-marca-fondo); color: var(--fl-texto-sobre-marca); }
+html.mq-fluent .vc-controls .btn-rec.grabando { background: transparent; color: var(--fl-presencia-ocupado); }
+
+/* flecha para elegir dispositivo, pegada a su botón */
+html.mq-fluent .flecha-dispositivos {
+    width: 20px !important; height: 40px !important; margin-left: -4px; margin-right: var(--fl-esp-4);
+    font-size: 9px; color: var(--fl-texto-3) !important;
+    background: transparent !important; border-radius: var(--fl-radio-medio) !important;
+}
+html.mq-fluent .flecha-dispositivos:hover { background: var(--fl-sutil-encima) !important; color: var(--fl-texto-1) !important; }
+
+/* colgar: botón rojo con texto, separado del resto */
+html.mq-fluent .vc-controls .btn-colgar {
+    width: auto; height: 32px; padding: 0 var(--fl-esp-12); margin-left: var(--fl-esp-12); gap: var(--fl-esp-8);
+    font-size: 14px; color: #ffffff;
+    background: var(--fl-presencia-ocupado);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .vc-controls .btn-colgar::after { content: 'Colgar'; font: var(--fl-cuerpo-1-fuerte); }
+html.mq-fluent .vc-controls .btn-colgar:hover { background: #b62e31; }
+html.mq-fluent .vc-controls .btn-colgar:active { background: #9c282a; }
+
+/* ---- escenario ---- */
+html.mq-fluent .vc-stage, html.mq-fluent #remoteVideo { background: var(--fl-fondo-3); }
+html.mq-fluent .vc-estado { gap: var(--fl-esp-12); background: var(--fl-fondo-3); }
+html.mq-fluent .vc-avatar {
+    width: 120px; height: 120px; margin-bottom: var(--fl-esp-24);
+    font: 600 44px/1 var(--fl-fuente);
+    color: var(--fl-texto-sobre-marca);
+    background: var(--fl-marca-80);
+}
+/* mientras suena: un aro que se abre, en vez de parpadear */
+html.mq-fluent .vc-avatar.pulsando { animation: fl-aro 1.8s var(--fl-curva) infinite; }
+@keyframes fl-aro {
+    0% { box-shadow: 0 0 0 0 rgba(76, 155, 208, .55); }
+    100% { box-shadow: 0 0 0 28px rgba(76, 155, 208, 0); }
+}
+@media (prefers-reduced-motion: reduce) { html.mq-fluent .vc-avatar.pulsando { animation: none; } }
+html.mq-fluent .vc-estado .nombre { font: var(--fl-subtitulo-1); }
+html.mq-fluent .vc-estado .detalle { font: var(--fl-cuerpo-1); color: var(--fl-texto-3); opacity: 1; }
+html.mq-fluent #vcCalidad { font: var(--fl-leyenda-1); color: var(--fl-texto-3); }
+html.mq-fluent #vcAvisoRed {
+    font: var(--fl-leyenda-1); color: var(--fl-texto-1);
+    background: var(--fl-fondo-1); border: 1px solid var(--fl-presencia-ausente);
+    border-radius: var(--fl-radio-medio);
+}
+html.mq-fluent .calidad-etq { opacity: 1; }
+
+/* mi cámara: mosaico pequeño abajo a la derecha */
+html.mq-fluent #localVideo {
+    right: var(--fl-esp-16); bottom: var(--fl-esp-16);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+    box-shadow: var(--fl-sombra-16);
+    background: var(--fl-fondo-1);
+}
+
+/* ---- menús y cuadros ---- */
+html.mq-fluent .menu-dispositivos,
+html.mq-fluent .agregar-caja {
+    font-family: var(--fl-fuente); color: var(--fl-texto-1);
+    background: var(--fl-fondo-1);
+    border: 1px solid var(--fl-trazo-3);
+    border-radius: var(--fl-radio-xgrande);
+    box-shadow: var(--fl-sombra-16);
+}
+html.mq-fluent .md-opcion, html.mq-fluent .agregar-persona { font: var(--fl-cuerpo-1); color: var(--fl-texto-1); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .md-opcion:hover, html.mq-fluent .agregar-persona:hover { background: var(--fl-sutil-encima); }
+html.mq-fluent .md-elegida { background: var(--fl-marca-fondo-suave); color: var(--fl-marca-texto); }
+html.mq-fluent .md-vacio, html.mq-fluent .md-prueba-texto, html.mq-fluent .agregar-aviso, html.mq-fluent .agregar-cargando { color: var(--fl-texto-3); }
+html.mq-fluent .md-prueba { border-top-color: var(--fl-trazo-3); }
+html.mq-fluent .md-barra { background: var(--fl-trazo-3); }
+html.mq-fluent .md-barra-nivel { background: var(--fl-presencia-disponible); }
+html.mq-fluent .agregar-titulo { font: var(--fl-subtitulo-2); }
+html.mq-fluent .agregar-buscar { font: var(--fl-cuerpo-1); color: var(--fl-texto-1); background: var(--fl-fondo-2); border: 1px solid var(--fl-trazo-2); border-radius: var(--fl-radio-medio); }
+html.mq-fluent .agregar-cancelar { font: var(--fl-cuerpo-1-fuerte); color: var(--fl-texto-1); background: var(--fl-sutil-elegido); border-radius: var(--fl-radio-medio); }
+
+/* ventana estrecha: los controles vuelven abajo, como antes */
+@media (max-width: 720px) {
+    html.mq-fluent .vc-controls {
+        position: static; height: auto; padding: var(--fl-esp-8); justify-content: center;
+        background: var(--fl-fondo-1); border-top: 1px solid var(--fl-trazo-3);
+    }
+    html.mq-fluent .vc-title { max-width: none; }
+}

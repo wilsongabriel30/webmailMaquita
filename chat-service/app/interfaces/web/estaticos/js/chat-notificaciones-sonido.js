@@ -112,7 +112,7 @@
         if (Notification.permission === 'granted') {
             new Notification('Nuevo mensaje', {
                 body: 'Tienes un nuevo mensaje en el chat',
-                icon: '/static/images/logo-maquita-icon.png',
+                icon: '/webmail/icons/icon-192.png',
                 tag: 'chat-notification',
                 silent: true  // El sonido ya lo manejamos nosotros
             });

@@ -109,7 +109,8 @@
                 created_at: new Date(data.timestamp).toISOString(),
                 is_own_message: false,
                 message_type: data.type || 'text',
-                gif_url: data.gif_url
+                gif_url: data.gif_url,
+                reply_to_id: data.reply_to_id || null
             };
 
             console.log('⚡ handleUltraFastIncoming - Renderizando mensaje:', message);

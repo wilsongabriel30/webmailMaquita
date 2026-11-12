@@ -497,7 +497,9 @@ def emitir_mensaje_nuevo(conversacion_id: int, mensaje_data: Dict[str, Any]):
             'ts': int(datetime.now().timestamp() * 1000),
             'type': mensaje_data.get('tipo') or mensaje_data.get('type', 'text'),
             'gif_url': mensaje_data.get('gif_url'),
-            'nombre': nombre_remitente
+            'nombre': nombre_remitente,
+            # T-60: a qué mensaje responde, para pintar la cita en vivo sin recargar
+            'r': mensaje_data.get('respuesta_a_id') or mensaje_data.get('reply_to_id')
         }
         # [M-07] Nunca el contenido del mensaje en los registros: solo id, remitente, sala y tamano.
         logger.debug("[WebSocket] msg id=%s remitente=%s sala=%s bytes=%s",

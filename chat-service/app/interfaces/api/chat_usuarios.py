@@ -71,7 +71,8 @@ def buscar_usuarios():
                         'id': u.id,
                         'name': u.full_name or u.username or u.email,
                         'email': u.email,
-                        'photo': u.profile_picture,
+                        # La foto se guarda como nombre suelto: sin la ruta completa se pedía /chat/<archivo> (404)
+                        'photo': obtener_foto_usuario_con_fallback(u.profile_picture, None),
                         'department': None,
                         'username': u.username,
                         'is_institutional': False

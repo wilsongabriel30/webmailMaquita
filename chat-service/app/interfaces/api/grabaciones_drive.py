@@ -50,8 +50,10 @@ def _contexto(fila):
     room = fila['room'] or ''
     asunto, reunion_id, ids, correos = None, None, set(), set()
     with _con() as con, con.cursor(cursor_factory=psycopg2.extras.DictCursor) as cur:
-        cur.execute("SELECT id, asunto, participantes_emails, creador_id FROM reuniones_programadas WHERE nombre_sala = %s ORDER BY id DESC LIMIT 1", (room,))
-        r = cur.fetchone()
+        r = None
+        if not room.startswith('llamada_'):   # T-30: la sala de una llamada se repite; su reunión la pone reunion_de_grabacion
+            cur.execute("SELECT id, asunto, participantes_emails, creador_id FROM reuniones_programadas WHERE nombre_sala = %s ORDER BY id DESC LIMIT 1", (room,))
+            r = cur.fetchone()
         if r:
             asunto, reunion_id = r['asunto'], r['id']
             correos |= {e.strip().lower() for e in (r['participantes_emails'] or '').split(',') if e.strip()}
@@ -112,6 +114,9 @@ def _procesar(egress_id):
             return
         asunto, reunion_id, ids, correos = _contexto(fila)
         creador = int(fila['solicitante_id'])
+        if reunion_id is None:   # T-30 (10/11/2026): nunca una grabación sin reunión
+            from interfaces.api.reunion_de_grabacion import reunion_para_grabacion
+            reunion_id = reunion_para_grabacion(fila, asunto, creador, ids, correos)
         cuando = fila['creado_en'] or datetime.now()
         sub = cuando.strftime('%Y-%m')
         nombre = f"{cuando:%Y-%m-%d %H%M} {_nombre_seguro(asunto)}.mp4"
