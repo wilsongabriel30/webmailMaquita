@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.20.0] - 2026-11-12
+
+Búsqueda más útil para quien no es técnico: buscar por una persona trae también lo que ella escribió y otro reenvió, y
+el panel de búsqueda avanzada pregunta en lenguaje llano y dice en una frase lo que va a buscar.
+
 ### Añadido
 
 - **Búsqueda avanzada en lenguaje llano**: el panel pregunta («¿Quién lo envió?», «¿Qué decía el asunto?», «¿De cuándo es?»),
