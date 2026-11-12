@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.21.0] - 2026-11-12
+
+Avisos de «correo no entregado» explicados en español para quien no es técnico, asuntos sin marcas de SPAM puestas
+por otros servidores y sello de firma electrónica nítido.
+
 ### Añadido
 
 - **Rebotes explicados en español**: al abrir un aviso de «correo no entregado», encima del texto técnico aparece por cada
