@@ -2,10 +2,13 @@
 """Caja de arena de los consolidados ASC (11/09/2026).
 
 Wilson necesita probar «al límite» los consolidados y sus matrices sin tocar
-la unidad de Planificación ASC. La caja de arena es una carpeta de su Drive
-personal con COPIAS de los consolidados de 2026 y de todas sus matrices fuente:
+los archivos reales de Planificación ASC. La caja de arena es una carpeta con
+COPIAS de los consolidados de 2026 y de todas sus matrices fuente. Desde el
+05/10/2026 vive dentro de la unidad, junto a las demás pruebas (antes estaba en
+«/PRUEBAS FORMULARIOS/ASC» del Drive personal de Wilson y se confundía con los
+archivos reales):
 
-    /PRUEBAS FORMULARIOS/ASC/<misma estructura que «Mi unidad de Google»>
+    /unidades/12/Pruebas de concepto/Caja de arena/<misma estructura que «Mi unidad de Google»>
 
 `consolidar_asc.py --sandbox` hace exactamente lo mismo que en producción,
 pero leyendo y escribiendo en esa carpeta (otro usuario, otra base, otro
@@ -15,8 +18,8 @@ cuando la matriz está dentro de la caja de arena. Nada de esto toca la unidad 1
 import os
 
 USUARIO = 14
-BASE_VIRTUAL = '/PRUEBAS FORMULARIOS/ASC'
-BASE_FISICA = '/mnt/almacen/14/archivos/PRUEBAS FORMULARIOS/ASC'
+BASE_VIRTUAL = '/unidades/12/Pruebas de concepto/Caja de arena'
+BASE_FISICA = '/mnt/almacen/_unidades/12/archivos/Pruebas de concepto/Caja de arena'
 ESTADO_DIR = '/mnt/almacen/_sincronizacion-asc/estado-consolidados-sandbox'
 CERROJO = '/var/lib/almacen-maquita/cerrojos/consolidados-asc-sandbox.lock'
 REGISTRO = '/mnt/almacen/_sincronizacion-asc/registros/consolidacion-sandbox.log'

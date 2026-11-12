@@ -33,7 +33,9 @@
 <script>
 (async function () {
   const parametros = new URLSearchParams(location.search);
-  let ruta = parametros.get('ruta') || '';
+  // Enlace corto /a/<código> (06/10/2026): la ruta llega en la página, no en la URL.
+  const enlaceCorto = window.__ENLACE_CORTO__ || null;
+  let ruta = (enlaceCorto && enlaceCorto.ruta) || parametros.get('ruta') || '';
   const nombre = ruta.split('/').pop() || 'Documento';
   document.title = nombre + ' — Almacén Maquita';
   if (window.MaquitaFavicon) MaquitaFavicon.poner(nombre);
@@ -72,6 +74,25 @@
       setTimeout(function () { aviso.remove(); }, 9000);
     }
   }
+
+  // La barra de direcciones muestra el enlace corto (/a/<código>): es más
+  // fácil de compartir y no enseña la ruta ni el nombre del archivo.
+  (async function () {
+    try {
+      let codigo = enlaceCorto && enlaceCorto.ruta === ruta ? enlaceCorto.codigo : null;
+      if (!codigo) {
+        const r = await fetch('/api/almacen/enlace-corto?ruta=' + encodeURIComponent(ruta));
+        const j = await r.json();
+        if (j.success) codigo = j.codigo;
+      }
+      if (codigo) {
+        const resto = new URLSearchParams(location.search);   // p. ej. enlace= de una mención
+        resto.delete('ruta');
+        const q = resto.toString();
+        history.replaceState(null, '', '/a/' + codigo + (q ? '?' + q : ''));
+      }
+    } catch (e) { /* se queda el enlace largo: sigue funcionando */ }
+  })();
 
   // 2. Cargar api.js del Document Server dedicado
   try {

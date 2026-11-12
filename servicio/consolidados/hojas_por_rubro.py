@@ -25,6 +25,7 @@ exportación cruda de Google el 30/09/2026 (`mapa_conexiones_hoy.py`).
 """
 import logging
 import re
+import estilo_heredado  # noqa: E402
 
 from openpyxl.utils import column_index_from_string, coordinate_to_tuple, get_column_letter
 
@@ -163,8 +164,10 @@ def pegar(pagina, celda, matriz, filas_previas):
     for i in range(max(len(matriz), a_limpiar)):
         origen = matriz[i] if i < len(matriz) else []
         for j in range(ancho):
-            pagina.cell(row=fila0 + i, column=col0 + j).value = (
-                origen[j] if j < len(origen) else None)
+            valor = origen[j] if j < len(origen) else None
+            pagina.cell(row=fila0 + i, column=col0 + j).value = valor
+            if valor is not None and i:
+                estilo_heredado.heredar(pagina, fila0 + i, col0 + j)
     return len(matriz), ancho
 
 

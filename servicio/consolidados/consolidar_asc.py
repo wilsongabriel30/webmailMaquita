@@ -285,7 +285,11 @@ def procesar(definicion, indice, equivalencias, forzar=False, prueba=False):
             log.warning('  no se pudieron rellenar los resultados (%s); se publica igual',
                         motivo)
         with open(temporal, 'rb') as fichero:
-            memoria = io.BytesIO(fichero.read())
+            # Mismo ajuste que al guardar desde el editor: «mayor que N» solo
+            # para números y negro explícito, para que se vea como en Google
+            # (05/10/2026). Si no hay nada que ajustar devuelve lo mismo.
+            import ajuste_google
+            memoria = io.BytesIO(ajuste_google.ajustar_bytes(fichero.read()))
         memoria.seek(0)
         nucleo.subir(USUARIO, carpeta_virtual, nombre, memoria)
     finally:
@@ -313,6 +317,12 @@ def procesar(definicion, indice, equivalencias, forzar=False, prueba=False):
 
 
 def main():
+    # (06/10/2026) Mientras Google manda (hasta el 31/12/2026), los consolidados
+    # se publican tal cual llegan de Google: rehacerlos aquí daba cifras distintas.
+    # Quitar el archivo de marca para volver a consolidar en el Drive Maquita.
+    if os.path.exists('/mnt/almacen/_sincronizacion-asc/ESPEJO-GOOGLE') and '--sandbox' not in sys.argv:
+        log.info('consolidación en pausa: los consolidados vienen de Google (ESPEJO-GOOGLE)')
+        return 0
     forzar = '--forzar' in sys.argv
     prueba = '--prueba' in sys.argv
     # --solo <texto>: solo los consolidados cuyo nombre contenga ese texto

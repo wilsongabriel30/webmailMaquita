@@ -279,7 +279,12 @@ def guardar():
                             nucleo.tamano_humano(tamano))
     except Exception:
         pass
-    return jsonify({'success': True, 'estado': _resumen(fila, definicion)})
+    # Los nombres de variable que puso el servidor vuelven al editor, para que
+    # las reglas los citen y no cambien en el siguiente guardado (10/11/2026).
+    nombres = {e['id']: e['nombre'] for e in definicion['elementos'] if e.get('nombre')}
+    for e in definicion['elementos']:           # subpreguntas de las repeticiones
+        nombres.update({c['id']: c['nombre'] for c in e.get('campos') or [] if c.get('nombre')})
+    return jsonify({'success': True, 'estado': _resumen(fila, definicion), 'nombres': nombres})
 
 
 @bp_encuestas.route('/encuestas/publicar', methods=['POST'])
@@ -351,6 +356,9 @@ def ajustes():
         nuevos, solo_internos, una_por_persona, abriendo=abriendo,
         quitando_correo=quitando_correo,
         por_colaborador=encuestas_colaboradores.limita(definicion))
+    # «Encuesta de campo» solo cambia desde su panel y no se queda sin caducidad.
+    import encuestas_versiones
+    nuevos, forzados = encuestas_versiones.conservar(nuevos, antes, forzados)
 
     ebd.ajustar(definicion['id'],
                 abierta=cuerpo.get('abierta'),
@@ -384,11 +392,14 @@ def quien_respondio(fila, nombres, ajustes, definicion=None):
 
     Cada caso dice la verdad de lo que se sabe (27/08/2026):
 
-      anónima          → «Anónimo». No es que falte el dato: es que se prometió
-                         no guardarlo, y el nombre no puede sugerir otra cosa.
       con «Colaborador» → la persona de nómina elegida en la respuesta: en un
                          formulario con esa pregunta, es ella quien responde
-                         (28/09/2026). Hace falta pasar `definicion`.
+                         (28/09/2026). Hace falta pasar `definicion`. Va antes
+                         que el anonimato (30/09/2026): quien responde eligió
+                         su nombre de nómina a la vista, así que ese nombre es
+                         un dato de la respuesta y no algo que se callara.
+      anónima          → «Anónimo». No es que falte el dato: es que se prometió
+                         no guardarlo, y el nombre no puede sugerir otra cosa.
       con sesión FARO  → su nombre, que es lo que quien lee el formulario
                          reconoce.
       sin sesión       → el correo con el que respondió.
@@ -396,13 +407,13 @@ def quien_respondio(fila, nombres, ajustes, definicion=None):
     Y si no hay ninguna de las tres, «Sin identificar»: antes ponía «Externo»,
     que suena a una categoría de persona cuando en realidad es «no se sabe».
     """
-    if ajustes.get('anonimo'):
-        return 'Anónimo'
     if definicion:
         import encuestas_colaboradores
         elegido = encuestas_colaboradores.quien_responde(definicion, fila.get('datos'))
         if elegido:
             return elegido
+    if ajustes.get('anonimo'):
+        return 'Anónimo'
     nombre = nombres.get(fila.get('usuario_id'))
     if nombre:
         return nombre
@@ -532,7 +543,10 @@ def _resumen_por_pregunta(definicion, filas):
             maximo = int((pregunta.get('calificacion_max')
                           if pregunta['tipo'] == 'calificacion'
                           else pregunta.get('escala_max')) or 5)
-            conteo = {str(v): 0 for v in range(1, maximo + 1)}
+            # Una escala «0 hasta N» cuenta también el 0 (30/10/2026).
+            minimo = 0 if (pregunta['tipo'] == 'escala' and
+                           pregunta.get('escala_min') == 0) else 1
+            conteo = {str(v): 0 for v in range(minimo, maximo + 1)}
             for valor in valores:
                 clave = str(int(valor))
                 if clave in conteo:
@@ -721,8 +735,14 @@ def exportar():
     libro_mod.restaurar_columnas(definicion['id'])
     destino_previsto = ('' if carpeta == '/' else carpeta) + '/' + nombre
     ya_existia = os.path.isfile(nucleo.ruta_fisica(usuario, destino_previsto))
-    memoria = libro_mod.construir_conservando(fila_bd, definicion, usuario,
-                                              destino_previsto)
+    # Si el Excel lo generó el sistema y nadie lo trabajó pero su orden de
+    # columnas quedó atrás, se rehace entero con el vigente (02/10/2026).
+    import encuestas_hoja_rehacer as rehacer
+    memoria = rehacer.si_cambio_el_orden(fila_bd, definicion, usuario,
+                                         destino_previsto) if ya_existia else None
+    if memoria is None:
+        memoria = libro_mod.construir_conservando(fila_bd, definicion, usuario,
+                                                  destino_previsto)
     if memoria is None and not ya_existia:
         return error('No se pudo generar el Excel de respuestas.', 500)
     if memoria is not None:
@@ -780,6 +800,8 @@ def _adjunto_en_drive(fila, definicion, adjunto_id):
     """
     for respuesta in ebd.listar_respuestas(definicion['id']):
         for valor in (respuesta['datos'] or {}).values():
+            if isinstance(valor, dict):        # «Video con recorrido»: {recorrido: ficha, video: ficha}
+                valor = [valor.get('recorrido'), valor.get('video')]
             if not isinstance(valor, list):
                 continue
             for ficha in valor:
@@ -824,6 +846,12 @@ def descargar_adjunto():
         camino, nombre = _adjunto_en_drive(fila, definicion, adjunto_id)
     if not camino:
         return error('Ese archivo ya no está disponible', 404)
+
+    if request.args.get('ver') == '1':     # visor del recorrido: solo video MP4 o camino GeoJSON comprobados
+        import encuestas_tipo_recorrido
+        tipo = encuestas_tipo_recorrido.tipo_para_ver(camino, nombre)
+        if tipo:
+            return send_file(camino, mimetype=tipo, conditional=True)
 
     return send_file(camino, as_attachment=True,
                      download_name=nombre or 'adjunto',

@@ -9,12 +9,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="stylesheet" href="/static/vendor/fonts/material-icons.css">
 <link rel="stylesheet" href="/static/vendor/fonts/google-sans-roboto.css">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20260909-opciones2">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-base.css?v=20261002-gama">
 <link rel="stylesheet" href="/static/css/almacen/encuesta-destino-seccion.css?v=20260909-opciones2">
 <link rel="stylesheet" href="/static/css/almacen/encuesta-validacion.css?v=20260909-opciones2">
 <link rel="stylesheet" href="/static/css/almacen/encuesta-fechahora.css?v=20260909-opciones2">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-campos.css?v=20260909-opciones2">
-<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20260928-retro3">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-campos.css?v=20261002-colores">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-opciones-movil.css?v=20261002-circulos">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-editor.css?v=20261002-colores">
+<link rel="stylesheet" href="/static/css/almacen/encuesta-idiomas-editor.css?v=20261030-idiomas1">
 <style>
   /* Capa de vista previa y de publicación (solo la usa el editor) */
   .fm-capa { display:none; position:fixed; inset:0; z-index:40;
@@ -41,6 +43,8 @@
 
   <button class="fm-icono-barra" id="btnTema" title="Personalizar tema"
           aria-label="Personalizar tema"><span class="material-icons">palette</span></button>
+  <button class="fm-icono-barra" id="btnIdiomas" title="Idiomas"
+          aria-label="Idiomas"><span class="material-icons">translate</span></button>
   <button class="fm-icono-barra" id="btnVistaPrevia" title="Vista previa"
           aria-label="Vista previa"><span class="material-icons">visibility</span></button>
   <button class="fm-icono-barra" id="btnDeshacer" title="Deshacer (Ctrl+Z)"
@@ -96,31 +100,46 @@
   </div>
 </div>
 
-<script src="/static/js/almacen/encuesta-texto.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-render.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-texto.js?v=20261001-fuente2"></script>
+<script src="/static/js/almacen/encuesta-render.js?v=20261030-escala0"></script>
 <script src="/static/js/almacen/encuesta-destino-seccion.js?v=20260909-opciones2"></script>
 <script src="/static/js/almacen/encuesta-validacion.js?v=20260910-cedula-ruc"></script>
 <script src="/static/js/almacen/encuesta-campos.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-archivos.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-colaborador.js?v=20260928-unica1"></script>
+<script src="/static/js/almacen/encuesta-archivos.js?v=20261111-datos"></script>
+<script src="/static/js/almacen/encuesta-colaborador.js?v=20261002-colores"></script>
+<script src="/static/js/almacen/encuesta-reglas.js?v=20261110-fase1"></script>
+<script src="/static/js/almacen/encuesta-tipos-campo.js?v=20261112-calculo"></script>
+<script src="/static/js/almacen/encuesta-reglas-editor.js?v=20261112-calculo"></script>
+<script src="/static/js/almacen/encuesta-calculo-asistente.js?v=20261112a"></script>
+<script src="/static/js/almacen/encuesta-ayuda-tipos.js?v=20261112a"></script>
+<script src="/static/js/almacen/encuesta-plantilla-xlsform.js?v=20261112a"></script>
+<script src="/static/js/almacen/encuesta-foto.js?v=20261110-2b"></script>
+<script src="/static/js/almacen/encuesta-tipo-recorrido.js?v=20261111a"></script>
+<script src="/static/js/almacen/encuesta-lista.js?v=20261110-2b"></script>
+<script src="/static/js/almacen/encuesta-repeticion.js?v=20261110-2b"></script>
 <script src="/static/js/almacen/encuesta-colaborador-edicion.js?v=20260928-unica1"></script>
 <script src="/static/js/almacen/encuesta-tipos.js?v=20260909-opciones2"></script>
 <script src="/static/js/almacen/encuesta-fechahora.js?v=20260909-opciones2"></script>
 <script src="/static/js/almacen/encuesta-cuadricula.js?v=20260909-opciones2"></script>
 <script src="/static/js/almacen/encuesta-imagenes.js?v=20260909-opciones2"></script>
 <script src="/static/js/almacen/encuesta-historial.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-formato.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-formato.js?v=20261001-fuente2"></script>
 <script src="/static/js/almacen/encuesta-clave.js?v=20260928-retro3"></script>
-<script src="/static/js/almacen/encuesta-tarjetas.js?v=20260928-retro3"></script>
-<script src="/static/js/almacen/encuesta-barra.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-tema.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-tarjetas.js?v=20261112-ayuda"></script>
+<script src="/static/js/almacen/encuesta-barra.js?v=20261111-territorio"></script>
+<script src="/static/js/almacen/encuesta-tema.js?v=20261002-gama"></script>
 <script src="/static/js/almacen/encuesta-cfg-controles.js?v=20260928-retro1"></script>
 <script src="/static/js/almacen/encuesta-cfg-secciones.js?v=20260928-unica2"></script>
 <script src="/static/js/almacen/encuesta-config.js?v=20260928-unica1"></script>
-<script src="/static/js/almacen/encuesta-encabezado.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-editor.js?v=20260909-opciones2"></script>
+<script src="/static/js/almacen/encuesta-encabezado.js?v=20261002-logo"></script>
+<script src="/static/js/almacen/encuesta-editor.js?v=20261111-territorio"></script>
 <script src="/static/js/almacen/encuesta-qr.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-importar.js?v=20260909-opciones2"></script>
-<script src="/static/js/almacen/encuesta-publicar.js?v=20260910-mejoras"></script>
+<script src="/static/js/almacen/encuesta-importar.js?v=20261110-paso6"></script>
+<script src="/static/js/almacen/encuesta-datos-comunes.js?v=20261112a"></script>
+<script src="/static/js/almacen/encuesta-territorio.js?v=20261112a"></script>
+<script src="/static/js/almacen/encuesta-importar-xlsform.js?v=20261112-ayuda"></script>
+<script src="/static/js/almacen/encuesta-campo-publicar.js?v=20261111-publicador"></script>
+<script src="/static/js/almacen/encuesta-publicar.js?v=20261110-paso5"></script>
+<script src="/static/js/almacen/encuesta-idiomas-editor.js?v=20261030-idiomas1"></script>
 </body>
 </html>

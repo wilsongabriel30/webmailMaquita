@@ -92,6 +92,53 @@ EXTENSIONES_OFIMATICA = (
 FIRMA_OLE = b'\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1'
 
 
+# Función de serie que OnlyOffice (complemento de IA, DS 9.x/10.x) escribe por su
+# cuenta en xl/jsaProject.bin de las hojas que se editan en el Drive, aunque la
+# persona no haya creado ninguna macro. No es lógica de nadie: es la fórmula
+# =AI(...) del propio editor. Se reconoce por la huella EXACTA de su código
+# (comprobada el 04/11/2026: 100 de 100 archivos, mismo guid y misma huella);
+# una función que solo se LLAME «AI» pero cambie un byte sigue siendo macro.
+FUNCIONES_DE_SERIE_ONLYOFFICE = {
+    ('AI', '42109f0b4a24e403db220325831067588ce92f7320d8691153cc502950f37564'),
+}
+TOPE_JSA_DE_SERIE = 64 * 1024     # el de serie pesa ~1,7 KB
+
+
+def _jsa_solo_de_serie(info, paquete):
+    """¿Este jsaProject.bin no trae nada salvo funciones de serie del editor?
+
+    Falla cerrado: si pesa demasiado, no es JSON, trae alguna macro de usuario
+    (macrosArray no vacío) o alguna función que no sea de serie, devuelve False
+    y el archivo se trata como CON macros.
+    """
+    import hashlib
+    import json
+    try:
+        if info.file_size > TOPE_JSA_DE_SERIE:
+            return False
+        datos = json.loads(paquete.read(info).decode('utf-8'))
+        if not isinstance(datos, dict) or datos.get('macrosArray'):
+            return False
+        funciones = (datos.get('customFunctions') or {}).get('macrosArray') or []
+        for funcion in funciones:
+            huella = hashlib.sha256(
+                (funcion.get('value') or '').encode('utf-8')).hexdigest()
+            if (funcion.get('name'), huella) not in FUNCIONES_DE_SERIE_ONLYOFFICE:
+                if funcion.get('name') == 'AI':
+                    # Casi seguro: una versión nueva de OnlyOffice cambió su
+                    # función de serie. Se sigue bloqueando (falla cerrado),
+                    # pero avisa para añadir la huella nueva a la lista.
+                    registro.warning(
+                        'MACROS: función AI con huella desconocida %s (guid %s). '
+                        'Si es la de serie de una versión nueva de OnlyOffice, '
+                        'añadirla a FUNCIONES_DE_SERIE_ONLYOFFICE en macros.py',
+                        huella, funcion.get('guid'))
+                return False
+        return True
+    except Exception:
+        return False
+
+
 def _es_parte_de_macro(nombre):
     """¿Esta parte interna del ZIP es una macro?"""
     return bool(PARTES_MACRO_OOXML.search(nombre)
@@ -140,8 +187,15 @@ def tiene_macros(ruta_fisica, nombre=None):
             return False
 
         with zipfile.ZipFile(ruta_fisica) as paquete:
-            for parte in paquete.namelist():
+            for info in paquete.infolist():
+                parte = info.filename
                 if _es_parte_de_macro(parte):
+                    # 04/11/2026: el jsaProject.bin que solo lleva la función
+                    # de serie =AI() de OnlyOffice no es una macro (caso
+                    # ATS.FOR.023 de u59: no se podía compartir).
+                    if (parte.rsplit('/', 1)[-1].lower() == 'jsaproject.bin'
+                            and _jsa_solo_de_serie(info, paquete)):
+                        continue
                     return True
             # ODF declara los módulos en el manifiesto aunque no haya carpeta.
             if 'META-INF/manifest.xml' in paquete.namelist():

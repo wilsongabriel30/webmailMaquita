@@ -28,6 +28,10 @@ import indice_contenido as contenido
 import nombres_archivo as nombres
 import estilos_compartidos as _ec
 import limite_nombre
+try:
+    import enlaces_cortos as _enlaces_cortos   # enlaces /a/<código> (06/10/2026)
+except Exception:                              # fuera de Flask (guiones): sin enlaces cortos
+    _enlaces_cortos = None
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual, raiz_usuario,
                              ruta_fisica, unidad_de_ruta)
 from config_almacen import raiz_datos
@@ -428,12 +432,23 @@ def _contenido_coincide(ruta: str, digest: str, tamano: int) -> bool:
         return False
 
 
+DEDUP_TAMANO_MINIMO = 1024 * 1024   # por debajo de 1 MB cada archivo es una copia propia
+
+
 def _publicar_con_dedup(temporal: str, fisica: str, digest: str, tamano: int) -> bool:
     """
     Publica el archivo recién escrito aplicando deduplicación.
     Devuelve True (el temporal fue consumido). Si algo de la dedup falla,
     cae con elegancia a una publicación normal (nunca pierde el archivo).
     """
+    # Lo pequeño NO se deduplica (05/10/2026). Un enlace duro comparte con la
+    # copia original también la FECHA: un documento nuevo creado desde la
+    # plantilla vacía —idéntico byte a byte a todos los demás— salía en el
+    # listado con la fecha del primero que se creó (8 de septiembre), no con
+    # la de hoy. El ahorro en archivos de este tamaño es despreciable.
+    if tamano < DEDUP_TAMANO_MINIMO:
+        os.replace(temporal, fisica)
+        return True
     try:
         filas = consultar('SELECT ruta_canonica FROM contenidos WHERE hash = %s', (digest,))
         if filas and os.path.exists(filas[0]['ruta_canonica']):
@@ -637,6 +652,10 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         destino = ruta_fisica(usuario_id, ruta_nueva, escritura=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, ruta_virtual, ruta_nueva)
+    if _enlaces_cortos:   # el enlace corto /a/<código> sigue al archivo
+        _enlaces_cortos.reubicar(origen, destino, usuario_id, ruta_nueva)
+    from enlaces_siguen_archivo import reubicar as _reubicar_enlaces
+    _reubicar_enlaces(origen, destino)   # los enlaces compartidos siguen al archivo (14/10/2026)
     if os.path.isdir(destino):
         _ec.reubicar(usuario_id, ruta_virtual, ruta_nueva)   # el color sigue a la carpeta
     contenido.olvidar(usuario_id, ruta_virtual)
@@ -665,6 +684,10 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
     os.makedirs(os.path.dirname(destino), exist_ok=True)
     os.replace(origen, destino)
     indice.renombrar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
+    if _enlaces_cortos:
+        _enlaces_cortos.reubicar(origen, destino, usuario_id, ruta_final)
+    from enlaces_siguen_archivo import reubicar as _reubicar_enlaces
+    _reubicar_enlaces(origen, destino)   # los enlaces compartidos siguen al archivo (14/10/2026)
     if os.path.isdir(destino):
         _ec.reubicar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
     contenido.olvidar(usuario_id, normalizar_ruta_virtual(ruta_origen))

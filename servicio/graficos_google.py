@@ -39,6 +39,13 @@ solo se reescriben los `xl/charts/chartN.xml` que tengan alguno de esos tres
 defectos. Los gráficos que Google exporta como IMAGEN (Google hace eso con los
 tipos que el .xlsx no sabe representar) se quedan como están: son un PNG.
 
+Además (20/10/2026, `graficos_espejo.py`): colores de cada porción, leyenda
+etiquetada del pastel, título, números y leyenda de las barras, como los
+dibuja Google. Con `--definiciones archivo.json` (lo baja la sincronización con
+`graficos_definiciones.py` de la exportación HTML de Google) se usan las
+opciones reales de cada gráfico; sin él, lo que Google hace por defecto. Solo a
+gráficos que vienen de Google (o con definición): los de Excel no se tocan.
+
 Con `--forzar` se aplica el aspecto de Google aunque el gráfico ya traiga esos
 valores puestos. Hace falta cuando el archivo YA pasó por el editor: al guardar,
 el Document Server escribe sus valores por defecto (`gapWidth 150`,
@@ -47,7 +54,7 @@ la gente.
 
 Se usa de dos formas:
   · a mano, sobre un archivo suelto:
-        python3 graficos_google.py archivo.xlsx [salida.xlsx] [--forzar]
+        python3 graficos_google.py archivo.xlsx [salida.xlsx] [--forzar] [--definiciones d.json]
         python3 graficos_google.py --revisar archivo.xlsx [--forzar]
   · al SUBIR un .xlsx al Drive (api_archivos.subir), para que lo que se baja de
     Google entre ya bien. Se engancha en el endpoint de subida y NO en
@@ -62,6 +69,12 @@ import re
 import shutil
 import sys
 import zipfile
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import graficos_pastel  # noqa: E402  (pasteles de Google: nombre junto a la porción, 06/10/2026)
+import graficos_definiciones  # noqa: E402  (20/10/2026)
+import graficos_espejo  # noqa: E402
+import graficos_ubicacion  # noqa: E402
 
 log = logging.getLogger('almacen.graficos')
 
@@ -336,8 +349,23 @@ def sin_leyenda_de_una(xml):
     return nuevo, n
 
 
-def arreglar_chart(z, hojas, formatos, xml, forzar=False):
+def _de_google(xml):
+    """Google escribe el espacio de nombres de Mac en sus gráficos; Excel y el editor, no."""
+    return 'xmlns:mv="urn:schemas-microsoft-com:mac:vml"' in xml
+
+
+def _puntos(z, hojas, xml, definicion):
+    """Los puntos del pastel que Google dibuja: los que tienen número (o los que
+    no son cero, si así cuadra con las filas de la definición)."""
+    todos, no_cero = graficos_ubicacion.puntos_con_valor(z, hojas, xml)
+    if definicion and len(no_cero) == len(definicion.get('filas') or []) != len(todos):
+        return no_cero
+    return todos
+
+
+def arreglar_chart(z, hojas, formatos, xml, forzar=False, definicion=None):
     """El XML del gráfico arreglado y qué se le hizo."""
+    de_google = _de_google(xml) or bool(definicion)
     referencia = re.search(r'<c:val>\s*<c:numRef>\s*<c:f>(.*?)</c:f>', xml, re.S)
     formato = formato_de_la_serie(z, hojas, formatos,
                                   referencia.group(1) if referencia else '')
@@ -364,36 +392,54 @@ def arreglar_chart(z, hojas, formatos, xml, forzar=False):
     xml, n = sin_leyenda_de_una(xml)
     if n:
         hecho['leyenda'] = 'quitada'
+    if de_google:                                       # (20/10/2026) lo cubre el espejo
+        xml, espejo = graficos_espejo.arreglar(xml, definicion, _puntos(z, hojas, xml, definicion), formato)
+        if espejo:
+            hecho['como en Google'] = ', '.join(sorted(espejo))
+        return xml, hecho
+    xml, n = graficos_pastel.nombres_en_porciones(xml)   # (06/10/2026)
+    if n:
+        hecho['pastel'] = 'nombre junto a cada porción'
     return xml, hecho
 
 
+def _definiciones_por_grafico(z, hojas, definiciones):
+    """{pieza del gráfico: su definición de Google} (vacío sin definiciones)."""
+    if not definiciones:
+        return {}
+    ubicaciones = graficos_ubicacion.graficos_por_hoja(z, hojas)
+    return {pieza: graficos_ubicacion.definicion_de(lugar, definiciones) for pieza, lugar in ubicaciones.items()}
+
+
 # ── entrada pública ──────────────────────────────────────────────────────
-def revisar(origen, forzar=False):
+def revisar(origen, forzar=False, definiciones=None):
     """Qué se le haría a cada gráfico, sin tocar nada."""
     salida = {}
     with zipfile.ZipFile(origen) as z:
         hojas = _hojas_por_nombre(z)
         formatos = _formatos_de_estilo(z)
+        propias = _definiciones_por_grafico(z, hojas, definiciones)
         for nombre in sorted(n for n in z.namelist()
                              if re.match(r'xl/charts/chart\d+\.xml$', n)):
             xml = z.read(nombre).decode('utf-8', 'replace')
-            _, hecho = arreglar_chart(z, hojas, formatos, xml, forzar)
+            _, hecho = arreglar_chart(z, hojas, formatos, xml, forzar, propias.get(nombre))
             salida[nombre] = hecho
     return salida
 
 
-def arreglar(origen, destino, forzar=False):
+def arreglar(origen, destino, forzar=False, definiciones=None):
     """Escribe en `destino` el archivo con los gráficos arreglados.
     Devuelve {gráfico: qué se le hizo} — vacío si no hacía falta tocar nada."""
     try:
         with zipfile.ZipFile(origen) as z:
             hojas = _hojas_por_nombre(z)
             formatos = _formatos_de_estilo(z)
+            propias = _definiciones_por_grafico(z, hojas, definiciones)
             nuevos, informe = {}, {}
             for nombre in sorted(n for n in z.namelist()
                                  if re.match(r'xl/charts/chart\d+\.xml$', n)):
                 xml = z.read(nombre).decode('utf-8', 'replace')
-                arreglado, hecho = arreglar_chart(z, hojas, formatos, xml, forzar)
+                arreglado, hecho = arreglar_chart(z, hojas, formatos, xml, forzar, propias.get(nombre))
                 if hecho:
                     nuevos[nombre] = arreglado
                     informe[nombre] = hecho
@@ -448,18 +494,23 @@ def arreglar_en_sitio(fisica, tope=TAMANO_MAXIMO):
 
 if __name__ == '__main__':
     forzar = '--forzar' in sys.argv
+    definiciones = None
+    if '--definiciones' in sys.argv:
+        posicion = sys.argv.index('--definiciones')
+        definiciones = graficos_definiciones.cargar(sys.argv[posicion + 1]) if posicion + 1 < len(sys.argv) else None
+        del sys.argv[posicion:posicion + 2]
     argumentos = [a for a in sys.argv[1:] if a not in ('--revisar', '--forzar')]
     if not argumentos:
         print(__doc__)
         sys.exit(2)
     if '--revisar' in sys.argv:
-        for grafico, hecho in revisar(argumentos[0], forzar).items():
+        for grafico, hecho in revisar(argumentos[0], forzar, definiciones).items():
             print('%s: %s' % (grafico, hecho or 'nada que arreglar'))
         sys.exit(0)
     entrada = argumentos[0]
     salida = argumentos[1] if len(argumentos) > 1 else entrada
     temporal = salida + '.nuevo'
-    informe = arreglar(entrada, temporal, forzar)
+    informe = arreglar(entrada, temporal, forzar, definiciones)
     if not informe:
         print('No hacía falta arreglar nada.')
         sys.exit(0)

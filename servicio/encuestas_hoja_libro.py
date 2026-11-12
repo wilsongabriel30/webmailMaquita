@@ -443,6 +443,7 @@ def _planear(encabezados, fijas, listado, titulos, preguntas):
     Actualiza `preguntas` (el estado) en el sitio."""
     normales = [normalizar(e) for e in encabezados]
     mapa, columnas, renombres = {}, [], []
+    nota_nueva = None
 
     def libre(titulo):
         usados = set(normales) | {normalizar(t) for t in columnas} \
@@ -477,6 +478,8 @@ def _planear(encabezados, fijas, listado, titulos, preguntas):
             continue
         if preguntas.get(clave) is None:
             nombre = libre(cabecera)
+            if normalizar(cabecera) == 'PUNTUACION':
+                nota_nueva = nombre
             columnas.append(nombre)
             preguntas[clave] = {'form': cabecera, 'hoja': nombre}
             mapa[len(encabezados) + len(columnas) - 1] = j
@@ -525,4 +528,13 @@ def _planear(encabezados, fijas, listado, titulos, preguntas):
             antes = (antes + [encabezados[columna]])[-6:]
         preguntas[id_] = {'form': titulo, 'hoja': hoja, 'antes': antes}
         mapa[columna] = j
+
+    # «Puntuación» va al final de la tabla (02/10/2026): si se crea en este
+    # paso junto con preguntas nuevas, se coloca detrás de ellas.
+    if nota_nueva and columnas and columnas[-1] != nota_nueva:
+        base = len(encabezados)
+        orden = [c for c in columnas if c != nota_nueva] + [nota_nueva]
+        mapa = {(col if col < base else base + orden.index(columnas[col - base])): j
+                for col, j in mapa.items()}
+        columnas = orden
     return {'mapa': mapa, 'columnas': columnas, 'renombres': renombres}

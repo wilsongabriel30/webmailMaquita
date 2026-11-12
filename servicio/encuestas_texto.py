@@ -56,12 +56,16 @@ class _Saneador(HTMLParser):
         self.pila = []          # etiquetas abiertas, para cerrarlas en orden
         self.largo = 0          # longitud del TEXTO visible, no del HTML
         self.mudo = 0           # profundidad dentro de una etiqueta MUDA
+        self.bloques = []       # posición en `partes` de cada bloque abierto
+        self.tras_bloque = False  # lo siguiente empieza otra línea
 
     # -- texto ---------------------------------------------------------
     def handle_data(self, dato):
         if self.mudo or self.largo >= self.maximo:
             return
         dato = dato[:self.maximo - self.largo]
+        if dato.strip(' \t\r\n'):   # el sangrado del HTML no abre línea
+            self._linea_nueva()
         self.largo += len(dato)
         self.partes.append(escape(dato, quote=False))
 
@@ -76,6 +80,18 @@ class _Saneador(HTMLParser):
         if self.mudo:
             self.pila.append(None)
             return
+
+        if etiqueta in BLOQUES:
+            # El primer bloque no lleva salto: el navegador envuelve la primera
+            # línea en un <div> y añadirlo dejaría el texto con un hueco arriba.
+            if self.partes:
+                self.partes.append('<br>')
+            self.tras_bloque = False
+            self.bloques.append(len(self.partes))
+            self.pila.append('#bloque')
+            return
+
+        self._linea_nueva()
 
         if etiqueta in SALTOS:
             self.partes.append('<br>')
@@ -116,22 +132,29 @@ class _Saneador(HTMLParser):
                 self.pila.append(None)
             return
 
-        if etiqueta in BLOQUES:
-            # El primer bloque no lleva salto: el navegador envuelve la primera
-            # línea en un <div> y añadirlo dejaría el texto con un hueco arriba.
-            if self.partes:
-                self.partes.append('<br>')
-            self.pila.append(None)
-            return
-
         # Cualquier otra etiqueta: se descarta. Si es de las que llevan cierre,
         # se apila un hueco para no descuadrar la pila al cerrarla.
         if etiqueta not in ('img', 'input', 'hr', 'meta', 'link'):
             self.pila.append(None)
 
     def handle_startendtag(self, etiqueta, atributos):
-        if etiqueta.lower() in SALTOS:
+        if etiqueta.lower() in SALTOS and not self.mudo:
+            self._linea_nueva()
             self.partes.append('<br>')
+
+    def _linea_nueva(self):
+        if self.tras_bloque:
+            self.partes.append('<br>')
+            self.tras_bloque = False
+
+    def _cerrar_bloque(self):
+        # Una línea vacía es `<div><br></div>`: ese <br> final solo da altura a
+        # la línea, no es un salto. Contarlo convertía cada línea en blanco en
+        # dos (01/10/2026).
+        inicio = self.bloques.pop()
+        if len(self.partes) > inicio and self.partes[-1] == '<br>':
+            self.partes.pop()
+        self.tras_bloque = True
 
     # -- cierre --------------------------------------------------------
     def handle_endtag(self, etiqueta):
@@ -140,7 +163,9 @@ class _Saneador(HTMLParser):
         if not self.pila:
             return
         abierta = self.pila.pop()
-        if abierta:
+        if abierta == '#bloque':
+            self._cerrar_bloque()
+        elif abierta:
             self.partes.append('</' + abierta + '>')
 
     # -- lo que nunca se copia ----------------------------------------
@@ -187,7 +212,9 @@ class _Saneador(HTMLParser):
     def resultado(self):
         while self.pila:
             abierta = self.pila.pop()
-            if abierta:
+            if abierta == '#bloque':
+                self.bloques.pop()
+            elif abierta:
                 self.partes.append('</' + abierta + '>')
         return ''.join(self.partes)[:LIMITE_HTML]
 

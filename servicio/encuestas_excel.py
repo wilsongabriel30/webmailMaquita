@@ -40,8 +40,9 @@ import re
 
 log = logging.getLogger('almacen.encuestas.excel')
 
-MORADO = '5B2D8E'
-MORADO_SUAVE = 'EDE7F6'
+# Azul institucional (02/10/2026; antes morado).
+AZUL = '0061A1'
+AZUL_SUAVE = 'E0ECF4'
 GRIS_TENUE = '5F6368'
 BLANCO = 'FFFFFF'
 
@@ -113,9 +114,9 @@ def escribir(libro, cabeceras, filas_datos, titulo_formulario, color_tema=None,
     if hoja is None:
         hoja = libro.active
         hoja.title = nombre_de_hoja(titulo_formulario)
-    color = (color_tema or '').lstrip('#').upper() or MORADO
+    color = (color_tema or '').lstrip('#').upper() or AZUL
     if not re.fullmatch(r'[0-9A-F]{6}', color):
-        color = MORADO
+        color = AZUL
 
     total_columnas = len(cabeceras)
 
@@ -227,9 +228,9 @@ def hoja_resumen(libro, resumen_por_pregunta, color_tema=None):
     from openpyxl.styles import Alignment
     from openpyxl.utils import get_column_letter
 
-    color = (color_tema or '').lstrip('#').upper() or MORADO
+    color = (color_tema or '').lstrip('#').upper() or AZUL
     if not re.fullmatch(r'[0-9A-F]{6}', color):
-        color = MORADO
+        color = AZUL
 
     hoja = libro.create_sheet('Resumen')
     hoja.cell(row=1, column=1, value='Resumen de las respuestas')
@@ -242,7 +243,7 @@ def hoja_resumen(libro, resumen_por_pregunta, color_tema=None):
     for bloque in resumen_por_pregunta:
         hoja.cell(row=n, column=1, value=bloque['titulo'])
         hoja.cell(row=n, column=1).font = _fuente(bold=True, size=11)
-        hoja.cell(row=n, column=1).fill = _relleno(MORADO_SUAVE)
+        hoja.cell(row=n, column=1).fill = _relleno(AZUL_SUAVE)
         hoja.merge_cells(start_row=n, start_column=1, end_row=n, end_column=3)
         n += 1
 

@@ -74,6 +74,7 @@ def otp_ok(token: str, comp: dict) -> bool:
 
 
 def _share(token: str):
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     filas = consultar("""
         SELECT id, propietario_id, ruta, token, email, requiere_otp, expira_en
         FROM compartidos WHERE token = %s

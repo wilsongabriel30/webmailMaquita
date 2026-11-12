@@ -57,6 +57,7 @@ from registro import registrar_actividad
 import onlyoffice_urls as oo_urls
 import conversion_edicion
 import huella_documento
+import limites_editor
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
                              ruta_fisica, unidad_de_ruta)
 
@@ -294,7 +295,7 @@ def _reescribir_url_interna(url: str) -> str:
 # por aquí (la Nube antigua y sus visores compartidos). Una sola fuente.
 
 
-def _pagina_editor(nombre_plantilla: str):
+def _pagina_editor(nombre_plantilla: str, enlace=None):
     """Devuelve la pagina del editor con los anadidos de Maquita.
 
     Si algo falla al leerla o al insertarlos, se entrega tal cual: el editor
@@ -307,6 +308,9 @@ def _pagina_editor(nombre_plantilla: str):
             html = archivo.read()
         from arreglos_editor import poner_en
         html = poner_en(html)
+        if enlace:   # abierto por enlace corto /a/<código> (enlaces_cortos.py)
+            from enlaces_cortos import script_enlace
+            html = html.replace('<head>', '<head>' + script_enlace(enlace), 1)
         respuesta = Response(html, mimetype='text/html')
     except Exception as excepcion:
         log.warning('No se pudieron anadir los extras del editor (%s)', excepcion)
@@ -454,6 +458,14 @@ def onlyoffice_config():
         return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('Archivo no encontrado', 404)
+    # Más grande que lo que el Document Server acepta descargar: mensaje claro
+    # para la persona y aviso a Tecnología, en vez del «Error del editor» mudo
+    # que salió el 20/10/2026 con dos informes de 138 y 188 MB.
+    _exceso = limites_editor.mensaje_si_excede(fisica, nombre)
+    if _exceso:
+        limites_editor.avisar_tecnologia('Archivo demasiado grande para el editor',
+                                         f'usuario {usuario} · {ruta} · {_exceso}')
+        return error(_exceso, 413)
 
     # Nivel efectivo: editar solo si la extensión lo permite y (en unidades
     # compartidas) el usuario tiene rol de escritura. Espacio personal: dueño.
@@ -502,6 +514,8 @@ def onlyoffice_config():
                                  'b': doc_base, 'w': (modo == 'edit'), 'exp': exp})
     url_descarga = f'{URL_PUBLICA}/api/almacen/onlyoffice/download?t={token_descarga}'
     url_callback = f'{URL_PUBLICA}/api/almacen/onlyoffice/callback?t={token_callback}'
+    # Drive único (28/10/2026): los complementos se piden por el dominio del que entró la persona.
+    base_navegador = oo_urls.base_para_navegador(URL_PUBLICA)
 
     puede_editar = (modo == 'edit')
     config = {
@@ -532,20 +546,20 @@ def onlyoffice_config():
                 'pluginsData': [
                     # La versión en la URL salta la caché del navegador
                     # (los estáticos van con 1 año inmutable).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/crear-formulario/config.json?v=20260910-hoja1',
+                    base_navegador + '/static/onlyoffice-plugins/crear-formulario/config.json?v=20260910-hoja1',
                     # Residente (isSystem): escribe en el libro abierto las
                     # respuestas que llegan de sus formularios (11/09/2026).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-vivo/config.json?v=20260929-decimales1',
-                    URL_PUBLICA + '/static/onlyoffice-plugins/respuestas-filas/config.json?v=20260929-decimales1',
+                    base_navegador + '/static/onlyoffice-plugins/respuestas-vivo/config.json?v=20260929-decimales1',
+                    base_navegador + '/static/onlyoffice-plugins/respuestas-filas/config.json?v=20260929-decimales1',
                     # «Solo valores»: cambia las fórmulas por su resultado, para
                     # poder llevarse una hoja a otro libro sin que se rompa
                     # (22/09/2026).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/solo-valores/config.json?v=20260929-decimales1',
+                    base_navegador + '/static/onlyoffice-plugins/solo-valores/config.json?v=20260929-decimales1',
                     # «Lista desplegable» en Extensiones: abre el mismo panel que
                     # el clic derecho (23/09/2026).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/lista-desplegable/config.json?v=20260923-lista1',
+                    base_navegador + '/static/onlyoffice-plugins/lista-desplegable/config.json?v=20260923-lista1',
                     # «Mapa de provincias» del Ecuador en Extensiones (23/09/2026).
-                    URL_PUBLICA + '/static/onlyoffice-plugins/mapa-provincias/config.json?v=20260923-mapa1',
+                    base_navegador + '/static/onlyoffice-plugins/mapa-provincias/config.json?v=20260923-mapa1',
                 ],
             },
             'coEditing': {'mode': 'fast', 'change': False},
@@ -702,7 +716,8 @@ def onlyoffice_callback():
                       ' (ruta=%s usuario=%s)', url, ruta, usuario)
             return jsonify({'error': 1})
         try:
-            respuesta = requests.get(url_final, timeout=120)
+            # 600 s: un libro de cientos de MB tarda en bajar del Document Server (20/10/2026).
+            respuesta = requests.get(url_final, timeout=600)
         except Exception as excepcion:
             log.error('OnlyOffice: no se pudo descargar el documento editado: %s', excepcion)
             return jsonify({'error': 1})
@@ -719,6 +734,16 @@ def onlyoffice_callback():
                 contenido = formato_condicional.conservar(_previo, contenido)
         except Exception as _exc_cf:
             log.warning('formato condicional no repuesto en %s: %s', ruta, _exc_cf)
+        # Que se vea como en Google: la regla «mayor que N» solo vale para
+        # números (aquí pintaba también los textos) y el negro puro, que el
+        # servidor de documentos guarda sin color y luego muestra en blanco,
+        # vuelve a ser negro (05/10/2026). Nunca lanza.
+        try:
+            if nombre_lower_es_hoja(ruta):
+                import ajuste_google
+                contenido = ajuste_google.ajustar_bytes(contenido)
+        except Exception as _exc_vista:
+            log.warning('ajuste de vista no aplicado en %s: %s', ruta, _exc_vista)
 
         carpeta = ruta.rsplit('/', 1)[0] or '/'
         nombre = ruta.rsplit('/', 1)[-1]
@@ -815,6 +840,7 @@ def onlyoffice_estado():
 def _share_por_token(token: str):
     """Share vigente por token (o None). Valida expiración; la clave la valida
     quien llama (viaja en el query `clave=`)."""
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     filas = consultar("""
         SELECT id, propietario_id, ruta, token, puede_editar, permite_descarga,
                clave_hash, expira_en, email, requiere_otp
@@ -901,6 +927,11 @@ def onlyoffice_config_public():
         return error(str(excepcion), excepcion.codigo)
     if not os.path.isfile(fisica):
         return error('El archivo ya no existe', 404)
+    _exceso = limites_editor.mensaje_si_excede(fisica, nombre)
+    if _exceso:
+        limites_editor.avisar_tecnologia('Archivo demasiado grande para el editor (enlace público)',
+                                         f'propietario {propietario} · {ruta} · {_exceso}')
+        return error(_exceso, 413)
 
     puede_editar = bool(comp['puede_editar']) and extension in EXTENSIONES_EDITABLES
 
@@ -996,6 +1027,12 @@ def editor_almacen():
     ?ruta= y el JavaScript de la página pide la configuración a
     /api/almacen/onlyoffice/config. El candado maestro de /archivos-almacen*
     (integracion_faro) protege el acceso durante la fase de pruebas."""
+    return abrir_editor(request.args.get('ruta', ''))
+
+
+def abrir_editor(_ruta_raw, enlace=None):
+    """La página del editor para `_ruta_raw`. `enlace` = {ruta, codigo} cuando se
+    entra por un enlace corto /a/<código> (06/10/2026): la ruta no va en la URL."""
     # Si la ruta apunta a una CARPETA (p. ej. una carpeta con puntos en el
     # nombre cuyo enlace se armó como si fuera archivo), NO abrir el editor
     # —daría "Tipo de archivo no soportado"—: llevar a la carpeta. Si no hay
@@ -1003,7 +1040,6 @@ def editor_almacen():
     try:
         from flask import redirect as _redir
         from urllib.parse import quote as _q
-        _ruta_raw = request.args.get('ruta', '')
         # Un formulario (.forma) va a su propio editor, no a este (28/09/2026).
         import formularios_enlace
         _formulario = formularios_enlace.desde_editor_de_documentos(
@@ -1020,7 +1056,9 @@ def editor_almacen():
         except Exception:
             _destino = None
         if _destino and _destino.get('ir_a'):
-            return _redir('/archivos-almacen/editar?ruta=' + _q(_destino['ir_a']), 302)
+            if not enlace:
+                return _redir('/archivos-almacen/editar?ruta=' + _q(_destino['ir_a']), 302)
+            enlace = dict(enlace, ruta=_destino['ir_a'])   # enlace corto: sin redirigir
         if _destino and _destino.get('pedir_acceso'):
             # Es de otra persona y no se lo compartieron: en vez del editor
             # vacío, de quién es y el botón para pedírselo (29/09/2026).
@@ -1031,7 +1069,7 @@ def editor_almacen():
             return _redir('/archivos-almacen' + _q(_ruta), 302)
     except Exception:
         pass
-    return _pagina_editor('editor_onlyoffice.html')
+    return _pagina_editor('editor_onlyoffice.html', enlace)
 
 
 @bp_onlyoffice_web.route('/archivos-almacen/editar-publico')
@@ -1041,4 +1079,8 @@ def editor_almacen_publico():
     JavaScript pide la configuración a /api/almacen/onlyoffice/config-public.
     Esta ruta está exenta del candado maestro (ver integracion_faro): su
     seguridad es el token del enlace + la clave/expiración del share."""
+    from visor_propio_publico import redireccion_visor_propio  # PDF e imágenes: visor propio del Drive (14/10/2026)
+    _visor = redireccion_visor_propio(request.args.get('t', ''))
+    if _visor is not None:
+        return _visor
     return _pagina_editor('editor_publico.html')

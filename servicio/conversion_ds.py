@@ -84,29 +84,61 @@ def convertir(usuario_id, ruta_virtual, extension_destino):
         expira = int(time.time()) + 3600
         token_descarga = firmar_jwt({'u': usuario_id, 'r': ruta_virtual,
                                      'uso': 'descarga', 'exp': expira})
-        cuerpo = {
-            'async': False,
-            'filetype': origen_ext,
-            'outputtype': extension_destino,
-            # La clave identifica la conversión; incluye el momento para que un
-            # archivo editado no reciba un resultado cacheado del anterior.
-            'key': ('conv%s' % abs(hash((usuario_id, ruta_virtual,
-                                         int(time.time()))))) [:20],
-            'url': '%s/api/almacen/onlyoffice/download?t=%s' % (URL_PUBLICA,
-                                                                token_descarga),
-        }
-        cuerpo['token'] = firmar_jwt(cuerpo)
-        respuesta = requests.post('%s/ConvertService.ashx' % url_interna_ds(),
-                                  json=cuerpo,
-                                  headers={'Accept': 'application/json'},
-                                  timeout=_TIEMPO_MAXIMO)
-        datos = respuesta.json()
+        # Clave ESTABLE por contenido (ruta + fecha + tamaño): si una conversión
+        # larga no termina dentro del plazo, el Document Server la sigue haciendo
+        # y el siguiente intento recoge el resultado en vez de empezar de cero.
+        # Antes la clave llevaba la hora y cada intento reconvertía (20/10/2026).
+        import hashlib
+        import limites_editor
+        from seguridad_rutas import ruta_fisica as _ruta_fisica
+        try:
+            _st = os.stat(_ruta_fisica(usuario_id, ruta_virtual))
+            huella, tamano = '%d-%d' % (int(_st.st_mtime), _st.st_size), _st.st_size
+        except Exception:
+            huella, tamano = str(int(time.time())), 0
+        claves = ['conv' + hashlib.sha1(('%s|%s|%s' % (usuario_id, ruta_virtual, huella))
+                                        .encode('utf-8')).hexdigest()[:16],
+                  # Si la estable trae un error guardado, se reintenta con una nueva.
+                  'conv' + hashlib.sha1(('%s|%s|%s|%d' % (usuario_id, ruta_virtual, huella,
+                                                           int(time.time()))).encode('utf-8')).hexdigest()[:16]]
+        plazo = time.monotonic() + limites_editor.presupuesto_segundos(tamano)
+        datos = {}
+        for clave in claves:
+            cuerpo = {
+                # Asíncrona: se pregunta cada pocos segundos hasta que termine o se
+                # agote el plazo (crece con el tamaño del archivo: limites_editor).
+                'async': True,
+                'filetype': origen_ext,
+                'outputtype': extension_destino,
+                'key': clave,
+                'url': '%s/api/almacen/onlyoffice/download?t=%s' % (URL_PUBLICA,
+                                                                    token_descarga),
+            }
+            cuerpo['token'] = firmar_jwt(cuerpo)
+            while True:
+                respuesta = requests.post('%s/ConvertService.ashx' % url_interna_ds(),
+                                          json=cuerpo,
+                                          headers={'Accept': 'application/json'},
+                                          timeout=_TIEMPO_MAXIMO)
+                datos = respuesta.json()
+                if datos.get('endConvert') or datos.get('error') is not None:
+                    break
+                if time.monotonic() > plazo:
+                    log.warning('Conversión de %s (%s bytes) no terminó en el plazo; el '
+                                'servidor la sigue haciendo y el próximo intento la recoge',
+                                ruta_virtual, tamano)
+                    return None
+                time.sleep(3)
+            if datos.get('error') is None:
+                break
+            log.warning('Conversión de %s con clave %s devolvió error %s',
+                        ruta_virtual, clave, datos.get('error'))
         url_resultado = datos.get('fileUrl')
         if not url_resultado:
             log.warning('Conversión de %s sin resultado: %s', ruta_virtual, datos)
             return None
 
-        descarga = requests.get(url_resultado, timeout=_TIEMPO_MAXIMO)
+        descarga = requests.get(url_resultado, timeout=600)
         if descarga.status_code != 200 or not descarga.content:
             log.warning('No se pudo bajar el convertido de %s', ruta_virtual)
             return None

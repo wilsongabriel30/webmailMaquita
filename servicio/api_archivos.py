@@ -324,6 +324,10 @@ def subir():
                 reprefijar_item(r, _pref)
             subidos.append(r)
             registrar_actividad(usuario, 'subio', r['ruta'], r.get('tamano_humano', ''))
+            # Formato antiguo (.xls/.doc/.ppt/.xlsb): se convierte solo en segundo
+            # plano para que abra al instante (conversion_automatica, 20/10/2026).
+            import conversion_automatica
+            conversion_automatica.encolar(_usuario_ef, r['ruta'])
             # Si el archivo subido es ORIGEN de vínculos de datos, sus destinos
             # deben actualizarse. Hasta ahora el refresco SOLO se disparaba al
             # guardar desde OnlyOffice (api_onlyoffice.py, callback), así que

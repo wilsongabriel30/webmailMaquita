@@ -53,7 +53,8 @@ NOMBRE_NUEVO = {'xlsx': 'Hoja de cálculo sin título', 'docx': 'Documento sin t
                 'pptx': 'Presentación sin título'}
 EXT_IMAGEN = {'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'svg'}
 CARPETA_PLANTILLAS = 'Plantillas'
-TAMANO_MAXIMO = 200 * 1024 * 1024
+# 1 GiB: lo mismo que acepta el Document Server (ver limites_editor, 20/10/2026).
+TAMANO_MAXIMO = 1024 ** 3
 
 
 def _ext(ruta):

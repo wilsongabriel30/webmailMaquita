@@ -18,8 +18,26 @@ siendo una allowlist: lo que no venga del Document Server se rechaza, y la
 descarga se hace SIEMPRE contra la dirección interna, nunca contra el dominio
 público que anuncia el propio Document Server.
 
+Drive único (28/10/2026): el Drive también se abre desde el correo, por
+`https://mail.<dominio>/office-almacen` (o `/office-lectura`), y los dominios del
+correo pueden crecer (uno por cada dominio de correo, los que
+vengan). En vez de una lista fija, se reconoce esa forma: `base_del_correo()`. La
+descarga sigue yendo por la dirección interna, nunca por el dominio anunciado.
+
 Autoría: Equipo de Tecnología Maquita — 2026-08-31
 """
+import re
+
+# https://mail.<dominio>/office-almacen | /office-lectura  (el prefijo bajo el que el
+# nginx del correo reenvía el Document Server a Raíces).
+_BASE_CORREO = re.compile(
+    r'^https://mail\.[a-z0-9-]+(?:\.[a-z0-9-]+)+/office-(?:almacen|lectura)(?=/|$)')
+
+
+def base_del_correo(url: str):
+    """La base del Document Server anunciada por un dominio del correo, o None."""
+    coincidencia = _BASE_CORREO.match((url or '').strip())
+    return coincidencia.group(0) if coincidencia else None
 
 
 def bases_publicas(url_publica: str, extra: str = '') -> list:
@@ -57,4 +75,22 @@ def a_url_interna(url: str, bases: list, interna: str):
     # público): también es del Document Server.
     if interna and (url == interna or url.startswith(interna + '/')):
         return url
+    # Anunciada por un dominio del correo: solo si hay dirección interna por la
+    # que descargar (así nunca se descarga de un dominio que no controlamos).
+    base = base_del_correo(url)
+    if base and interna:
+        return interna + url[len(base):]
     return None
+
+
+def base_para_navegador(url_publica: str) -> str:
+    """Base con la que el NAVEGADOR pide lo que sirve Raíces al editor (los complementos
+    propios): el dominio por el que entró la persona —datos, drive o mail.<dominio> del
+    correo—, no uno fijo, o el navegador lo bloquea (CORS). Fuera de una petición, o si no
+    es https, la base configurada."""
+    try:
+        from flask import request
+        base = request.host_url.rstrip('/')
+    except Exception:
+        return (url_publica or '').rstrip('/')
+    return base if base.startswith('https://') else (url_publica or '').rstrip('/')

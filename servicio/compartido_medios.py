@@ -102,6 +102,33 @@ def entregar_imagen(destino, modo):
     return send_file(ruta, mimetype='image/jpeg', max_age=86400)
 
 
+# ── Documentos (PDF y Office) ────────────────────────────────────────────────
+
+def entregar_miniatura_documento(comp, ruta, destino, ext):
+    """Miniatura de /thumb/ para PDF (primera página, pdftoppm) y Office
+    (conversor del Document Server). Reutiliza los generadores y la caché de
+    la vista interna del Drive; si no hay miniatura, 404 y la página muestra
+    el icono del tipo de archivo."""
+    from flask import abort, send_file
+    from api_archivos import _miniatura_office, _miniatura_pdf
+    png = None
+    try:
+        # pdftoppm y el conversor usan subprocess/sockets: se quedan en el hub
+        # de eventlet (no en tpool), igual que en /api/almacen/preview.
+        if ext == 'pdf':
+            png = _miniatura_pdf(destino)
+        else:
+            from seguridad_rutas import normalizar_ruta_virtual
+            virtual = normalizar_ruta_virtual(
+                comp['ruta'] + '/' + ruta if ruta else comp['ruta'])
+            png = _miniatura_office(comp['propietario_id'], virtual, destino, ext)
+    except Exception as excepcion:
+        log.warning('Sin miniatura de %s: %s', destino, excepcion)
+    if not png:
+        abort(404)
+    return send_file(png, mimetype='image/png', max_age=86400)
+
+
 # ── ZIP de «Descargar todo» ──────────────────────────────────────────────────
 
 def medir_carpeta(destino):

@@ -64,6 +64,8 @@ def enviar_invitacion(compartido: dict, remitente_id: int) -> bool:
     """Envía la invitación del share `compartido` (dict de api_compartir).
     Devuelve True si salió el correo; False (sin lanzar) en cualquier fallo."""
     email = (compartido.get('email') or '').strip()
+    if compartido.get('sube_archivos'):  # invitación para subir archivos (15/10/2026)
+        from subida_externa import invitacion_subida; return invitacion_subida(compartido, remitente_id)
     # 12/08/2026: también se invita al compartir con una persona interna
     # (tipo usuario, sin token): el enlace va a la app con inicio de sesión.
     if not email:
@@ -127,7 +129,7 @@ def enviar_invitacion(compartido: dict, remitente_id: int) -> bool:
             asunto=asunto,
             html_content=html,
             text_content=texto,
-            remitente_nombre='Almacenamiento Maquita',
+            remitente_nombre='Drive Maquita',
         )
         (log.info if enviado else log.warning)(
             'Invitación a %s (share %s): %s', email, compartido.get('id'),

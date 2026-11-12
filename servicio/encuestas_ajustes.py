@@ -69,6 +69,9 @@ POR_DEFECTO = {
     # Retroalimentación general del cuestionario (28/09/2026): un texto que ve
     # quien responde junto a su resultado. Texto plano, con saltos de línea.
     'retroalimentacion': '',
+    # Encuesta de campo (10/11/2026): se responde con su versión publicada y
+    # siempre tiene caducidad (`cierra_en`). Ver encuestas_versiones.py.
+    'campo': False,
 }
 
 LARGO_RETROALIMENTACION = 2000
@@ -151,7 +154,7 @@ def limpiar(bruto):
                   'enlace_otra_respuesta', 'ver_resumen', 'sin_autoguardado',
                   'anonimo',
                   'cuestionario', 'ver_falladas', 'ver_correctas',
-                  'ver_puntuacion'):
+                  'ver_puntuacion', 'campo'):
         if clave in bruto:
             limpio[clave] = bool(bruto[clave])
 

@@ -337,7 +337,52 @@ def cabeceras(fila_encuesta, definicion):
     import encuestas_modelo as modelo
     import encuestas_colaboradores as colaboradores
     ajustes = ajustes_mod.limpiar(fila_encuesta.get('ajustes'))
-    return cabeceras_de(ajustes, colaboradores.desplegar(modelo.preguntas(definicion)))
+    con_nota = lleva_nota(ajustes, ebd.listar_respuestas(definicion['id']))
+    return orden_fisico(
+        cabeceras_de(ajustes, colaboradores.desplegar(modelo.preguntas(definicion)),
+                     con_nota, lleva_quien(definicion)))
+
+
+def lleva_quien(definicion):
+    """¿La hoja lleva «Quién»? No si el formulario tiene la pregunta
+    «Colaborador (nómina)»: esa pregunta ya trae el nombre y los datos de
+    la persona en sus propias columnas, y «Quién» los repetía (02/10/2026)."""
+    import encuestas_colaboradores as colaboradores
+    return not colaboradores.tiene(definicion)
+
+
+NOTA = 'Puntuación'
+
+
+def orden_fisico(cabeceras, filas=None):
+    """Orden en que se ESCRIBEN las columnas en un Excel nuevo: igual que el
+    de los datos, pero con «Puntuación» al final de la tabla, como última
+    columna (02/10/2026). Los datos (`datos_de_hoja`) mantienen las fijas
+    delante de las preguntas, que es lo que esperan los demás módulos; solo
+    cambia dónde se coloca la columna en el archivo.
+
+    Sin `filas` devuelve las cabeceras; con ellas, (cabeceras, filas)."""
+    if NOTA in cabeceras:
+        i = cabeceras.index(NOTA)
+        orden = [k for k in range(len(cabeceras)) if k != i] + [i]
+    else:
+        orden = list(range(len(cabeceras)))
+    nuevas = [cabeceras[k] for k in orden]
+    if filas is None:
+        return nuevas
+    return nuevas, [[f[k] for k in orden] for f in filas]
+
+
+def lleva_nota(ajustes, filas):
+    """¿La hoja lleva la columna «Puntuación»?
+
+    Si el formulario es cuestionario, sí. Y también si alguna respuesta ya
+    tiene su nota guardada aunque el cuestionario se haya apagado después
+    (30/09/2026): la nota que sacó cada participante es un dato de su
+    respuesta, y apagar el modo no debe borrarla del Excel.
+    """
+    return bool((ajustes or {}).get('cuestionario')) or \
+        any(f.get('puntos') is not None for f in (filas or []))
 
 
 def recoge_correo(ajustes):
@@ -347,17 +392,25 @@ def recoge_correo(ajustes):
     return (ajustes or {}).get('recopilar_correo', ajustes_mod.CORREO_NO) != ajustes_mod.CORREO_NO
 
 
-def cabeceras_de(ajustes, listado):
-    """Fecha, Quién, (Correo), (Puntuación) y una columna por pregunta."""
+def cabeceras_de(ajustes, listado, con_nota=None, con_quien=True):
+    """Fecha, (Quién), (Correo), (Puntuación) y una columna por pregunta.
+
+    `con_quien`: False si el formulario tiene pregunta de nómina (ver
+    `lleva_quien`).
+
+    `con_nota`: si va «Puntuación» (ver `lleva_nota`); sin él, lo decide el
+    ajuste de cuestionario."""
+    if con_nota is None:
+        con_nota = bool(ajustes.get('cuestionario'))
     import encuestas_excel as excel
     import encuestas_modelo as modelo
     # Encuesta ANÓNIMA: ni «Quién» ni «Correo». Se prometió no saber quién
     # responde y la hoja no debe insinuar lo contrario (11/09/2026).
     return excel.encabezados_unicos(
         ['Fecha'] +
-        ([] if ajustes.get('anonimo') else ['Quién']) +
+        (['Quién'] if con_quien and not ajustes.get('anonimo') else []) +
         (['Correo'] if recoge_correo(ajustes) and not ajustes.get('anonimo') else []) +
-        (['Puntuación'] if ajustes.get('cuestionario') else []) +
+        (['Puntuación'] if con_nota else []) +
         [modelo.plano(p['titulo']) for p in listado])
 
 
@@ -376,7 +429,7 @@ def construir(fila_encuesta, definicion):
 
     import encuestas_excel as excel
     datos = datos_de_hoja(fila_encuesta, definicion)
-    cabeceras, cuerpo = datos['cabeceras'], datos['cuerpo']
+    cabeceras, cuerpo = orden_fisico(datos['cabeceras'], datos['cuerpo'])
 
     libro = Workbook()
     tema = datos['tema']
@@ -418,9 +471,10 @@ def datos_de_hoja(fila_encuesta, definicion):
     # COLUMNAS de la hoja, y cada respuesta se reparte igual.
     originales = modelo.preguntas(definicion)
     listado = colaboradores.desplegar(originales)
-    es_quiz = ajustes['cuestionario']
+    es_quiz = lleva_nota(ajustes, filas)
 
-    cabeceras = cabeceras_de(ajustes, listado)
+    con_quien = lleva_quien(definicion)
+    cabeceras = cabeceras_de(ajustes, listado, es_quiz, con_quien)
 
     cuerpo, enviadas, respuestas, ids = [], [], [], []
     for fila in reversed(filas):    # de la más antigua a la más reciente
@@ -436,7 +490,8 @@ def datos_de_hoja(fila_encuesta, definicion):
             fila['enviada_en'].replace(tzinfo=None, microsecond=0) if fila['enviada_en'] else '',
         ]
         if not ajustes.get('anonimo'):
-            celdas.append(quien_respondio(fila, nombres, ajustes, definicion))
+            if con_quien:
+                celdas.append(quien_respondio(fila, nombres, ajustes, definicion))
             if recoge_correo(ajustes):
                 celdas.append(fila.get('correo') or '')
         if es_quiz:

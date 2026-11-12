@@ -82,6 +82,9 @@ def compartir_por_token():
                         'url': comp.get('url'),
                         'modo': comp.get('modo'),
                         'puede_editar': comp.get('puede_editar'),
-                        'token': comp.get('token')})
+                        'token': comp.get('token'),
+                        # 04/11/2026 (R-50): aviso para quien comparte un
+                        # archivo con macros; null si no tiene.
+                        'aviso_macros': comp.get('aviso_macros')})
     # Error legible ya formateado por crear_compartido (macros, ruta, etc.).
     return resp, status

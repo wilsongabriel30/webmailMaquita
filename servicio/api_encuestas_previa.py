@@ -53,6 +53,7 @@ def definicion_previa():
     if fallo:
         return fallo
     usuario, definicion, fila = datos
+    definicion = publico.idiomas_mod.traducir(definicion, request.args.get('idioma'))
     carga = publico.carga_publica(fila, definicion, usuario)
     # Las imágenes se sirven por el id del formulario, con la sesión.
     carga['id'] = definicion['id']
@@ -85,6 +86,7 @@ def validar_previa():
             not correo_mod.correo_valido(cuerpo.get('correo')):
         return error('Escribe un correo electrónico válido.', 400)
 
+    enviado = publico.idiomas_mod.al_base(definicion, enviado)
     limpias, problema = publico._respuestas_limpias(definicion, enviado)
     if problema:
         return problema
