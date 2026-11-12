@@ -41,7 +41,7 @@ export function opcionesParaAcotar(consulta: string, hoy: Date = new Date()): Op
 
   if (palabras.length > 0 && !operadores.some((o) => ES_REMITENTE.test(o) || ES_ASUNTO.test(o))) {
     const visible = palabras.join(' ');
-    opciones.push({ clave: 'remitente', texto: `Solo enviados por «${visible}»`, consulta: unir(conValor('de', palabras), ...operadores) });
+    opciones.push({ clave: 'remitente', texto: `Solo de «${visible}» (con reenviados)`, consulta: unir(conValor('de', palabras), ...operadores) });
     opciones.push({ clave: 'asunto', texto: `Solo con «${visible}» en el asunto`, consulta: unir(conValor('asunto', palabras), ...operadores) });
   }
   if (!operadores.some((o) => ES_DESDE.test(o))) {

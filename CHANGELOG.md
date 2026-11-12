@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Búsqueda por remitente con reenviados**: `de:persona` (y el botón «Solo de «…»» de la barra «Acotar») trae también los
+  correos que esa persona escribió y otro reenvió: asunto con marca de reenvío y su nombre en el cuerpo. Solo en buzones
+  con índice de texto. Operador nuevo `reenviado:persona` para ver únicamente esos.
+
 ## [1.19.0] - 2026-11-12
 
 La recuperación de correos y las reacciones entre servidores funcionan entre instalaciones de países distintos: el filtro

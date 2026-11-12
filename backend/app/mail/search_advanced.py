@@ -8,6 +8,8 @@ Soporta: from:, to:, subject:, has:attachment, before:, after:, is:unread, is:fl
 import re
 from datetime import datetime, timedelta
 
+from app.mail import busqueda_reenviados
+
 # Atajos de fecha: lo que uno recuerda de un correo suele ser «era de esta semana».
 _ATAJOS_FECHA = {
     "hoy": 0,
@@ -93,6 +95,7 @@ def parse_search_query(
         "dominio:": "domain:",
         "de-dominio:": "fromdomain:",
         "entre:": "between:",
+        "reenviado:": "forwarded:",
     }
     _ES_EXACT = {
         "tiene:adjunto": "has:attachment",
@@ -161,7 +164,19 @@ def parse_search_query(
             criteria.extend(["SINCE", desde])
         elif token.lower().startswith("from:"):
             val = token[5:].strip('"')
-            criteria.extend(["FROM", _entrecomillar(val)])
+            if con_indice:
+                # También lo que esa persona escribió y otro reenvió (busqueda_reenviados.py, 12/11/2026).
+                criteria.extend(
+                    busqueda_reenviados.remitente_o_reenviado(_entrecomillar(val))
+                )
+            else:
+                criteria.extend(["FROM", _entrecomillar(val)])
+        elif token.lower().startswith("forwarded:"):
+            val = token[10:].strip('"')
+            if val:
+                criteria.append(
+                    busqueda_reenviados.solo_reenviados(_entrecomillar(val))
+                )
         elif token.lower().startswith("to:"):
             val = token[3:].strip('"')
             criteria.extend(["TO", _entrecomillar(val)])
