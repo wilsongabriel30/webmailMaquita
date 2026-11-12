@@ -70,6 +70,8 @@ export interface MessageFull extends MessageSummary {
   from_addr?: string;
   /** Invitación de calendario, si el correo la lleva. */
   calendar_invite?: CalendarInvite;
+  /** Aviso de «no entregado» explicado (backend: parsers/rebote.py); ausente si el correo no es un rebote. */
+  rebote?: import('../components/mail/AvisoRebote').Rebote | null;
   blocked_image_count: number;
   /** Enlaces desenvueltos por el backend (rastreadores retirados). */
   unwrapped_link_count?: number;

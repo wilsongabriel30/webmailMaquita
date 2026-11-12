@@ -1,4 +1,5 @@
 import { BotonAgregarContacto } from './BotonAgregarContacto';
+import { AvisoRebote } from './AvisoRebote';
 import SafeEmailViewer from './SafeEmailViewer';
 import AvisoImagenesBloqueadas from './AvisoImagenesBloqueadas';
 import CuerpoHtmlConImagenes from './CuerpoHtmlConImagenes';
@@ -594,6 +595,12 @@ const ThreadMessageCard: React.FC<ThreadMessageCardProps> = ({
         <div style={{ padding: '4px 16px 8px' }}>
           <ListaAdjuntos compacto folder={msg.folder || currentFolder} uid={msg.uid} attachments={msg.attachments}
             onAbrir={i => onAttachmentClick?.(msg.folder || currentFolder, msg.uid, msg.attachments, i)} />
+        </div>
+      )}
+
+      {msg.rebote && (
+        <div style={{ padding: '8px 16px 0' }}>
+          <AvisoRebote rebote={msg.rebote} />
         </div>
       )}
 
@@ -1355,6 +1362,11 @@ const MessageView: React.FC = () => {
 
       {/* Body (scrollable; la invitación va DENTRO para poder verla completa) */}
       <div ref={cuerpoRef} style={{ flex: 1, overflow: 'auto' }} onScroll={cabecera.onScroll}>
+        {displayMsg!.rebote && (
+          <div style={{ padding: '16px 24px 0' }}>
+            <AvisoRebote rebote={displayMsg!.rebote} />
+          </div>
+        )}
         {displayMsg!.calendar_invite && (
           <div style={{ padding: '16px 24px 0' }}>
             <CalendarInviteBanner invite={displayMsg!.calendar_invite} folder={currentFolder} uid={msg.uid} />
