@@ -7,6 +7,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.18.1] - 2026-11-12
+
+Enlace seguro: los enlaces que salen de la instalación (al enviar, responder, reenviar o copiar desde el lector) llevan
+su destino real, de modo que abren en cualquier país aunque el servidor de correo filtre por país. Tras actualizar,
+reiniciar también el filtro de entrada (`maquita-milter`) si la instalación lo usa.
+
 ### Corregido
 
 - **Enlace seguro**: al enviar un correo (también al responder o reenviar), los enlaces de nuestra pasarela vuelven a
