@@ -15,6 +15,7 @@ from app.auth.dependencies import get_current_admin
 
 router = APIRouter(prefix="/api/alertas-seguridad", tags=["alertas-seguridad"])
 HORAS = 48
+ORDEN = {"alta": 0, "media": 1, "resuelta": 2}
 LISTA_NEGRA = "/etc/maquita-mail/blacklist-ips.txt"
 
 _ACCESOS = f"""
@@ -89,6 +90,8 @@ async def _ataques(db) -> list[dict]:
                 "se_puede_proteger": con_lista and existe and not protegida,
             }
         )
+    # Primero lo que pide actuar, al final lo ya resuelto; dentro de cada grupo, lo más reciente.
+    ataques.sort(key=lambda x: ORDEN.get(x["gravedad"], 1))
     return ataques
 
 
@@ -140,5 +143,8 @@ async def resumen(r: Request, a=Depends(get_current_admin)):
     return {
         "pendientes": _pendientes(ataques, otras),
         "ataques": sum(1 for x in ataques if x["gravedad"] == "alta"),
+        "por_revisar": sum(
+            1 for x in ataques if x["gravedad"] == "media" and x["existe"]
+        ),
         **otras,
     }

@@ -17,7 +17,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **Alertas de seguridad** (panel de administración): al entrar, una franja avisa si hay algo pendiente. La sección
   explica en lenguaje llano qué cuentas reciben intentos de adivinar su contraseña (tres o más direcciones que fallan
   y nunca acertaron), sugiere la acción y ofrece el botón «Cerrar IMAP y SMTP»; reúne también los inicios de sesión
-  riesgosos y las anomalías abiertas.
+  riesgosos y las anomalías abiertas. La franja nombra también las cuentas «por revisar» (fallos desde el país o la
+  red interna) y la lista pone primero lo que pide actuar.
 
 ## [1.17.0] - 2026-11-11
 

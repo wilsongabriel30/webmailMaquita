@@ -18,7 +18,7 @@ const GRAVEDAD: Record<string, { clase: string; texto: string }> = {
 };
 const fecha = (t: string) => new Date(t).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
 const nombres = (() => { try { return new Intl.DisplayNames(["es"], { type: "region" }); } catch { return null; } })();
-const pais = (c: string) => { if (!c) return "país desconocido"; try { return nombres?.of(c.toUpperCase()) || c; } catch { return c; } };
+const pais = (c: string) => { if (!c) return "país desconocido"; if (c.toUpperCase() === "LAN") return "red interna"; try { return nombres?.of(c.toUpperCase()) || c; } catch { return c; } };
 
 export function AlertasSeguridad() {
   const [d, setD] = useState<Respuesta | null>(null);
@@ -41,6 +41,7 @@ export function AlertasSeguridad() {
   };
 
   if (!d) return <div className="p-6 text-sm text-ms-gray-110">{msg ? msg.text : "Cargando…"}</div>;
+  const porRevisar = d.ataques.filter((a) => a.gravedad === "media").length;
   const nada = d.ataques.length === 0 && d.inicios_riesgosos === 0 && d.anomalias === 0;
 
   return (
@@ -59,7 +60,7 @@ export function AlertasSeguridad() {
       {msg && <div className={`text-sm mb-4 px-3 py-2 rounded ${msg.ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"}`}>{msg.text}</div>}
 
       <div className="grid grid-cols-3 gap-3 mb-5">
-        <div className="bg-white border border-ms-gray-30 rounded-lg p-4 text-center"><div className="text-2xl font-bold text-[#d13438]">{d.ataques.filter((a) => a.gravedad === "alta").length}</div><div className="text-xs text-ms-gray-110">Cuentas atacadas sin proteger</div></div>
+        <div className="bg-white border border-ms-gray-30 rounded-lg p-4 text-center"><div className="text-2xl font-bold text-[#d13438]">{d.ataques.filter((a) => a.gravedad === "alta").length}</div><div className="text-xs text-ms-gray-110">Cuentas atacadas sin proteger{porRevisar ? ` · ${porRevisar} por revisar` : ""}</div></div>
         <Link to="/risky-logins" className="bg-white border border-ms-gray-30 rounded-lg p-4 text-center hover:border-ms-blue"><div className="text-2xl font-bold text-ms-gray-160">{d.inicios_riesgosos}</div><div className="text-xs text-ms-gray-110">Inicios de sesión riesgosos pendientes{d.inicios_riesgosos_altos ? ` (${d.inicios_riesgosos_altos} de riesgo alto)` : ""} — ver</div></Link>
         <Link to="/seguridad/tableros" className="bg-white border border-ms-gray-30 rounded-lg p-4 text-center hover:border-ms-blue"><div className="text-2xl font-bold text-ms-gray-160">{d.anomalias}</div><div className="text-xs text-ms-gray-110">Anomalías abiertas — ver</div></Link>
       </div>
@@ -75,7 +76,7 @@ export function AlertasSeguridad() {
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className={`text-xs rounded px-2 py-0.5 ${GRAVEDAD[a.gravedad]?.clase}`}>{GRAVEDAD[a.gravedad]?.texto}</span>
                   <span className="text-sm font-semibold text-ms-gray-160">{a.cuenta}</span>
-                  <span className="text-xs text-ms-gray-110">último intento {fecha(a.ultimo)} · desde {a.paises.map(pais).join(", ") || "país desconocido"}</span>
+                  <span className="text-xs text-ms-gray-110">último intento hacia {fecha(a.ultimo)} · desde {a.paises.map(pais).join(", ") || "país desconocido"}</span>
                 </div>
                 <p className="text-sm text-ms-gray-130 mt-2">{a.que_pasa}</p>
                 <p className="text-sm text-ms-gray-160 mt-1"><b>Sugerencia:</b> {a.sugerencia}</p>

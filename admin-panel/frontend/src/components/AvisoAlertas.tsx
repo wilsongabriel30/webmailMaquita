@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { api } from "../api/client";
 
-interface Resumen { pendientes: number; ataques: number; inicios_riesgosos: number; anomalias: number; }
+interface Resumen { pendientes: number; ataques: number; por_revisar?: number; inicios_riesgosos: number; anomalias: number; }
 
 /* Franja que avisa, apenas se entra al panel, de que hay alertas de seguridad por revisar. */
 export function AvisoAlertas() {
@@ -14,6 +14,7 @@ export function AvisoAlertas() {
   if (!r || r.pendientes === 0 || pathname === "/alertas-seguridad") return null;
   const partes = [
     r.ataques ? `${r.ataques} cuenta(s) con intentos de adivinar la contraseña` : "",
+    r.por_revisar ? `${r.por_revisar} cuenta(s) con muchos fallos de contraseña por revisar` : "",
     r.inicios_riesgosos ? `${r.inicios_riesgosos} inicio(s) de sesión riesgoso(s)` : "",
     r.anomalias ? `${r.anomalias} anomalía(s)` : "",
   ].filter(Boolean).join(" · ");
