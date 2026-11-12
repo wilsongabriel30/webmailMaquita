@@ -307,6 +307,14 @@ def firmar_pdf_una(pdf_bytes, ruta_p12, password, razon, ubicacion,
                     x_align=AxisAlignment.ALIGN_MIN,
                     y_align=AxisAlignment.ALIGN_MIN,
                     margins=Margins(0, 0, 0, 0)))
+            # Sello con trazos y texto reales (sello_firmaec.py, 12/11/2026): el de imagen se veía gris
+            # y borroso al reducirlo el visor. Si no se pudiera generar, queda el de imagen de arriba.
+            try:
+                from . import sello_firmaec
+                estilo_sello = sello_firmaec.estilo(
+                    cn, razon, ubicacion, fecha_iso, pos_ancho, pos_alto)
+            except Exception:
+                logger.exception('Sello vectorial de la firma falló; se usa el de imagen')
         except Exception:
             logger.exception('Apariencia FirmaEC falló en firma en lote')
             estilo_sello = None
@@ -482,6 +490,14 @@ def firmar_pdf_con_p12():
                             x_align=AxisAlignment.ALIGN_MIN,
                             y_align=AxisAlignment.ALIGN_MIN,
                             margins=Margins(0, 0, 0, 0)))
+                    # Sello con trazos y texto reales (sello_firmaec.py, 12/11/2026): el de imagen se veía gris
+                    # y borroso al reducirlo el visor. Si no se pudiera generar, queda el de imagen de arriba.
+                    try:
+                        from . import sello_firmaec
+                        estilo_sello = sello_firmaec.estilo(
+                            cn, razon, ubicacion, fecha_iso, pos_ancho, pos_alto)
+                    except Exception:
+                        logger.exception('Sello vectorial de la firma falló; se usa el de imagen')
                 except Exception:
                     logger.exception('No se pudo generar apariencia FirmaEC; '
                                      'se firma sin sello visible')
