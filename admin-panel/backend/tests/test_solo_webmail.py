@@ -14,11 +14,8 @@ def test_protegida_con_contrasena_de_aplicacion():
 
 def test_intentos_desde_varias_direcciones_remiten_a_las_alertas():
     r = indicacion(False, 0, 0, 6)
-    assert (
-        r["nivel"] == "alerta"
-        and "6 direcciones" in r["texto"]
-        and "ahora" in r["texto"]
-    )
+    assert r["nivel"] == "alerta" and "6 direcciones" in r["texto"]
+    assert "Alertas de seguridad" in r["texto"]
 
 
 def test_ataque_sobre_cuenta_con_outlook_avisa_de_crear_primero_la_clave():
