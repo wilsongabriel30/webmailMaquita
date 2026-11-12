@@ -9,6 +9,7 @@ from app.mail.clients.imap_client import (
     fetch_message_headers,
     list_message_uids,
 )
+from app.mail.parsers import rebote
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.parsers.mime_parser import parse_full_message, parse_headers
 from app.mail.rendering.policy import apply_render_policy
@@ -176,6 +177,8 @@ async def get_message(
         "calendar_invite": _serialize_calendar_invite(normalized.calendar_invite),
         # Confirmación de lectura pedida por el remitente y aún sin contestar (09/11/2026).
         "acuse_lectura": acuse_lectura.pedido_acuse(raw["raw_email"], normalized.flags),
+        # Aviso de «no entregado» explicado en lenguaje llano (12/11/2026); None si no es un rebote.
+        "rebote": rebote.explicar(raw["raw_email"]),
     }
 
 

@@ -7,6 +7,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+
+- **Rebotes explicados en español**: al abrir un aviso de «correo no entregado», encima del texto técnico aparece por cada
+  destinatario qué pasó, de quién es el problema y qué hacer (buzón lleno, dirección o dominio mal escritos, cuenta
+  desactivada, correo demasiado grande, rechazo del servidor de destino, sin conexión, entrega demorada). El detalle
+  técnico queda plegado para enviarlo a Tecnología.
+
+### Cambiado
+
+- **Asuntos sin marcas de SPAM ajenas**: se quitan del asunto las marcas que ponen otros servidores («[===SPAM===]»,
+  «***SPAM***», «[SPAM]»…), que volvían en cada respuesta y hacían creer que nuestro servidor consideraba spam la
+  conversación. También los «�» que traen algunos boletines con emojis dañados.
+
 ### Corregido
 
 - **Firma electrónica de PDF**: el sello visible (QR y «Firmado electrónicamente por…») se dibuja con trazos y texto
