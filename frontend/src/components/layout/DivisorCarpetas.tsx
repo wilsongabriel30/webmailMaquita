@@ -4,6 +4,9 @@
  * Pedido de Gerencia de Agro: con nombres de carpeta largos no había forma de ver el nombre completo,
  * porque entre las carpetas y la lista no existía un borde arrastrable. Va pegada al borde derecho del
  * panel; el ancho se recuerda (mailStore.anchoCarpetas). Doble clic: vuelve al ancho normal.
+ *
+ * Ocupa una franja propia de 6 px que el panel le reserva (12/11/2026): antes iba encima de la barra de
+ * desplazamiento de las carpetas y no dejaba agarrarla con el ratón.
  */
 import React from 'react';
 import { ANCHO_CARPETAS_NORMAL, useMailStore } from '../../store/mailStore';

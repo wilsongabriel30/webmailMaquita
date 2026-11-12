@@ -502,7 +502,8 @@ export function MailSidebar() {
 
   return (
     <div style={hidden ? undefined : { width: anchoCarpetas }}
-      className={`relative bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : ""}`}>
+      className={`relative bg-[#faf9f8] border-r border-[#edebe9] flex flex-col shrink-0 text-[13px] z-20 overflow-hidden ${hidden ? "w-0 border-r-0" : "md:pr-[6px]"}`}>
+      {/* El panel reserva a la derecha la franja del divisor (md:pr-[6px]): así no tapa la barra de desplazamiento. */}
       {!hidden && <DivisorCarpetas />}
       {/* Cuentas de la persona (principal + asignadas): cambia el correo de esta pestaña */}
       <BarraCuentas />
