@@ -78,6 +78,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   persona deje de escribir, como dentro de una carpeta.
 - **Chat sin módulo de reuniones**: en una instalación sin la tabla de reuniones programadas, el servicio de
   recordatorios dejaba un error por minuto en el registro. Ahora lo detecta, lo anota una sola vez y queda en pausa.
+- **Una búsqueda larga ya no se queda viva en el servidor de correo**: el listado de correos (carpeta o búsqueda) tiene
+  un tope de 45 s y se corta también si el navegador cerró la petición; en ambos casos la conexión con el servidor de
+  correo se cierra en el acto en vez de seguir trabajando para nadie. El 13/11 una búsqueda en todas las carpetas
+  estuvo cinco minutos leyendo buzones después de que el navegador dejara de esperarla.
 
 ## [1.21.1] - 2026-11-13
 
