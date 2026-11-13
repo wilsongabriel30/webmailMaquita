@@ -104,6 +104,9 @@ def _get_pooled(request: Request, username: str):
     return _inner
 
 
+SEGUNDOS_CACHE_BUSQUEDA = 60  # memoria de los resultados de una búsqueda con texto
+
+
 @router.get("/messages/{folder}")
 async def get_messages(
     folder: str,
@@ -170,6 +173,12 @@ async def get_messages(
             else []
         )
 
+        redis_busqueda = (
+            getattr(request.app.state, "redis", None)
+            if search.strip() and not is_unread and not is_flagged
+            else None
+        )
+
         async def _listar(con):
             return await list_messages(
                 con,
@@ -182,6 +191,12 @@ async def get_messages(
                 direcciones_nombre=direcciones,
                 # Solo para la caché de adjuntos (07/11/2026); la lista de UIDs sigue sin caché aquí.
                 redis_adjuntos=getattr(request.app.state, "redis", None),
+                # Salvo al BUSCAR con texto (13/11/2026): al bajar por los resultados la interfaz
+                # repite la búsqueda entera con más filas, y en «todas las carpetas» cada repetición
+                # eran hasta 30 s. Un minuto de memoria; los filtros «no leídos» y «con bandera»
+                # quedan fuera para que la lista cambie en cuanto se lee o se marca un correo.
+                redis=redis_busqueda,
+                ttl_cache=SEGUNDOS_CACHE_BUSQUEDA,
             )
 
         try:

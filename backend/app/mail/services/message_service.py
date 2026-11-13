@@ -28,6 +28,7 @@ async def list_messages(
     buscar_en_contenido: bool = False,
     direcciones_nombre: tuple | list = (),
     redis_adjuntos=None,
+    ttl_cache: int = 300,
 ) -> dict:
     """List messages with snippets, newest first."""
     uid_result = await list_message_uids(
@@ -40,6 +41,7 @@ async def list_messages(
         username=username,
         buscar_en_contenido=buscar_en_contenido,
         direcciones_nombre=direcciones_nombre,
+        ttl_cache=ttl_cache,
     )
 
     # If folder select failed, uid_result will have folder_error flag
