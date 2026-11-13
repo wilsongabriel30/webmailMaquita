@@ -30,6 +30,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 - **Memoria breve de resultados**: los resultados de una búsqueda con texto se recuerdan un minuto, para que bajar por
   la lista o pasar a «todas las carpetas» no repita la búsqueda entera (hasta 30 s en buzones grandes).
 
+### Corregido
+
+- **Chat sin módulo de reuniones**: en una instalación sin la tabla de reuniones programadas, el servicio de
+  recordatorios dejaba un error por minuto en el registro. Ahora lo detecta, lo anota una sola vez y queda en pausa.
+
 ## [1.21.1] - 2026-11-13
 
 El chat del repositorio se pone al día con el que está en servicio (llamadas, archivos, contadores y un tema nuevo en
