@@ -78,23 +78,44 @@ def remitente():
     return ORG.get("ORG_REMITENTE_AVISOS") or f"postmaster@{dominio}"
 
 
+def url_panel():
+    """Dirección del panel de administración (ORG_URL_PANEL), o vacío si no está definida."""
+    try:
+        return leer_env("/etc/maquita-mail/organizacion.env").get("ORG_URL_PANEL", "").rstrip("/")
+    except Exception:
+        return ""
+
+
 def notify(admin, user, recips, mins, action):
+    panel = url_panel()
+    donde = f"{panel}/alertas-seguridad" if panel else "el panel de administración, sección «Alertas de seguridad»"
+    bloqueada = action == "locked"
+    estado = (
+        "Por seguridad, la cuenta quedó BLOQUEADA: no puede entrar ni enviar hasta que Tecnología la revise.\n\n"
+        if bloqueada
+        else "Es solo un aviso: la cuenta sigue funcionando.\n\n"
+    )
     cuerpo = (
-        f"AVISO DE SEGURIDAD: envío masivo anómalo detectado\n\n"
-        f"Cuenta: {user}\n"
-        f"Volumen: {recips} destinatarios en {mins} minutos (lo normal son pocos al día).\n"
-        f"Acción automática: {'ENVÍO BLOQUEADO y cuenta contenida' if action == 'locked' else 'ALERTA (sin bloquear)'}.\n\n"
-        f"Es muy probable que esta cuenta esté COMPROMETIDA.\n"
-        f"Pasos a seguir de inmediato:\n"
-        f"  1. Cambiar la contraseña de {user}.\n"
-        f"  2. Activar la verificación en dos pasos (2FA).\n"
-        f"  3. Revisar los envíos recientes por si se filtró información.\n\n"
-        f"Cuando la cuenta esté asegurada, el administrador puede reactivarla desde el panel "
-        f"(Protección de salida) o con: maquita-contener unlock {user}\n\n"
-        f"-- Sistema de seguridad del correo\n"
+        f"La cuenta {user} envió correo a {recips} destinatarios en {mins} minutos.\n"
+        + estado
+        + "Puede ser una de dos cosas:\n"
+        "  - Un envío normal a muchas personas (por ejemplo, a una lista de la casa).\n"
+        "  - Una cuenta robada que está enviando correo basura.\n\n"
+        "QUÉ HACER (Tecnología):\n"
+        f"  1. Abra {donde}. Ahí se ve a quién iba el envío.\n"
+        "  2. Si fue un envío normal a una lista, pulse «Es correcto»: la cuenta se reactiva y esa persona\n"
+        "     queda con permiso para escribir a esa lista sin que se la vuelva a bloquear.\n"
+        "     Para dar el permiso por adelantado a otra persona: en la misma pantalla,\n"
+        "     «Permisos para escribir a listas».\n"
+        f"  3. Si la persona no reconoce el envío: deje la cuenta bloqueada, cambie la contraseña de {user}\n"
+        "     y active la verificación en dos pasos antes de reactivarla.\n\n"
+        f"Si usted es quien usa {user} y el envío fue suyo, avise a Tecnología para que la reactiven.\n"
+        "Los correos que envió antes del bloqueo ya salieron.\n\n"
+        "-- Sistema de seguridad del correo\n"
     )
     msg = MIMEText(cuerpo, _charset="utf-8")
-    msg["Subject"] = f"[SEGURIDAD] Envío masivo anómalo: {user}"
+    asunto = "Cuenta bloqueada" if action == "locked" else "Cuenta en revisión"
+    msg["Subject"] = f"[SEGURIDAD] {asunto} por enviar a muchas personas: {user}"
     msg["From"] = remitente()
     dests = [d for d in {admin, user} if d]
     msg["To"] = ", ".join(dests)

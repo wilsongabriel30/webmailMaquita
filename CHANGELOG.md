@@ -27,6 +27,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   «Es correcto» (le permite escribir a esas listas y reactiva la cuenta), «Reactivar la cuenta» o «Dejar bloqueada».
   Los permisos son por cuenta y lista (`outbound_anomaly_permisos`), se ven y se quitan en la misma pantalla y no
   cambian quién puede escribir a la lista. Requiere la migración `2026-11-13-permisos-envio-a-listas.sql`.
+  También se puede dar el permiso **por adelantado** («Permisos para escribir a listas»: persona y lista), sin esperar
+  a un bloqueo. El correo de aviso del vigilante se reescribió en lenguaje llano y dice dónde resolverlo.
 - **Vigilante de envío masivo**: respeta esos permisos y los remitentes autorizados de cada lista, espera a conocer las
   entregas antes de bloquear y guarda a quién iba el envío.
 - **Resultados en otras carpetas**: al buscar dentro de una carpeta, el aviso dice cuántos resultados más hay en el

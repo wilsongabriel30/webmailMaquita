@@ -91,3 +91,16 @@ def test_un_aviso_revisado_lo_dice_y_no_cuenta_como_pendiente():
 def test_sin_nombre_usa_la_direccion_y_el_plural_es_correcto():
     x = explicar(evento(nombre="", mensajes=3), 30, activa=False)
     assert "de jefa@example.org" in x["titulo"] and "3 correos" in x["que_paso"]
+
+
+def test_si_no_iba_a_listas_dice_donde_dar_el_permiso_a_mano():
+    solo_directos = [
+        {
+            "lista": "directos",
+            "destinatarios": 46,
+            "es_lista": False,
+            "autorizada": False,
+        }
+    ]
+    x = explicar(evento(destinos=solo_directos), 30, activa=False)
+    assert "«Permisos para escribir a listas»" in x["que_hacer"]

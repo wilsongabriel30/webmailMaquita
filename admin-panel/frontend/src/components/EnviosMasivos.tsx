@@ -4,6 +4,7 @@
  *   · «Es correcto»: se le permite escribir a esas listas y la cuenta se reactiva.
  *   · «Reactivar la cuenta»: fue suyo, sin dar permisos.
  *   · «Dejar bloqueada»: se marca como revisado y la cuenta queda como está.
+ * Debajo, «Permisos para escribir a listas»: darlos por adelantado (sin esperar a un bloqueo) y quitarlos.
  */
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
@@ -15,6 +16,7 @@ export interface Envio {
   resolucion: string; titulo: string; que_paso: string; que_hacer: string; estado: string; listas_por_autorizar: string[];
 }
 interface Permiso { id: number; username: string; lista: string; creado_por: string; creado: string; }
+interface Lista { address: string; name: string; miembros: number; }
 
 const fecha = (t: string) => new Date(t).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" });
 const RESOLUCION: Record<string, string> = { autorizado: "Se permitió y se reactivó", reactivado: "Se reactivó sin dar permisos", sin_cambios: "Revisado, sin cambios" };
@@ -22,10 +24,27 @@ const RESOLUCION: Record<string, string> = { autorizado: "Se permitió y se reac
 export function EnviosMasivos({ envios, alCambiar, avisar }: { envios: Envio[]; alCambiar: () => void; avisar: (ok: boolean, texto: string) => void }) {
   const [ocupado, setOcupado] = useState(0);
   const [permisos, setPermisos] = useState<Permiso[]>([]);
-  const [verPermisos, setVerPermisos] = useState(false);
+  const [listas, setListas] = useState<Lista[]>([]);
+  const [umbral, setUmbral] = useState(0);
+  const [cuenta, setCuenta] = useState("");
+  const [lista, setLista] = useState("");
 
   const cargarPermisos = () => api.get<{ permisos: Permiso[] }>("/alertas-seguridad/envios/permisos").then((r) => setPermisos(r.permisos)).catch(() => setPermisos([]));
   useEffect(() => { cargarPermisos(); }, [envios.length]);
+  useEffect(() => {
+    api.get<{ listas: Lista[]; umbral: number }>("/alertas-seguridad/envios/listas").then((r) => { setListas(r.listas); setUmbral(r.umbral); }).catch(() => setListas([]));
+  }, []);
+
+  const darPermiso = async () => {
+    const quien = cuenta.trim().toLowerCase();
+    if (!quien.includes("@") || !lista) { avisar(false, "Escriba la dirección completa de la persona y elija una lista."); return; }
+    try {
+      await api.post("/alertas-seguridad/envios/permisos", { cuenta: quien, listas: [lista] });
+      avisar(true, `Listo: ${quien} ya puede escribir a ${lista} sin que se bloquee su cuenta.`);
+      setCuenta(""); setLista("");
+      cargarPermisos(); alCambiar();
+    } catch (err: any) { avisar(false, err?.message || "No se pudo dar el permiso"); }
+  };
 
   const hacer = async (e: Envio, accion: "autorizar" | "reactivar" | "mantener", pregunta: string, hecho: string) => {
     if (!window.confirm(pregunta)) return;
@@ -45,10 +64,10 @@ export function EnviosMasivos({ envios, alCambiar, avisar }: { envios: Envio[]; 
     catch (err: any) { avisar(false, err?.message || "No se pudo quitar el permiso"); }
   };
 
-  if (envios.length === 0 && permisos.length === 0) return null;
+  if (envios.length === 0 && listas.length === 0) return null;
   return (
     <section className="mb-6">
-      <h2 className="text-base font-semibold text-ms-gray-160 mb-2">Cuentas bloqueadas por escribir a muchas personas</h2>
+      {envios.length > 0 && <h2 className="text-base font-semibold text-ms-gray-160 mb-2">Cuentas bloqueadas por escribir a muchas personas</h2>}
       <div className="space-y-3">
         {envios.map((e) => {
           const listas = e.listas_por_autorizar.join(" y ");
@@ -96,20 +115,37 @@ export function EnviosMasivos({ envios, alCambiar, avisar }: { envios: Envio[]; 
           );
         })}
       </div>
-      {permisos.length > 0 && (
-        <div className="mt-3">
-          <button onClick={() => setVerPermisos(!verPermisos)} aria-expanded={verPermisos} className="text-xs text-ms-blue">
-            {verPermisos ? "Ocultar" : "Ver"} los {permisos.length} permisos concedidos para escribir a listas
-          </button>
-          {verPermisos && (
-            <table className="w-full text-xs mt-2 bg-white border border-ms-gray-30 rounded">
-              <thead><tr className="text-left text-ms-gray-110"><th className="p-2">Cuenta</th><th>Puede escribir a</th><th>Lo concedió</th><th>Cuándo</th><th></th></tr></thead>
-              <tbody>{permisos.map((p) => (
-                <tr key={p.id} className="border-t border-ms-gray-10"><td className="p-2">{p.username}</td><td>{p.lista}</td><td>{p.creado_por}</td><td>{fecha(p.creado)}</td>
-                  <td className="text-right pr-2"><button onClick={() => quitar(p)} className="text-red-600 hover:underline">Quitar</button></td></tr>
-              ))}</tbody>
-            </table>
-          )}
+      {listas.length > 0 && (
+        <div className="mt-4 bg-white border border-ms-gray-30 rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-ms-gray-160">Permisos para escribir a listas</h3>
+          <p className="text-xs text-ms-gray-110 mt-1">
+            El sistema bloquea una cuenta que escribe a {umbral > 0 ? `${umbral} personas o más` : "demasiadas personas"} en pocos minutos. Si alguien necesita escribir a una lista
+            grande (por ejemplo, la jefatura a su equipo), dele aquí el permiso <b>antes</b> de que envíe: no se le bloqueará por esa lista. No cambia quién puede escribir a la lista.
+          </p>
+          <div className="flex flex-wrap items-end gap-2 mt-3">
+            <label className="text-xs text-ms-gray-130">Persona (su correo)
+              <input value={cuenta} onChange={(ev) => setCuenta(ev.target.value)} placeholder="nombre@dominio" type="email"
+                className="block mt-1 w-64 border border-ms-gray-60 rounded px-2 py-1.5 text-sm" />
+            </label>
+            <label className="text-xs text-ms-gray-130">Puede escribir a la lista
+              <select value={lista} onChange={(ev) => setLista(ev.target.value)} className="block mt-1 w-72 border border-ms-gray-60 rounded px-2 py-1.5 text-sm bg-white">
+                <option value="">Elija una lista…</option>
+                {listas.map((l) => <option key={l.address} value={l.address}>{l.address} ({l.miembros} {l.miembros === 1 ? "persona" : "personas"})</option>)}
+              </select>
+            </label>
+            <button onClick={darPermiso} className="px-3 py-2 bg-ms-blue text-white rounded text-xs">Dar permiso</button>
+          </div>
+          {permisos.length === 0
+            ? <p className="text-xs text-ms-gray-110 mt-3">Todavía no se ha dado ningún permiso.</p>
+            : (
+              <table className="w-full text-xs mt-3">
+                <thead><tr className="text-left text-ms-gray-110"><th className="py-1">Persona</th><th>Puede escribir a</th><th>Lo concedió</th><th>Cuándo</th><th></th></tr></thead>
+                <tbody>{permisos.map((p) => (
+                  <tr key={p.id} className="border-t border-ms-gray-10"><td className="py-1">{p.username}</td><td>{p.lista}</td><td>{p.creado_por}</td><td>{fecha(p.creado)}</td>
+                    <td className="text-right"><button onClick={() => quitar(p)} className="text-red-600 hover:underline">Quitar</button></td></tr>
+                ))}</tbody>
+              </table>
+            )}
         </div>
       )}
     </section>

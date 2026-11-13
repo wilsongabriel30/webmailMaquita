@@ -24,6 +24,11 @@ class Autorizar(BaseModel):
     listas: list[str] = []
 
 
+class Permiso(BaseModel):
+    cuenta: str
+    listas: list[str]
+
+
 def _db(r: Request):
     return r.app.state.db
 
@@ -79,7 +84,9 @@ def explicar(e: dict, umbral: int, activa: bool) -> dict:
     elif not activa:
         hacer = (
             "Confirme con la persona que el envío fue suyo. Si lo fue, pulse «Reactivar la cuenta». "
-            "Si no lo reconoce, déjela bloqueada y cambie la contraseña."
+            "Si no lo reconoce, déjela bloqueada y cambie la contraseña. Si esta persona necesita "
+            "escribir a una lista de la casa, puede darle el permiso más abajo, en «Permisos para "
+            "escribir a listas»."
         )
     else:
         hacer = (
@@ -296,6 +303,59 @@ async def permisos(r: Request, a=Depends(get_current_admin)):
         "ORDER BY username, lista"
     )
     return {"permisos": [{**dict(f), "creado": f["creado"].isoformat()} for f in filas]}
+
+
+@router.get("/listas")
+async def listas_de_la_casa(r: Request, a=Depends(get_current_admin)):
+    """Las listas a las que se puede dar permiso, con su número de miembros."""
+    db = _db(r)
+    if not await disponible(db):
+        return {"listas": [], "umbral": 0}
+    filas = await db.fetch(
+        "SELECT g.address, g.name, (SELECT count(*) FROM mail_group_members m WHERE m.group_id = g.id) AS miembros "
+        "FROM mail_groups g WHERE g.active ORDER BY g.address"
+    )
+    umbral = await db.fetchval(
+        "SELECT threshold_recipients FROM outbound_anomaly_config WHERE id = 1"
+    )
+    return {"listas": [dict(f) for f in filas], "umbral": umbral or 0}
+
+
+@router.post("/permisos")
+async def dar_permiso(
+    body: Permiso, r: Request, a: dict = Depends(require_role("superadmin", "admin"))
+):
+    """Permiso por adelantado: esa cuenta podrá escribir a esas listas sin que se la bloquee."""
+    db = _db(r)
+    if not await disponible(db):
+        raise HTTPException(
+            404, "Esta instalación no tiene el vigilante de envío masivo"
+        )
+    cuenta = body.cuenta.strip().lower()
+    if not await db.fetchval("SELECT 1 FROM mailbox WHERE username = $1", cuenta):
+        raise HTTPException(
+            404, f"No existe ninguna cuenta «{cuenta}». Escriba la dirección completa."
+        )
+    validas = {
+        x["address"].lower()
+        for x in await db.fetch("SELECT address FROM mail_groups WHERE active")
+    }
+    listas = [
+        x for x in dict.fromkeys(l.strip().lower() for l in body.listas) if x in validas
+    ]
+    if not listas:
+        raise HTTPException(400, "Elija al menos una lista de la casa")
+    for lista in listas:
+        await db.execute(
+            "INSERT INTO outbound_anomaly_permisos (username, lista, nota, creado_por) "
+            "VALUES ($1, $2, $3, $4) ON CONFLICT (username, lista) DO NOTHING",
+            cuenta,
+            lista,
+            "Concedido por adelantado desde el panel",
+            a["username"],
+        )
+    await _auditar(r, a, "envio_masivo_dar_permiso", cuenta, {"listas": listas})
+    return {"ok": True, "cuenta": cuenta, "listas": listas}
 
 
 @router.delete("/permisos/{permiso_id}")
