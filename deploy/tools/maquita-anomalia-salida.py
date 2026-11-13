@@ -11,6 +11,7 @@ No lleva credenciales ni direcciones propias: la base sale de DATABASE_URL (back
 y el remitente y el destinatario de los avisos, de /etc/maquita-mail/organizacion.env
 (ORG_REMITENTE_AVISOS, ORG_CORREOS_AVISOS) si el panel no tiene uno configurado.
 """
+import json
 import re
 import smtplib
 import subprocess
@@ -29,6 +30,10 @@ TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})")
 SASL_RE = re.compile(r"postfix/submission/smtpd\[\d+\]:\s+([0-9A-F]+):.*sasl_username=([^,\s]+)", re.I)
 NRCPT_RE = re.compile(r"postfix/qmgr\[\d+\]:\s+([0-9A-F]+):\s+from=<[^>]*>,\s+size=\d+,\s+nrcpt=(\d+)")
 CUENTA_RE = re.compile(r"^[a-z0-9._+-]+@[a-z0-9.-]+$")
+# 06/11/2026: destinatarios que llegan por una lista (orig_to = la lista). Si quien envía está
+# AUTORIZADO en esa lista (mail_groups.allowed_senders, p. ej. nacional@), no cuentan como envío masivo.
+TO_RE = re.compile(r"postfix/[\w-]+\[\d+\]:\s+([0-9A-F]+):\s+to=<[^>]*>,(?:\s+orig_to=<([^>]+)>,)?")
+SEP_RE = re.compile(r"[\s,;]+")
 
 
 def leer_env(ruta):
@@ -73,23 +78,44 @@ def remitente():
     return ORG.get("ORG_REMITENTE_AVISOS") or f"postmaster@{dominio}"
 
 
+def url_panel():
+    """Dirección del panel de administración (ORG_URL_PANEL), o vacío si no está definida."""
+    try:
+        return leer_env("/etc/maquita-mail/organizacion.env").get("ORG_URL_PANEL", "").rstrip("/")
+    except Exception:
+        return ""
+
+
 def notify(admin, user, recips, mins, action):
+    panel = url_panel()
+    donde = f"{panel}/alertas-seguridad" if panel else "el panel de administración, sección «Alertas de seguridad»"
+    bloqueada = action == "locked"
+    estado = (
+        "Por seguridad, la cuenta quedó BLOQUEADA: no puede entrar ni enviar hasta que Tecnología la revise.\n\n"
+        if bloqueada
+        else "Es solo un aviso: la cuenta sigue funcionando.\n\n"
+    )
     cuerpo = (
-        f"AVISO DE SEGURIDAD: envío masivo anómalo detectado\n\n"
-        f"Cuenta: {user}\n"
-        f"Volumen: {recips} destinatarios en {mins} minutos (lo normal son pocos al día).\n"
-        f"Acción automática: {'ENVÍO BLOQUEADO y cuenta contenida' if action == 'locked' else 'ALERTA (sin bloquear)'}.\n\n"
-        f"Es muy probable que esta cuenta esté COMPROMETIDA.\n"
-        f"Pasos a seguir de inmediato:\n"
-        f"  1. Cambiar la contraseña de {user}.\n"
-        f"  2. Activar la verificación en dos pasos (2FA).\n"
-        f"  3. Revisar los envíos recientes por si se filtró información.\n\n"
-        f"Cuando la cuenta esté asegurada, el administrador puede reactivarla desde el panel "
-        f"(Protección de salida) o con: maquita-contener unlock {user}\n\n"
-        f"-- Sistema de seguridad del correo\n"
+        f"La cuenta {user} envió correo a {recips} destinatarios en {mins} minutos.\n"
+        + estado
+        + "Puede ser una de dos cosas:\n"
+        "  - Un envío normal a muchas personas (por ejemplo, a una lista de la casa).\n"
+        "  - Una cuenta robada que está enviando correo basura.\n\n"
+        "QUÉ HACER (Tecnología):\n"
+        f"  1. Abra {donde}. Ahí se ve a quién iba el envío.\n"
+        "  2. Si fue un envío normal a una lista, pulse «Es correcto»: la cuenta se reactiva y esa persona\n"
+        "     queda con permiso para escribir a esa lista sin que se la vuelva a bloquear.\n"
+        "     Para dar el permiso por adelantado a otra persona: en la misma pantalla,\n"
+        "     «Permisos para escribir a listas».\n"
+        f"  3. Si la persona no reconoce el envío: deje la cuenta bloqueada, cambie la contraseña de {user}\n"
+        "     y active la verificación en dos pasos antes de reactivarla.\n\n"
+        f"Si usted es quien usa {user} y el envío fue suyo, avise a Tecnología para que la reactiven.\n"
+        "Los correos que envió antes del bloqueo ya salieron.\n\n"
+        "-- Sistema de seguridad del correo\n"
     )
     msg = MIMEText(cuerpo, _charset="utf-8")
-    msg["Subject"] = f"[SEGURIDAD] Envío masivo anómalo: {user}"
+    asunto = "Cuenta bloqueada" if action == "locked" else "Cuenta en revisión"
+    msg["Subject"] = f"[SEGURIDAD] {asunto} por enviar a muchas personas: {user}"
     msg["From"] = remitente()
     dests = [d for d in {admin, user} if d]
     msg["To"] = ", ".join(dests)
@@ -130,7 +156,7 @@ def main():
     except Exception:
         return
 
-    qid_user, qid_rcpt = {}, {}
+    qid_user, qid_rcpt, qid_orig, qid_vistos = {}, {}, {}, set()
     for ln in lines:
         m = TS_RE.match(ln)
         if not m:
@@ -148,10 +174,46 @@ def main():
         n = NRCPT_RE.search(ln)
         if n:
             qid_rcpt[n.group(1)] = qid_rcpt.get(n.group(1), 0) + int(n.group(2))
+            continue
+        d = TO_RE.search(ln)
+        if d:
+            qid_vistos.add(d.group(1))
+            if d.group(2):
+                o = qid_orig.setdefault(d.group(1), {})
+                o[d.group(2).lower()] = o.get(d.group(2).lower(), 0) + 1
+
+    # Listas con remitentes autorizados: {lista: {remitentes}}
+    autorizados = {}
+    for fila in q("SELECT lower(address) || '|' || lower(allowed_senders) FROM mail_groups "
+                  "WHERE active AND coalesce(allowed_senders, '') <> ''").splitlines():
+        lista, _, rem = fila.partition("|")
+        autorizados[lista] = {x for x in SEP_RE.split(rem) if x}
+    # 13/11/2026: permisos dados desde el panel (Alertas de seguridad): esa cuenta puede escribir a esa
+    # lista sin que sus miembros cuenten como envío masivo. No restringe quién escribe a la lista.
+    for fila in q("SELECT lower(lista) || '|' || lower(username) FROM outbound_anomaly_permisos").splitlines():
+        lista, _, quien = fila.partition("|")
+        if lista and quien:
+            autorizados.setdefault(lista, set()).add(quien)
+    pendientes = set()
 
     per_user, per_user_msgs = {}, {}
+    desglose = {}  # {cuenta: {lista o «directos»: destinatarios que SÍ cuentan}}
     for qid, user in qid_user.items():
-        per_user[user] = per_user.get(user, 0) + qid_rcpt.get(qid, 1)
+        total = qid_rcpt.get(qid, 1)
+        if total >= thr and qid not in qid_vistos:
+            # Aún sin entregas en el registro: no se sabe si va a una lista autorizada; se decide
+            # en la siguiente pasada (2 min) en vez de bloquear a ciegas.
+            pendientes.add(user)
+        por_lista = sum(c for l, c in qid_orig.get(qid, {}).items() if user in autorizados.get(l, ()))
+        per_user[user] = per_user.get(user, 0) + max(0, total - por_lista)
+        d = desglose.setdefault(user, {})
+        en_listas = 0
+        for l, c in qid_orig.get(qid, {}).items():
+            en_listas += c
+            if user not in autorizados.get(l, ()):
+                d[l] = d.get(l, 0) + c
+        if total > en_listas:
+            d["directos"] = d.get("directos", 0) + (total - en_listas)
         per_user_msgs[user] = per_user_msgs.get(user, 0) + 1
 
     # Cuentas exentas (envío masivo legítimo): la misma lista que usa rspamd para el límite,
@@ -167,7 +229,7 @@ def main():
         pass
 
     for user, recips in per_user.items():
-        if recips < thr or user in exentos or not CUENTA_RE.match(user):
+        if recips < thr or user in exentos or user in pendientes or not CUENTA_RE.match(user):
             continue
         # Si ya hay un evento reciente (< 2 ventanas) o la cuenta ya está inactiva, no se repite.
         reciente = q(
@@ -191,9 +253,9 @@ def main():
                 act = "alerted"
         detail = f"{recips} destinatarios / {msgs} mensajes en {win} min"
         q(
-            "INSERT INTO outbound_anomaly_events (username, recipients, messages, window_minutes, action, detail) "
-            "VALUES (:'u', :'r'::int, :'n'::int, :'w'::int, :'a', :'d')",
-            u=user, r=recips, n=msgs, w=win, a=act, d=detail,
+            "INSERT INTO outbound_anomaly_events (username, recipients, messages, window_minutes, action, detail, desglose) "
+            "VALUES (:'u', :'r'::int, :'n'::int, :'w'::int, :'a', :'d', :'j'::jsonb)",
+            u=user, r=recips, n=msgs, w=win, a=act, d=detail, j=json.dumps(desglose.get(user, {})),
         )
         q(
             "INSERT INTO fraud_alerts (alert_type, severity, username, description, status) "

@@ -21,6 +21,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel, Alertas de seguridad: cuentas bloqueadas por escribir a muchas personas**. El vigilante de envío masivo
+  desactivaba la cuenta y el administrador solo se enteraba cuando la persona llamaba. Ahora el bloqueo aparece en
+  Alertas explicado en lenguaje llano (cuántos correos, a cuántas personas, por qué listas) y con la decisión a un clic:
+  «Es correcto» (le permite escribir a esas listas y reactiva la cuenta), «Reactivar la cuenta» o «Dejar bloqueada».
+  Los permisos son por cuenta y lista (`outbound_anomaly_permisos`), se ven y se quitan en la misma pantalla y no
+  cambian quién puede escribir a la lista. Requiere la migración `2026-11-13-permisos-envio-a-listas.sql`.
+  También se puede dar el permiso **por adelantado** («Permisos para escribir a listas»: persona y lista), sin esperar
+  a un bloqueo. El correo de aviso del vigilante se reescribió en lenguaje llano y dice dónde resolverlo.
+- **Vigilante de envío masivo**: respeta esos permisos y los remitentes autorizados de cada lista, espera a conocer las
+  entregas antes de bloquear y guarda a quién iba el envío.
 - **Resultados en otras carpetas**: al buscar dentro de una carpeta, el aviso dice cuántos resultados más hay en el
   resto del correo y los muestra con un clic. Si en la carpeta no hay ninguno y en el resto sí, la búsqueda pasa sola
   a todas las carpetas y lo explica, con un botón para volver. Medido: en 9 de cada 10 búsquedas había más resultados
