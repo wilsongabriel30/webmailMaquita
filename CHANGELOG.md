@@ -30,6 +30,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   También se puede dar el permiso **por adelantado** («Permisos para escribir a listas»: persona y lista), sin esperar
   a un bloqueo. El correo de aviso del vigilante se reescribió en lenguaje llano y dice dónde resolverlo.
   La franja de alertas al entrar al panel avisa también de las cuentas bloqueadas por este motivo.
+- **Vigilante de envío masivo: el correo entre cuentas de la casa no cuenta**. Solo suman los destinatarios de fuera
+  (dominios que el servidor no aloja); una jefatura que escribe a una lista interna ya no queda bloqueada. Cada
+  destinatario se cuenta una vez aunque haya reintentos. `CONTAR_INTERNOS = True` en el guion vuelve a lo anterior.
 - **Vigilante de envío masivo**: respeta esos permisos y los remitentes autorizados de cada lista, espera a conocer las
   entregas antes de bloquear y guarda a quién iba el envío.
 - **Resultados en otras carpetas**: al buscar dentro de una carpeta, el aviso dice cuántos resultados más hay en el

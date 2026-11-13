@@ -60,7 +60,8 @@ def explicar(e: dict, umbral: int, activa: bool) -> dict:
         f"Envió {_plural(e['mensajes'], 'correo', 'correos')} a "
         f"{_plural(e['destinatarios'], 'persona', 'personas')} en {e['minutos']} minutos. "
         f"El sistema desactiva una cuenta cuando pasa de {umbral}, porque así se comporta una "
-        "cuenta robada que envía correo basura."
+        "cuenta robada que envía correo basura. (Desde el 13/11/2026 el correo entre cuentas de la "
+        "casa ya no cuenta: solo los destinatarios de fuera.)"
     )
     if listas:
         detalle = ", ".join(f"{x['lista']} ({x['destinatarios']})" for x in listas)
