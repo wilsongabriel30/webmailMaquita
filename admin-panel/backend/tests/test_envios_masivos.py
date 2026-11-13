@@ -53,7 +53,11 @@ def test_si_iba_a_listas_ofrece_permitirlo():
     x = explicar(evento(), 30, activa=False)
     assert "«Es correcto»" in x["que_hacer"]
     assert "contadores@example.org y gestorias@example.org" in x["que_hacer"]
-    assert "La cuenta vuelve a funcionar" in x["que_hacer"]
+    assert (
+        "La cuenta vuelve a funcionar y no se le volverá a bloquear" in x["que_hacer"]
+    )
+    activa = explicar(evento(), 30, activa=True)["que_hacer"]
+    assert "«Es correcto». No se le volverá a bloquear" in activa
     assert "cambie la contraseña" in x["que_hacer"]
 
 

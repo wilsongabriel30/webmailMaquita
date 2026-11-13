@@ -77,8 +77,8 @@ def explicar(e: dict, umbral: int, activa: bool) -> dict:
         nombres = " y ".join(x["lista"] for x in pendientes)
         hacer = (
             f"Si es normal que esta persona escriba a {nombres}, pulse «Es correcto». "
-            + ("La cuenta vuelve a funcionar y " if not activa else "")
-            + "No se le volverá a bloquear por escribir a esas listas. "
+            + ("La cuenta vuelve a funcionar y no" if not activa else "No")
+            + " se le volverá a bloquear por escribir a esas listas. "
             "Si no reconoce el envío, deje la cuenta bloqueada y cambie la contraseña."
         )
     elif not activa:
