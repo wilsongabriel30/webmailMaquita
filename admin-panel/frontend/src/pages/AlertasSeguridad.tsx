@@ -3,12 +3,13 @@ import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 import { EnviosMasivos, type Envio } from "../components/EnviosMasivos";
+import { EnviarMensajeAlerta, type MensajeAlerta } from "../components/EnviarMensajeAlerta";
 
 interface Direccion { ip: string; pais: string; intentos: number; ultimo: string; servicios: string[]; bloqueada: boolean; }
 interface Ataque {
   cuenta: string; direcciones: Direccion[]; intentos: number; paises: string[]; ultimo: string;
   gravedad: "alta" | "media" | "resuelta"; que_pasa: string; sugerencia: string; accion: string;
-  existe: boolean; protegida: boolean; se_puede_proteger: boolean;
+  existe: boolean; protegida: boolean; se_puede_proteger: boolean; mensaje?: MensajeAlerta;
 }
 interface Respuesta { horas: number; ataques: Ataque[]; envios?: Envio[]; inicios_riesgosos: number; inicios_riesgosos_altos: number; anomalias: number; pendientes: number; }
 
@@ -54,6 +55,7 @@ export function AlertasSeguridad() {
           { titulo: "Qué es esta sección", desc: "Lo que necesita su atención hoy, en una sola pantalla: cuentas cuya contraseña alguien intenta adivinar, cuentas bloqueadas por escribir a muchas personas, inicios de sesión riesgosos y anomalías abiertas." },
           { titulo: "Intentos de adivinar contraseñas", desc: "Una cuenta aparece cuando tres o más direcciones distintas fallaron su contraseña y ninguna de ellas ha entrado nunca. Es el ataque lento: pocos intentos desde muchos sitios." },
           { titulo: "Qué hace el botón", desc: "«Cerrar IMAP y SMTP» deja la cuenta como solo webmail: desde fuera la contraseña deja de servir aunque la adivinen. Es inmediato y se deshace en «Cuentas solo webmail»." },
+          { titulo: "Enviar mensaje a la persona", desc: "Cuando todos los intentos vienen del país o de la red interna, suele ser el celular u otro programa de correo de la propia persona con una contraseña anterior guardada. «Enviar mensaje» abre un correo ya redactado, que puede corregir, pidiéndole que actualice la contraseña en su celular y avisándole de que, si no lo hace, Tecnología desactivará el acceso desde ese equipo. Queda anotado quién lo envió y cuándo; si ya se le escribió en las últimas 24 horas, se pide confirmación." },
           { titulo: "Antes de pulsarlo", desc: "Lea la sugerencia: si la persona usa Outlook o celular, esos equipos dejarán de funcionar hasta que cree una contraseña de aplicación." },
           { titulo: "Cuentas bloqueadas por escribir a muchas personas", desc: "El sistema desactiva una cuenta que envía a demasiados destinatarios de fuera en pocos minutos, porque así actúa una cuenta robada. El correo entre cuentas de la casa no cuenta. Si fue un envío normal a una lista de la casa, «Es correcto» le da permiso para escribir a esa lista y reactiva la cuenta. Los permisos concedidos se ven y se quitan aquí mismo." },
           { titulo: "Dar permiso por adelantado", desc: "En «Permisos para escribir a listas» escriba el correo de la persona, elija la lista y pulse «Dar permiso». Hágalo antes de que envíe: así no se le bloquea. Sirve para jefaturas o áreas que escriben a listas grandes. El permiso es permanente: dura hasta que alguien lo quite con «Quitar». «Marcar como revisado» solo archiva el aviso; no quita ni da permisos." },
@@ -86,6 +88,7 @@ export function AlertasSeguridad() {
                 </div>
                 <p className="text-sm text-ms-gray-130 mt-2">{a.que_pasa}</p>
                 <p className="text-sm text-ms-gray-160 mt-1"><b>Sugerencia:</b> {a.sugerencia}</p>
+                <EnviarMensajeAlerta cuenta={a.cuenta} mensaje={a.mensaje} alCambiar={cargar} avisar={(ok, text) => setMsg({ ok, text })} />
               </div>
               {a.accion === "proteger" && a.se_puede_proteger && (
                 <button onClick={() => proteger(a)} disabled={ocupada === a.cuenta} className="shrink-0 px-3 py-2 bg-red-600 text-white rounded text-xs disabled:opacity-50" title="Deja la cuenta como solo webmail: desde fuera la contraseña deja de servir. Pide confirmación.">Cerrar IMAP y SMTP</button>
