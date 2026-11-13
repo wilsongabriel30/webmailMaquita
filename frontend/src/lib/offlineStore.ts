@@ -30,6 +30,31 @@ const CAMPOS_CORREO = ["from", "to", "cc", "bcc", "subject", "html_body",
                        "text_body", "attachments", "references", "in_reply_to",
                        "preview", "snippet"];
 
+// Multicuenta (13/11/2026): cada cuenta guarda sus correos aparte. Antes la clave era solo
+// «carpeta:uid»: el correo 683 de una cuenta asignada pisaba (y se confundía con) el 683 de la
+// propia, y al fallar la red se abría la copia de la OTRA cuenta (reporte de Logística, 13/11).
+function claveDeCuenta(): string {
+  const c = (cuentaActiva() || "").trim().toLowerCase();
+  return c ? `${c}|` : "";
+}
+function cuentaDeAhora(): string {
+  return (cuentaActiva() || "").trim().toLowerCase();
+}
+// Lo guardado antes de este arreglo no dice de qué cuenta es: se borra una sola vez por equipo.
+const MARCA_LIMPIEZA = "maquita_offline_por_cuenta_v1";
+let limpiezaHecha = false;
+function limpiarCopiasSinCuenta(db: IDBDatabase): void {
+  if (limpiezaHecha) return;
+  limpiezaHecha = true;
+  try {
+    if (localStorage.getItem(MARCA_LIMPIEZA) === "1") return;
+    const tx = db.transaction(["messages", "folders"], "readwrite");
+    tx.objectStore("messages").clear();
+    tx.objectStore("folders").clear();
+    tx.oncomplete = () => { try { localStorage.setItem(MARCA_LIMPIEZA, "1"); } catch { /* sin almacenamiento */ } };
+  } catch { /* si no se puede limpiar ahora, se reintenta en la próxima carga */ limpiezaHecha = false; }
+}
+
 const DB_NAME = "maquita-mail-offline";
 const DB_VERSION = 2;
 
@@ -129,8 +154,18 @@ function openDB(): Promise<IDBDatabase> {
         outboxStore.createIndex("createdAt", "createdAt");
       }
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onsuccess = () => { limpiarCopiasSinCuenta(request.result); resolve(request.result); };
+    request.onerror = () => {
+      // Otra pestaña (o una versión más nueva de la página) ya subió la base de versión: se abre la que
+      // haya en vez de fallar. Con el fallo, el editor de correo se quedaba «cargando» (13/11/2026).
+      if (request.error?.name === "VersionError") {
+        const sinVersion = indexedDB.open(DB_NAME);
+        sinVersion.onsuccess = () => resolve(sinVersion.result);
+        sinVersion.onerror = () => reject(sinVersion.error);
+        return;
+      }
+      reject(request.error);
+    };
   });
 }
 
@@ -143,18 +178,20 @@ export async function cacheMessageList(folder: string, messages: OfflineMessage[
   const preparados: Record<string, unknown>[] = [];
   const lectura = db.transaction("messages", "readonly");
   const store = lectura.objectStore("messages");
+  const cuenta = cuentaDeAhora();
   for (const msg of messages) {
-    const id = `${folder}:${msg.uid}`;
+    const id = `${claveDeCuenta()}${folder}:${msg.uid}`;
     // Preserve existing full body if we already have it
     const existing = await new Promise<OfflineMessage | undefined>((resolve) => {
       const req = store.get(id);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(undefined);
     });
-    const record: OfflineMessage = {
+    const record: OfflineMessage & { cuenta: string } = {
       ...msg,
       id,
       folder,
+      cuenta,
       cachedAt: Date.now(),
     };
     // Keep full body from previous cache
@@ -205,9 +242,9 @@ export async function cacheFullMessage(folder: string, msg: OfflineMessage) {
   const db = await openDB();
   const tx = db.transaction("messages", "readwrite");
   const store = tx.objectStore("messages");
-  const id = `${folder}:${msg.uid}`;
+  const id = `${claveDeCuenta()}${folder}:${msg.uid}`;
   // cifrar primero, guardar despues (ver la nota de addToOutbox)
-  const guardable = await meterEnSobre({ ...msg, id, folder, cachedAt: Date.now() },
+  const guardable = await meterEnSobre({ ...msg, id, folder, cuenta: cuentaDeAhora(), cachedAt: Date.now() },
                                        CAMPOS_CORREO);
   store.put(guardable);
 }
@@ -220,7 +257,8 @@ export async function getCachedMessages(folder: string): Promise<OfflineMessage[
     const req = idx.getAll(IDBKeyRange.only(folder));
     req.onsuccess = async () => {
       // Sort by date descending
-      const crudos = req.result || [];
+      const cuenta = cuentaDeAhora();
+      const crudos = (req.result || []).filter((c: Record<string, unknown>) => ((c.cuenta as string) || "") === cuenta);
       const msgs = (await Promise.all(crudos.map((c: Record<string, unknown>) => abrirSobre<OfflineMessage>(c))))
         .filter(Boolean) as OfflineMessage[];
       msgs.sort((a: OfflineMessage, b: OfflineMessage) => {
@@ -239,7 +277,7 @@ export async function getCachedMessage(folder: string, uid: number): Promise<Off
   const tx = db.transaction("messages", "readonly");
   const store = tx.objectStore("messages");
   return new Promise((resolve) => {
-    const req = store.get(`${folder}:${uid}`);
+    const req = store.get(`${claveDeCuenta()}${folder}:${uid}`);
     // T-49: se abre el sobre antes de devolverlo
     req.onsuccess = async () => resolve(await abrirSobre<OfflineMessage>(req.result));
     req.onerror = () => resolve(null);
