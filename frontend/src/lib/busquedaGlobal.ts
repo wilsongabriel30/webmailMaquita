@@ -12,6 +12,10 @@ export const CARPETA_TODO = 'Virtual.Todo';
 const CLAVE_PREFERENCIA = 'maquita_buscar_en_todo';
 
 let carpetaPrevia = 'INBOX';
+/** Carpeta desde la que la búsqueda se amplió sola a todo el correo (null si no ocurrió). */
+let origenAmpliacion: string | null = null;
+/** Búsqueda que la persona pidió ver en su carpeta: no se vuelve a ampliar sola. */
+let noAmpliar = '';
 
 /** Carpeta en la que estaba la persona al empezar a buscar en todas las carpetas. */
 export function carpetaAnterior(): string {
@@ -46,6 +50,11 @@ export function guardarPreferenciaTodo(v: boolean) {
 export function aplicarBusqueda(q: string) {
   const st = useMailStore.getState();
   const texto = q.trim();
+  // Una búsqueda nueva mira todos los correos, no solo los «no leídos» o «con bandera» que
+  // estuvieran filtrados: con el filtro puesto, el correo ya leído que se buscaba no aparecía
+  // («barry» con «No leídos» activo daba cero; 13/11/2026). El filtro se puede volver a poner después.
+  if (texto && st.filter !== 'all') st.setFilter('all');
+  if (!texto) origenAmpliacion = null;
   if (texto && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
     carpetaPrevia = st.currentFolder;
     // Carpeta y búsqueda en un solo cambio: si no, la lista cargaba primero el buzón entero
@@ -60,9 +69,36 @@ export function aplicarBusqueda(q: string) {
   st.setSearchQuery(q);
 }
 
+/** Carpeta en la que no había resultados y desde la que se amplió la búsqueda, o null. */
+export function ampliadaDesde(): string | null {
+  return useMailStore.getState().currentFolder === CARPETA_TODO ? origenAmpliacion : null;
+}
+
+/**
+ * En la carpeta no hay nada y en el resto del correo sí: se muestran los resultados de todas las
+ * carpetas. No cambia la preferencia de la persona: su próxima búsqueda vuelve a ser en la carpeta.
+ */
+export function ampliarPorFaltaDeResultados(q: string) {
+  const st = useMailStore.getState();
+  if (!q.trim() || st.currentFolder === CARPETA_TODO || st.searchQuery !== q || q === noAmpliar) return;
+  carpetaPrevia = st.currentFolder;
+  origenAmpliacion = st.currentFolder;
+  st.setCarpetaYBusqueda(CARPETA_TODO, q);
+}
+
+/** Deshace la ampliación automática: vuelve a la carpeta, con la misma búsqueda. */
+export function volverALaCarpeta() {
+  const st = useMailStore.getState();
+  const destino = origenAmpliacion || carpetaPrevia || 'INBOX';
+  origenAmpliacion = null;
+  noAmpliar = st.searchQuery;
+  st.setCarpetaYBusqueda(destino, st.searchQuery);
+}
+
 /** Cambia el ámbito y, si hay una búsqueda escrita, la repite en el ámbito nuevo. */
 export function cambiarAmbito(enTodo: boolean) {
   const st = useMailStore.getState();
+  origenAmpliacion = null;
   guardarPreferenciaTodo(enTodo);
   st.setBuscarEnTodo(enTodo);
   const q = st.searchQuery;

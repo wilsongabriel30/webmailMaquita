@@ -8,7 +8,7 @@ Soporta: from:, to:, subject:, has:attachment, before:, after:, is:unread, is:fl
 import re
 from datetime import datetime, timedelta
 
-from app.mail import busqueda_reenviados
+from app.mail import busqueda_palabras, busqueda_reenviados
 
 # Atajos de fecha: lo que uno recuerda de un correo suele ser «era de esta semana».
 _ATAJOS_FECHA = {
@@ -166,11 +166,13 @@ def parse_search_query(
             val = token[5:].strip('"')
             if con_indice:
                 # También lo que esa persona escribió y otro reenvió (busqueda_reenviados.py, 12/11/2026).
-                criteria.extend(
-                    busqueda_reenviados.remitente_o_reenviado(_entrecomillar(val))
-                )
+                base = busqueda_reenviados.remitente_o_reenviado(_entrecomillar(val))
             else:
-                criteria.extend(["FROM", _entrecomillar(val)])
+                base = ["FROM", _entrecomillar(val)]
+            # En el remitente el índice no quita las tildes: «de:barbara» debe encontrar a «Bárbara».
+            criteria.extend(
+                busqueda_palabras.con_variantes("FROM", val, base, _entrecomillar)
+            )
         elif token.lower().startswith("forwarded:"):
             val = token[10:].strip('"')
             if val:
@@ -179,10 +181,18 @@ def parse_search_query(
                 )
         elif token.lower().startswith("to:"):
             val = token[3:].strip('"')
-            criteria.extend(["TO", _entrecomillar(val)])
+            criteria.extend(
+                busqueda_palabras.con_variantes(
+                    "TO", val, ["TO", _entrecomillar(val)], _entrecomillar
+                )
+            )
         elif token.lower().startswith("cc:"):
             val = token[3:].strip('"')
-            criteria.extend(["CC", _entrecomillar(val)])
+            criteria.extend(
+                busqueda_palabras.con_variantes(
+                    "CC", val, ["CC", _entrecomillar(val)], _entrecomillar
+                )
+            )
         elif token.lower().startswith("subject:"):
             val = token[8:].strip('"')
             criteria.extend(["SUBJECT", _entrecomillar(val)])
@@ -231,39 +241,19 @@ def parse_search_query(
 
         i += 1
 
-    # Free text: search in FROM, SUBJECT, BODY (OR combination)
+    # Texto libre: cada palabra por separado y en cualquier parte del correo (13/11/2026,
+    # busqueda_palabras.py). Sin índice de texto NO entra en el cuerpo: medido en un buzón de
+    # 20 GB, por cabeceras responde en menos de 0,1 s y con BODY son 93 s, porque hay que abrir
+    # y descifrar los mensajes uno a uno. Con índice (o si se pide con `contenido:` o el botón)
+    # el cuerpo cuesta milésimas y entra siempre (21/09/2026).
     if remaining_words:
-        text = " ".join(remaining_words)
-        # Restore any remaining quotes
-        for k, v in quotes.items():
-            text = text.replace(k, v)
-
-        # El texto suelto NO entra en el cuerpo. Medido en un buzon de 20 GB: por cabeceras
-        # responde en menos de 0,1 s; anadir BODY lo llevaba a 93 s, porque hay que abrir y
-        # descifrar los mensajes uno a uno. Quien quiera buscar dentro del texto lo pide con
-        # `contenido:` o con el boton de la interfaz, y entonces sabe por que espera.
-        libre = [
-            "OR",
-            "OR",
-            "FROM " + _entrecomillar(text),
-            "TO " + _entrecomillar(text),
-            "SUBJECT " + _entrecomillar(text),
-        ]
-        # Con indice de texto (Xapian) entrar en el cuerpo cuesta milesimas -medido en el
-        # buzon de Enviados de gerencia, 19.432 mensajes: 0,13 s-, asi que la busqueda
-        # normal ya mira dentro del mensaje. Quien buscaba a una persona en Enviados no la
-        # encontraba porque el nombre solo estaba en el texto (21/09/2026).
-        if buscar_en_contenido or con_indice:
-            libre = ["OR"] + libre + ["BODY " + _entrecomillar(text)]
-        # 06/11/2026: también lo de/para/cc de las personas que se llaman así (busqueda_por_nombre.py),
-        # aunque el correo traiga un cargo o solo la dirección.
-        for direccion in list(direcciones_nombre or [])[:8]:
-            for campo in ("FROM", "TO", "CC"):
-                libre = ["OR"] + libre + [campo + " " + _entrecomillar(direccion)]
-        if criteria:
-            criteria.extend(libre)
-        else:
-            criteria = libre
+        libre = busqueda_palabras.criterio(
+            remaining_words,
+            con_cuerpo=buscar_en_contenido or con_indice,
+            direcciones=direcciones_nombre,
+            comillas=_entrecomillar,
+        )
+        criteria.extend(libre)
 
     # Red de debajo: entrar en el cuerpo sin acotar por fecha es la operacion mas cara que
     # existe aqui -hay que abrir y descifrar los mensajes uno a uno- y la interfaz lo limita a
