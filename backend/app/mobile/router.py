@@ -11,6 +11,7 @@ from pydantic import BaseModel
 from app import organizacion
 from app.auth.dependencies import get_current_user
 from app.config import get_settings
+from app.mobile import avisos_correo
 from app.portales import direcciones
 
 logger = logging.getLogger("mobile")
@@ -23,6 +24,9 @@ class DeviceRegister(BaseModel):
     device_name: Optional[str] = None
     platform: Optional[str] = None  # 'ios', 'android'
     push_token: Optional[str] = None
+    avisos: Optional[bool] = (
+        None  # False: este teléfono no quiere avisos de correo al instante
+    )
 
 
 @router.get("/config")
@@ -59,38 +63,61 @@ async def mobile_config(request: Request):
 
 @router.post("/register-device")
 async def register_device(request: Request, body: DeviceRegister):
-    """Register a mobile device for push notifications."""
+    """Registra el teléfono y le entrega su canal de avisos de correo (AM-01, avisos_correo.py).
+
+    Exige sesión. El teléfono queda ligado a esa sesión: si se cierra o caduca, deja de recibir avisos
+    hasta que vuelva a registrarse con una sesión nueva. El tema asignado se conserva entre registros.
+    Un teléfono con varias cuentas se registra una vez por cuenta y recibe un tema por cada una.
+    """
     user = await get_current_user(request)
     db = request.app.state.db_pool
-
-    # Upsert
-    await db.execute(
-        """INSERT INTO mobile_devices (user_email, device_id, device_name, platform, push_token, last_sync)
-           VALUES ($1, $2, $3, $4, $5, NOW())
-           ON CONFLICT (device_id) DO UPDATE SET
+    device_id = (body.device_id or "").strip()
+    if not 8 <= len(device_id) <= 128:
+        raise HTTPException(
+            status_code=422, detail="device_id debe tener entre 8 y 128 caracteres"
+        )
+    fila = await db.fetchrow(
+        """INSERT INTO mobile_devices
+               (user_email, device_id, device_name, platform, push_token, last_sync, push_topic, sid, avisos)
+           VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, COALESCE($8, true))
+           ON CONFLICT (device_id, user_email) DO UPDATE SET
                device_name = EXCLUDED.device_name,
                platform = EXCLUDED.platform,
                push_token = EXCLUDED.push_token,
                last_sync = NOW(),
-               is_active = true""",
-        user,
-        body.device_id,
-        body.device_name,
-        body.platform,
+               is_active = true,
+               sid = EXCLUDED.sid,
+               avisos = COALESCE($8, mobile_devices.avisos),
+               push_topic = COALESCE(mobile_devices.push_topic, EXCLUDED.push_topic)
+           RETURNING push_topic, avisos""",
+        user.lower(),
+        device_id,
+        (body.device_name or "")[:120] or None,
+        (body.platform or "")[:20] or None,
         body.push_token,
+        avisos_correo.nuevo_tema(),
+        getattr(request.state, "sid", None),
+        body.avisos,
     )
-
-    return {"status": "registered", "device_id": body.device_id}
+    return {
+        "status": "registered",
+        "device_id": device_id,
+        "avisos": fila["avisos"],
+        "push": avisos_correo.bloque_push(
+            request.headers.get("host", ""), fila["push_topic"], fila["avisos"]
+        ),
+    }
 
 
 @router.delete("/unregister-device")
 async def unregister_device(request: Request, device_id: str):
-    """Deactivate a mobile device."""
+    """Da de baja el teléfono: deja de recibir avisos y su tema se descarta."""
     user = await get_current_user(request)
     db = request.app.state.db_pool
 
-    result = await db.execute(
-        "UPDATE mobile_devices SET is_active = false WHERE device_id = $1 AND user_email = $2",
+    await db.execute(
+        "UPDATE mobile_devices SET is_active = false, push_topic = NULL, sid = NULL "
+        "WHERE device_id = $1 AND lower(user_email) = lower($2)",
         device_id,
         user,
     )
