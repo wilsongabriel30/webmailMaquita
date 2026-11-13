@@ -13,6 +13,7 @@ import psycopg2.extras
 import organizacion
 
 MINUTOS_ANTES = 10
+ESPERA_SIN_TABLA = 3600  # segundos entre revisiones cuando la instalación no tiene reuniones
 
 
 def _conexion():
@@ -24,6 +25,13 @@ def asegurar_tabla():
         cur.execute("""CREATE TABLE IF NOT EXISTS reuniones_avisos (
                            reunion_id INTEGER NOT NULL, tipo VARCHAR(30) NOT NULL,
                            enviado_en TIMESTAMP NOT NULL DEFAULT NOW(), PRIMARY KEY (reunion_id, tipo))""")
+
+
+def hay_reuniones() -> bool:
+    """True si existe la tabla de reuniones programadas (la crea el módulo de reuniones)."""
+    with _conexion() as con, con.cursor() as cur:
+        cur.execute("SELECT to_regclass('reuniones_programadas')")
+        return cur.fetchone()[0] is not None
 
 
 def _ciclo():
@@ -53,11 +61,22 @@ def iniciar(socketio):
     asegurar_tabla()
 
     def bucle():
+        avisado = False
         while True:
             try:
+                if not hay_reuniones():
+                    # Instalación sin el módulo de reuniones: no hay nada que recordar. Antes esto
+                    # dejaba un error por minuto en el registro (visto en una instalación sin esa tabla).
+                    if not avisado:
+                        print('[recordatorios] sin tabla de reuniones: recordatorios en pausa (se revisa cada hora)',
+                              flush=True)
+                        avisado = True
+                    socketio.sleep(ESPERA_SIN_TABLA)
+                    continue
+                avisado = False
                 _ciclo()
             except Exception as e:
-                print(f'[recordatorios] error: {e}')
+                print(f'[recordatorios] error: {e}', flush=True)
             socketio.sleep(60)
 
     socketio.start_background_task(bucle)

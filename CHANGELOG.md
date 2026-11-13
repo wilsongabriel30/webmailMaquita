@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Chat sin módulo de reuniones**: en una instalación sin la tabla de reuniones programadas, el servicio de
+  recordatorios dejaba un error por minuto en el registro. Ahora lo detecta, lo anota una sola vez y queda en pausa.
+
 ## [1.21.1] - 2026-11-13
 
 El chat del repositorio se pone al día con el que está en servicio (llamadas, archivos, contadores y un tema nuevo en
