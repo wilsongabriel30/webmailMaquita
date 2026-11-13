@@ -41,9 +41,15 @@ def parse_search_query(
     buscar_en_contenido: bool = False,
     con_indice: bool = False,
     direcciones_nombre: tuple | list = (),
+    solo_encabezados: bool = False,
+    detalle: dict | None = None,
 ) -> list[str]:
     """
     Parse a search query with operators into IMAP SEARCH criteria.
+
+    `solo_encabezados`: el texto libre se exige en remitente, para, copia o asunto (nivel 1 de
+    `services/busqueda_niveles.py`); los operadores no cambian. `detalle`, si se pasa, recibe
+    en «libres» las palabras de texto libre que quedaron tras quitar los operadores.
 
     Supported operators:
       from:name          → FROM "name"
@@ -246,12 +252,15 @@ def parse_search_query(
     # 20 GB, por cabeceras responde en menos de 0,1 s y con BODY son 93 s, porque hay que abrir
     # y descifrar los mensajes uno a uno. Con índice (o si se pide con `contenido:` o el botón)
     # el cuerpo cuesta milésimas y entra siempre (21/09/2026).
+    if detalle is not None:
+        detalle["libres"] = list(remaining_words)
     if remaining_words:
         libre = busqueda_palabras.criterio(
             remaining_words,
             con_cuerpo=buscar_en_contenido or con_indice,
             direcciones=direcciones_nombre,
             comillas=_entrecomillar,
+            solo_encabezados=solo_encabezados,
         )
         criteria.extend(libre)
 

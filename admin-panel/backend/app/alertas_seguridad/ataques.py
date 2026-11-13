@@ -6,6 +6,7 @@ considera que alguien intenta adivinar la contraseña de esa cuenta.
 """
 
 MIN_DIRECCIONES = 3
+HORAS = 48  # ventana que mira la pantalla de alertas
 LOCALES = ("127.0.0.1", "::1")
 
 

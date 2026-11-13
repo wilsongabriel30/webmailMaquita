@@ -81,6 +81,7 @@ from app.geo_access.router import router as geoaccess_router
 from app.solo_webmail.router import router as solo_webmail_router
 from app.alertas_seguridad.router import router as alertas_seguridad_router
 from app.alertas_seguridad.envios_masivos import router as envios_masivos_router
+from app.alertas_seguridad.mensajes import router as alertas_mensajes_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
 from app.sitios.dominios import router as sitios_dominios_router
@@ -295,6 +296,7 @@ app.include_router(flota_tunel_router)  # T-120 túnel de soporte
 app.include_router(geoaccess_router)
 app.include_router(solo_webmail_router)
 app.include_router(envios_masivos_router)  # antes que el general: rutas más concretas
+app.include_router(alertas_mensajes_router)
 app.include_router(alertas_seguridad_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)

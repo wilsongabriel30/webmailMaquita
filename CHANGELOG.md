@@ -18,9 +18,38 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   `para:` y `copia:`, y para la copia (CC), que antes no se miraba.
 - **Códigos con guion**: «T-53» o un asunto pegado con guiones y paréntesis ya no dan cero por un trozo de una letra.
 - **Buscar con el filtro «No leídos» puesto**: una búsqueda nueva quita el filtro (el correo ya leído no aparecía).
+- **Buscar un valor («205,6», «1.250,00»)**: el valor se busca entero y la coma y el punto valen lo mismo. Antes la coma
+  partía lo escrito y «205,6» buscaba solo «205» (2 534 correos en un buzón de prueba). Como el índice de texto no
+  distingue un valor de sus trozos, el servidor comprueba el valor exacto en el asunto y en el texto de los resultados
+  más recientes y los pone delante («205,6» acierta también en «205,60»; no en «1.205,6» ni en «205,65»).
+- **Frase entre comillas, primero la frase tal cual**: el índice trataba «"informe mensual"» como dos palabras sueltas.
+  Ahora los correos que traen la frase seguida (en el asunto o en el texto) van delante.
+- **«¿Quiso decir…?» con varias palabras**: corrige cada palabra y propone la frase entera, primero la combinación que
+  es el nombre de una misma persona («fernado pachco» → «fernando pacheco»). Conserva las comillas y, si la búsqueda
+  solo encontró coincidencias en el contenido, se ofrece también encima de esos resultados.
 
 ### Añadido
 
+- **Panel, Alertas de seguridad: botón «Enviar mensaje» a la persona**. Cuando los intentos fallidos de entrar a
+  una cuenta vienen todos del país o de la red interna (lo habitual: un celular u otro programa de correo con una
+  contraseña anterior guardada), la alerta ofrece escribirle. Se abre el mensaje ya redactado, en lenguaje llano y
+  de usted, con el destinatario fijo y el asunto y el texto editables: qué detectó el servidor y cuándo, qué debe
+  hacer (actualizar la contraseña guardada o quitar la cuenta y volver a agregarla; avisar si no reconoce el
+  equipo) y qué pasará si no lo atiende (Tecnología desactivará el acceso desde ese equipo; el correo por la web
+  sigue). Sale con el remitente de los avisos del servidor (`ORG_REMITENTE_AVISOS`) y las respuestas van a
+  Tecnología. Cada envío queda registrado (quién, a quién, cuándo y el texto) y la alerta muestra «Mensaje enviado
+  el … por …»; si ya se escribió a esa cuenta en las últimas 24 horas, pide confirmación. No se ofrece en los
+  ataques del exterior ni en cuentas ya protegidas, y no cierra ningún acceso: solo avisa. Requiere la migración
+  `2026-11-13-alertas-mensajes-a-personas.sql`; sin ella, la pantalla sigue como antes. Ajustes opcionales en
+  `organizacion.env`: `ORG_REMITENTE_MENSAJES_ALERTAS`, `ORG_CORREO_TECNOLOGIA` y `ORG_URL_APP_CORREO` (enlace de
+  la aplicación de correo; vacío por defecto: el mensaje no la menciona).
+- **Sesiones por dispositivo y aviso de ingreso desde un equipo nuevo**. En Configuración → Seguridad, las sesiones
+  abiertas se agrupan por equipo y se pueden cerrar una a una, por equipo, todas las demás o todas; Tecnología tiene una
+  vista «Sesiones» con el resumen por cuenta. Cuando la cuenta se abre en un equipo que no había usado antes, la persona
+  recibe un correo con el dispositivo, la fecha y el lugar (ciudad y país por la dirección de quien entra, o «red
+  interna»), y un aviso al teléfono si lo tiene registrado. El primer equipo de cada cuenta se anota sin avisar. La
+  persona puede apagarlo en esa misma pantalla y Tecnología para todos con `AVISO_INGRESO_NUEVO=0`. Cada navegador
+  recibe un identificador aleatorio propio; hay un tope de 15 sesiones por cuenta.
 - **Avisos de correo al instante para la app móvil, sin servicios de Google**. Al registrar el teléfono
   (`POST /api/mobile/register-device`, con sesión) el servidor le entrega un tema secreto del ntfy propio; cuando llega
   un correo, publica ahí un aviso **sin contenido** («hay correo nuevo» y la cuenta) y la app pide el detalle con su
@@ -64,6 +93,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   El modo automático (un par de claves nuevo en cada apertura, registrado y revocado en el servidor de túneles por
   SSH con la clave de host fijada) queda programado y **apagado**: se activa con `FLOTA_TUNEL_BROKER=true` y los
   ajustes `FLOTA_BROKER_*` (ver `admin-panel/backend/app/flota/broker.py`).
+- **Resultados de búsqueda por niveles**: al buscar varias palabras, un valor o una frase, la lista trae primero las
+  coincidencias exactas —todas las palabras en el remitente, los destinatarios, la copia o el asunto (las de persona, en
+  un mismo campo), o correos de la persona que se llama así— y después, tras el rótulo «Coincidencias en el contenido
+  del correo», las que solo coinciden dentro del texto. Cada grupo va por fecha y no se pierde ningún resultado. Medido
+  en un buzón de 209 847 correos: de los 50 primeros resultados de «fernando pacheco» eran de esa persona 19; ahora, los
+  50. La respuesta de `GET /api/mail/messages/{carpeta}` añade `total_exactos` y, por mensaje, `coincidencia`
+  («exacta» o «contenido»); son campos opcionales y una sola palabra se busca como antes. Toda orden nueva al servidor
+  de correo tiene tope de tiempo: si lo agota, la conexión se cierra y la lista sale como siempre.
 
 ### Corregido
 
@@ -75,6 +112,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   persona deje de escribir, como dentro de una carpeta.
 - **Chat sin módulo de reuniones**: en una instalación sin la tabla de reuniones programadas, el servicio de
   recordatorios dejaba un error por minuto en el registro. Ahora lo detecta, lo anota una sola vez y queda en pausa.
+- **Una búsqueda larga ya no se queda viva en el servidor de correo**: el listado de correos (carpeta o búsqueda) tiene
+  un tope de 45 s y se corta también si el navegador cerró la petición; en ambos casos la conexión con el servidor de
+  correo se cierra en el acto en vez de seguir trabajando para nadie. El 13/11 una búsqueda en todas las carpetas
+  estuvo cinco minutos leyendo buzones después de que el navegador dejara de esperarla.
 
 ## [1.21.1] - 2026-11-13
 

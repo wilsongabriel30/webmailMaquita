@@ -106,6 +106,26 @@ def ttl_access_de(kind: str, abs_exp: datetime) -> int:
     return _ttl_hasta(abs_exp, tope_access_seg(kind))
 
 
+def _ip_de(request) -> str:
+    """IP de quien entra (tras nginx viene en X-Real-IP; ver sesion_dispositivo.ip_de)."""
+    try:
+        from app.auth.sesion_dispositivo import ip_de
+
+        return ip_de(request)
+    except Exception:
+        return ""
+
+
+def _ip_valida(request) -> str:
+    """Para la columna de tipo dirección: una IP bien formada o 0.0.0.0."""
+    import ipaddress
+
+    try:
+        return str(ipaddress.ip_address(_ip_de(request)))
+    except ValueError:
+        return "0.0.0.0"
+
+
 async def crear_sesion(
     db,
     redis,
@@ -117,6 +137,7 @@ async def crear_sesion(
     abs_exp: datetime | None = None,
     master: str | None = None,
     user_agent: str | None = None,
+    disp: dict | None = None,
 ) -> dict:
     """Crea una sesión completa: estado en Redis, refresh en la base y access JWT.
 
@@ -138,6 +159,7 @@ async def crear_sesion(
     )
     if master:
         pipe.set(f"imap_master:{username}:{sid}", master, ex=ttl_abs)
+    _d = disp or {}
     pipe.hset(
         f"sess:{username}:{sid}",
         mapping={
@@ -147,8 +169,17 @@ async def crear_sesion(
             "ua": (
                 user_agent or (request.headers.get("user-agent", "") if request else "")
             )[:200],
-            "ip": (request.client.host if request and request.client else "")[:64],
+            "ip": _ip_de(request),
             "creada": int(ahora.timestamp()),
+            # L-02: identificación por dispositivo (campos crudos; el nombre/clase se calcula al listar)
+            "ultimo_uso": int(ahora.timestamp()),
+            "clase": _d.get("clase", ""),
+            "plataforma": _d.get("plataforma", ""),
+            "modelo": _d.get("modelo", ""),
+            "app_version": _d.get("app_version", ""),
+            "equipo_id": _d.get("equipo_id", ""),
+            "equipo_nombre": _d.get("equipo_nombre", ""),
+            "equipo_aprox": "1" if _d.get("equipo_aprox") else "0",
         },
     )
     pipe.expire(f"sess:{username}:{sid}", ttl_access)
@@ -169,12 +200,13 @@ async def crear_sesion(
         (user_agent or (request.headers.get("user-agent", "") if request else ""))[
             :500
         ],
-        (request.client.host if request and request.client else None) or "0.0.0.0",
+        _ip_valida(request),
         sid,
         kind,
         abs_exp,
         av,
     )
+    await _aplicar_limite(db, redis, username, sid)
     return {
         "access": access,
         "refresh_raw": refresh_raw,
@@ -195,6 +227,75 @@ async def prorrogar(
     pipe.expire(f"imap_pass:{username}:{sid}", ttl)
     pipe.expire(f"sess:{username}:{sid}", ttl)
     await pipe.execute()
+
+
+# Límite de sesiones vivas por cuenta (L-03). Al superarlo se cierra la más antigua sin uso.
+LIMITE_SESIONES = 15
+
+
+async def tocar_uso(redis, username: str, sid: str) -> None:
+    """Marca «último uso» de la sesión, como mucho una vez cada 5 min (freno con NX) para
+    no cargar Redis en cada petición."""
+    try:
+        if await redis.set(f"uso_touch:{username}:{sid}", "1", ex=300, nx=True):
+            await redis.hset(
+                f"sess:{username}:{sid}", "ultimo_uso", int(_ahora().timestamp())
+            )
+    except Exception:
+        pass
+
+
+async def _aplicar_limite(
+    db, redis, username: str, sid_nuevo: str | None = None
+) -> int:
+    """Si hay más de LIMITE_SESIONES vivas, cierra las más antiguas por «último uso»
+    (nunca la recién creada). Devuelve cuántas cerró."""
+    try:
+        sesiones = await listar_sesiones(redis, username, sid_nuevo)
+    except Exception:
+        return 0
+    if len(sesiones) <= LIMITE_SESIONES:
+        return 0
+    sobra = sorted(
+        (x for x in sesiones if x["sid"] != sid_nuevo),
+        key=lambda x: x.get("ultimo_uso") or x.get("creada") or 0,
+    )
+    cerradas = 0
+    for x in sobra[: len(sesiones) - LIMITE_SESIONES]:
+        await cerrar_sid(db, redis, username, x["sid"], "limite_sesiones")
+        cerradas += 1
+    return cerradas
+
+
+async def cerrar_otras(
+    db, redis, username: str, sid_actual: str, motivo: str = "cerrar_otras"
+) -> int:
+    """Cierra todas las sesiones de la cuenta MENOS la actual."""
+    n = 0
+    for x in await listar_sesiones(redis, username, sid_actual):
+        if x["sid"] != sid_actual:
+            await cerrar_sid(db, redis, username, x["sid"], motivo)
+            n += 1
+    return n
+
+
+async def cerrar_equipo(
+    db,
+    redis,
+    username: str,
+    equipo_id: str,
+    sid_actual: str | None = None,
+    motivo: str = "cerrar_equipo",
+) -> dict:
+    """Cierra todas las sesiones de la cuenta en un mismo equipo (equipo_id)."""
+    cerradas, incluye_actual = 0, False
+    for x in await listar_sesiones(redis, username, sid_actual):
+        if x.get("equipo_id") == equipo_id:
+            await cerrar_sid(db, redis, username, x["sid"], motivo)
+            cerradas += 1
+            if x["sid"] == sid_actual:
+                incluye_actual = True
+    return {"cerradas": cerradas, "incluye_actual": incluye_actual}
 
 
 # ---------------------------------------------------------------- comprobación
@@ -219,6 +320,7 @@ async def sesion_valida(db, redis, payload: dict) -> tuple[str, str] | None:
             "SESION_NO_VERIFICABLE user=%s error=%s", username, str(exc)[:120]
         )
         return None
+    await tocar_uso(redis, username, sid)
     return username, sid
 
 
@@ -366,6 +468,25 @@ async def listar_sesiones(
             )
             for k, v in datos.items()
         }
+        import hashlib
+
+        from app.auth.sesion_dispositivo import _sistema, describir
+
+        kind = d.get("kind") or "normal"
+        desc = describir(d, kind)
+        equipo_id = d.get("equipo_id") or ""
+        if equipo_id:
+            equipo_nombre = d.get("equipo_nombre") or ""
+            equipo_aprox = d.get("equipo_aprox") == "1"
+        else:  # sesión anterior al cambio: se agrupa aproximando por el User-Agent
+            ua = d.get("ua") or ""
+            equipo_id = (
+                "old-"
+                + hashlib.sha1(ua.encode(), usedforsecurity=False).hexdigest()[:16]
+            )
+            so = _sistema(ua)
+            equipo_nombre = f"Navegador en {so}" if so else "Equipo"
+            equipo_aprox = True
         salida.append(
             {
                 "sid": sid,
@@ -375,6 +496,14 @@ async def listar_sesiones(
                 "creada": int(d.get("creada") or 0),
                 "vence": int(d.get("abs_exp") or 0),
                 "actual": sid == sid_actual,
+                # L-02: identificación amable y agrupación por equipo
+                "nombre": desc["nombre"],
+                "clase": desc["clase"],
+                "ubicacion": desc["ubicacion"],
+                "ultimo_uso": int(d.get("ultimo_uso") or d.get("creada") or 0),
+                "equipo_id": equipo_id,
+                "equipo_nombre": equipo_nombre,
+                "equipo_aproximado": equipo_aprox,
             }
         )
     salida.sort(key=lambda x: (not x["actual"], -x["creada"]))
