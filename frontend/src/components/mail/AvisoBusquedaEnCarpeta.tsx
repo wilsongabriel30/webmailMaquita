@@ -1,9 +1,9 @@
 /**
  * Aviso sobre la lista mientras se busca.
  *
- * - Buscando dentro de una carpeta: dice en cuál y, si en el resto del correo hay más resultados,
- *   cuántos, con un botón para verlos todos. Si en la carpeta no hay ninguno y en el resto sí, se
- *   pasa sola a todas las carpetas (13/11/2026): nadie tiene que saber en qué carpeta quedó el correo.
+ * - Buscando dentro de una carpeta: dice en cuál y ofrece buscar en todas. Si en la carpeta no hay
+ *   ningún resultado, pregunta al resto del correo y, si ahí sí hay, pasa sola a todas las carpetas
+ *   (13/11/2026): nadie tiene que saber en qué carpeta quedó el correo.
  * - Tras esa ampliación automática: lo explica y ofrece volver a la carpeta.
  * No se muestra cuando la persona eligió buscar en todo el correo.
  */
@@ -34,8 +34,11 @@ export function AvisoBusquedaEnCarpeta() {
   const cargando = useMailStore(s => s.loadingMessages);
   const filtro = useMailStore(s => s.filter);
   const enCarpeta = currentFolder !== CARPETA_TODO;
-  // Solo se pregunta cuando la carpeta ya respondió a ESTA búsqueda y no hay un filtro puesto.
-  const listo = enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery;
+  // Solo se pregunta cuando la carpeta ya respondió a ESTA búsqueda, no hay un filtro puesto y la carpeta
+  // NO tiene ningún resultado. Preguntar en cada búsqueda (como se publicó el 13/11 por la mañana) lanzaba una
+  // búsqueda en todo el correo por cada búsqueda normal: con el disco de buzones cargado tardaban 30 s de
+  // mediana y se acumulaban. Buscar en todas las carpetas sigue a un clic.
+  const listo = enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery && totalAqui === 0;
   const totalTodo = useTotalEnTodoElCorreo(buscada, listo);
   const enOtras = totalTodo === null ? null : Math.max(0, totalTodo - totalAqui);
 

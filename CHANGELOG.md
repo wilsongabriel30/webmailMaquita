@@ -41,9 +41,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   destinatario se cuenta una vez aunque haya reintentos. `CONTAR_INTERNOS = True` en el guion vuelve a lo anterior.
 - **Vigilante de envío masivo**: respeta esos permisos y los remitentes autorizados de cada lista, espera a conocer las
   entregas antes de bloquear y guarda a quién iba el envío.
-- **Resultados en otras carpetas**: al buscar dentro de una carpeta, el aviso dice cuántos resultados más hay en el
-  resto del correo y los muestra con un clic. Si en la carpeta no hay ninguno y en el resto sí, la búsqueda pasa sola
-  a todas las carpetas y lo explica, con un botón para volver. Medido: en 9 de cada 10 búsquedas había más resultados
+- **Resultados en otras carpetas**: si al buscar dentro de una carpeta no hay ningún resultado y en el resto del
+  correo sí, la búsqueda pasa sola a todas las carpetas y lo explica, con un botón para volver. (El recuento de
+  «N resultados más en otras carpetas» en cada búsqueda se retiró el mismo día: lanzaba una búsqueda en todo el
+  correo por cada búsqueda normal y saturaba el disco de buzones.) Medido: en 9 de cada 10 búsquedas había más resultados
   en otras carpetas, y 1 de cada 3 búsquedas «sin resultados» sí tenía el correo en otra carpeta.
 - **«¿Quiso decir…?»**: cuando una búsqueda no encuentra nada y parece un nombre mal escrito, propone la forma correcta
   a partir del directorio y de la agenda de la persona (`GET /api/mail/search/sugerencias`).
