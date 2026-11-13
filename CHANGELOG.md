@@ -21,6 +21,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Sesiones por dispositivo y aviso de ingreso desde un equipo nuevo**. En Configuración → Seguridad, las sesiones
+  abiertas se agrupan por equipo y se pueden cerrar una a una, por equipo, todas las demás o todas; Tecnología tiene una
+  vista «Sesiones» con el resumen por cuenta. Cuando la cuenta se abre en un equipo que no había usado antes, la persona
+  recibe un correo con el dispositivo, la fecha y el lugar (ciudad y país por la dirección de quien entra, o «red
+  interna»), y un aviso al teléfono si lo tiene registrado. El primer equipo de cada cuenta se anota sin avisar. La
+  persona puede apagarlo en esa misma pantalla y Tecnología para todos con `AVISO_INGRESO_NUEVO=0`. Cada navegador
+  recibe un identificador aleatorio propio; hay un tope de 15 sesiones por cuenta.
 - **Avisos de correo al instante para la app móvil, sin servicios de Google**. Al registrar el teléfono
   (`POST /api/mobile/register-device`, con sesión) el servidor le entrega un tema secreto del ntfy propio; cuando llega
   un correo, publica ahí un aviso **sin contenido** («hay correo nuevo» y la cuenta) y la app pide el detalle con su
