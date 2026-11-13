@@ -116,3 +116,38 @@ def test_los_operadores_de_persona_tambien_ignoran_las_tildes():
     assert 'FROM "bárbara"' in t and 'OR FROM "barbara" (' in t
     assert 'TO "muñoz"' in _t(parse_search_query("para:munoz"))
     assert 'CC "garcía"' in _t(parse_search_query("copia:garcia"))
+
+
+def test_valor_con_coma_o_punto_se_busca_entero():
+    """«205,6» buscaba solo «205» (el trozo de una cifra se descartaba): miles de correos."""
+    assert bp.terminos(["205,6"]) == ["205.6"] == bp.terminos(["205.6"])
+    assert bp.terminos(["$1.250,00"]) == ["1.250.00"]
+    assert bp.terminos(["205,6", "205.6"]) == [
+        "205.6"
+    ], "coma y punto son el mismo valor"
+    t = _t(parse_search_query("205,6", con_indice=True))
+    assert 'BODY "205.6"' in t and 'SUBJECT "205.6"' in t and '"205"' not in t
+
+
+def test_lo_que_no_es_un_valor_se_parte_como_antes():
+    assert bp.terminos(["T-53"]) == ["53"]
+    assert bp.terminos(["informe_final"]) == ["informe final"]
+    assert bp.terminos(["ana.perez@example.org"]) == ["ana.perez@example.org"]
+
+
+def test_solo_encabezados_no_entra_en_el_cuerpo():
+    """El nivel 1 de los resultados: todas las palabras en remitente, para, copia o asunto."""
+    detalle = {}
+    t = _t(
+        parse_search_query(
+            "ana factura de:luis",
+            con_indice=True,
+            solo_encabezados=True,
+            detalle=detalle,
+        )
+    )
+    assert detalle["libres"] == ["ana", "factura"]
+    for campo in ("FROM", "TO", "CC", "SUBJECT"):
+        assert f'{campo} "ana"' in t and f'{campo} "factura"' in t
+    assert 'BODY "ana"' not in t and 'BODY "factura"' not in t
+    assert 'CC "ana"' in _t(parse_search_query("ana", solo_encabezados=True))

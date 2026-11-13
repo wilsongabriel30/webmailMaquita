@@ -14,6 +14,11 @@ Dos rarezas del índice de texto de Dovecot que aquí se compensan (comprobadas 
 - Un trozo de una sola letra anula el término entero: «T-53» daba cero aunque el asunto lo
   tuviera. Los términos se parten por sus signos y se descartan los trozos de una letra.
 
+Valores con decimales o miles («205,6», «1.250,00»): se buscan enteros y con punto (el índice trata
+igual la coma y el punto). Antes la coma partía el valor y el trozo de una cifra se descartaba:
+«205,6» buscaba solo «205». Que el valor esté de verdad en el correo lo comprueba
+`busqueda_exacta.py`; el orden de los resultados, `services/busqueda_niveles.py`.
+
 No se usa el criterio TEXT de IMAP: mira todas las cabeceras (también las técnicas, como las de
 tránsito), y una palabra como el nombre de un proveedor de correo sale en casi todo el buzón.
 """
@@ -23,6 +28,8 @@ from __future__ import annotations
 import re
 import unicodedata
 from collections.abc import Callable, Iterable
+
+from app.mail.busqueda_exacta import valor_numerico
 
 # Palabras que no distinguen un correo de otro. Solo se descartan si queda algo más que buscar.
 VACIAS = frozenset(
@@ -45,9 +52,15 @@ def _sin_tildes(texto: str) -> str:
 
 
 def _partir(termino: str) -> str:
-    """«T-53» → «53»; «informe_final» → «informe final». Las direcciones de correo no se tocan."""
+    """«T-53» → «53»; «informe_final» → «informe final»; «205,6» → «205.6».
+
+    Las direcciones de correo no se tocan.
+    """
     if "@" in termino:
         return termino
+    valor = valor_numerico(termino)
+    if valor is not None:
+        return valor
     trozos = [x for x in _SEPARADORES.split(termino.replace("_", " ")) if x]
     utiles = [x for x in trozos if len(x) >= 2]
     return " ".join(utiles or trozos)
@@ -104,6 +117,25 @@ def _en_campos(
     return ["OR"] * (len(claves) - 1) + claves
 
 
+def _en_un_mismo_campo(lista: list[str], comillas: Callable[[str], str]) -> list[str]:
+    """Todas las palabras en el encabezado, y las de persona en un MISMO campo.
+
+    `OR OR (remitente) (para) (copia)`: en cada grupo, cada palabra debe estar en ese campo de
+    persona o en el asunto. Sin esto, «fernando maquita» en un buzón de la casa daba por bueno a
+    cualquier Fernando: «maquita» está en el «Para» de casi todo lo que llega (la dirección del
+    propio buzón). Así son los Fernando de ese dominio, y «ana factura» sigue valiendo con Ana
+    en el remitente y «factura» en el asunto.
+    """
+    grupos: list[str] = []
+    for persona in ("FROM", "TO", "CC"):
+        piezas = [
+            "(" + " ".join(_en_campos(t, (persona, "SUBJECT"), comillas)) + ")"
+            for t in lista
+        ]
+        grupos.append("(" + " ".join(piezas) + ")")
+    return ["OR", "OR"] + grupos
+
+
 def con_variantes(
     campo: str, valor: str, base: list[str], comillas: Callable[[str], str]
 ) -> list[str]:
@@ -122,22 +154,29 @@ def criterio(
     con_cuerpo: bool,
     direcciones: Iterable[str],
     comillas: Callable[[str], str],
+    solo_encabezados: bool = False,
 ) -> list[str]:
-    """Criterios IMAP para el texto libre. Lista vacía si no queda nada que buscar."""
+    """Criterios IMAP para el texto libre. Lista vacía si no queda nada que buscar.
+
+    Con `solo_encabezados`, cada palabra debe estar en remitente, para, copia o asunto, y las
+    de persona en un mismo campo: es el nivel 1 de `services/busqueda_niveles.py` (las
+    coincidencias que no son solo del contenido).
+    """
     lista = terminos(palabras)
     if not lista:
         return []
-    if len(lista) == 1 and not con_cuerpo:
-        campos: tuple[str, ...] = (
-            "FROM",
-            "TO",
-            "SUBJECT",
-        )  # el caso de siempre, tal como era
+    if solo_encabezados:
+        campos: tuple[str, ...] = ("FROM", "TO", "CC", "SUBJECT")
+    elif len(lista) == 1 and not con_cuerpo:
+        campos = ("FROM", "TO", "SUBJECT")  # el caso de siempre, tal como era
     else:
         campos = ("FROM", "TO", "CC", "SUBJECT") + (("BODY",) if con_cuerpo else ())
     libre: list[str] = []
-    for t in lista:
-        libre += _en_campos(t, campos, comillas)
+    if solo_encabezados and len(lista) > 1:
+        libre = _en_un_mismo_campo(lista, comillas)
+    else:
+        for t in lista:
+            libre += _en_campos(t, campos, comillas)
     direcciones = list(direcciones or [])[:8]
     if not direcciones:
         return libre

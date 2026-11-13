@@ -266,6 +266,11 @@ async def _poll_user_inbox(username: str, app_state):
             # F-01: credencial de alguna sesión viva del usuario (cifrada por sid).
             cred = await credencial_de_alguna_sesion(redis, username)
             if not cred:
+                logger.warning(
+                    "sesion expirada avisada por el canal en vivo: usuario=%s "
+                    "(sin credencial viva en Redis)",
+                    username,
+                )
                 await redis.publish(
                     f"ws:user:{username}",
                     json.dumps({"type": "session_expired"}),

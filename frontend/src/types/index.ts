@@ -28,6 +28,8 @@ export interface MessageSummary {
   /** Nombres de los adjuntos (hasta 3) para verlos en la fila, como Outlook (07/11/2026). */
   adjuntos?: string[];
   importance: 'normal' | 'high' | 'low';
+  /** Solo en búsquedas por niveles: coincidencia exacta o solo en el contenido (lib/nivelesBusqueda.ts). */
+  coincidencia?: 'exacta' | 'contenido';
 }
 
 export interface AttachmentInfo {
@@ -98,6 +100,8 @@ export interface MessagesResponse {
   total: number;
   page: number;
   per_page: number;
+  /** Solo en búsquedas por niveles: cuántos resultados son coincidencias exactas (van delante). */
+  total_exactos?: number;
 }
 
 export interface ComposeData {
