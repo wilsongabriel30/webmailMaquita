@@ -197,6 +197,10 @@ async def get_messages(
                 # quedan fuera para que la lista cambie en cuanto se lee o se marca un correo.
                 redis=redis_busqueda,
                 ttl_cache=SEGUNDOS_CACHE_BUSQUEDA,
+                # Las coincidencias exactas, delante (services/busqueda_niveles.py). Si una
+                # orden de los niveles agota su tope, la conexión se cierra y el reintento de
+                # abajo devuelve la lista de siempre.
+                por_niveles=True,
             )
 
         try:

@@ -50,3 +50,38 @@ def test_no_propone_palabras_que_empiezan_distinto():
     voc = qd.vocabulario([("Ana Ibarra Conforme", "aibarra@example.org")])
     assert qd.sugerir("barbra", voc) == [] and qd.sugerir("informe", voc) == []
     assert qd.sugerir("ibara", voc) == ["ibarra"]
+
+
+FILAS = [
+    ("Fernando Pacheco", "fpacheco@example.org"),
+    ("Fernanda Pachano", "fernanda@example.org"),
+    ("Hernando Pachacama", "hpachacama@example.org"),
+]
+VOC_FRASES = qd.vocabulario(FILAS)
+GENTE = qd.personas(FILAS)
+
+
+def test_frase_de_varias_palabras_se_corrige_entera():
+    assert qd.sugerir("fernado pachco", VOC_FRASES, GENTE)[0] == "fernando pacheco"
+    assert qd.sugerir("pachecco fernando", VOC_FRASES, GENTE) == ["pacheco fernando"]
+
+
+def test_primero_el_nombre_de_una_misma_persona():
+    """«fernanda pachco»: Fernanda es Pachano; «fernanda pacheco» no es nadie."""
+    assert qd.sugerir("fernanda pachco", VOC_FRASES, GENTE) == [
+        "fernanda pachano",
+        "fernanda pacheco",
+    ]
+    # Sin saber quién es quién, manda el parecido con lo escrito.
+    assert qd.sugerir("fernanda pachco", VOC_FRASES)[0] == "fernanda pacheco"
+
+
+def test_las_comillas_y_los_signos_se_conservan():
+    assert qd.sugerir('"fernado pacheco"', VOC_FRASES, GENTE)[0] == '"fernando pacheco"'
+    assert qd.sugerir("fernado, factura", VOC_FRASES, GENTE)[0] == "fernando, factura"
+
+
+def test_frase_bien_escrita_o_demasiado_larga_no_propone_nada():
+    assert qd.sugerir("fernando pacheco", VOC_FRASES, GENTE) == []
+    assert qd.sugerir("a b c d e f fernado", VOC_FRASES, GENTE) == []
+    assert len(qd.sugerir("fernado pachco", VOC_FRASES, GENTE)) <= qd.MAX_SUGERENCIAS
