@@ -12,6 +12,14 @@ export const CARPETA_TODO = 'Virtual.Todo';
 const CLAVE_PREFERENCIA = 'maquita_buscar_en_todo';
 
 let carpetaPrevia = 'INBOX';
+/** Pausa tras la última tecla antes de buscar en todo el correo (algo menor que la de la lista, 800 ms). */
+const PAUSA_AL_ESCRIBIR_MS = 600;
+let relojTodo: ReturnType<typeof setTimeout> | undefined;
+
+/** Menos de 3 letras y sin operador («de:», «es:»…): todavía no se busca. */
+function esCorta(texto: string): boolean {
+  return texto.length < 3 && !texto.includes(':');
+}
 /** Carpeta desde la que la búsqueda se amplió sola a todo el correo (null si no ocurrió). */
 let origenAmpliacion: string | null = null;
 /** Búsqueda que la persona pidió ver en su carpeta: no se vuelve a ampliar sola. */
@@ -55,11 +63,22 @@ export function aplicarBusqueda(q: string) {
   // («barry» con «No leídos» activo daba cero; 13/11/2026). El filtro se puede volver a poner después.
   if (texto && st.filter !== 'all') st.setFilter('all');
   if (!texto) origenAmpliacion = null;
+  clearTimeout(relojTodo);
   if (texto && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
-    carpetaPrevia = st.currentFolder;
-    // Carpeta y búsqueda en un solo cambio: si no, la lista cargaba primero el buzón entero
-    // y luego la búsqueda, y ambas respuestas se mezclaban.
-    st.setCarpetaYBusqueda(CARPETA_TODO, q);
+    // Con «todas las carpetas», la primera letra tecleada ya cambiaba de buzón y lanzaba la
+    // búsqueda de esa sola letra sobre todo el correo («S», «a», «k»: 20 s cada una y 360 000
+    // resultados; 13/11/2026). Ahora se espera a que haya al menos 3 letras (o un operador) y a
+    // que la persona deje de escribir, igual que en la búsqueda dentro de una carpeta.
+    st.setSearchQuery(q);
+    if (esCorta(texto)) return;
+    relojTodo = setTimeout(() => {
+      const ahora = useMailStore.getState();
+      if (ahora.searchQuery !== q || !ahora.buscarEnTodo || ahora.currentFolder === CARPETA_TODO) return;
+      carpetaPrevia = ahora.currentFolder;
+      // Carpeta y búsqueda en un solo cambio: si no, la lista cargaba primero el buzón entero
+      // y luego la búsqueda, y ambas respuestas se mezclaban.
+      ahora.setCarpetaYBusqueda(CARPETA_TODO, q);
+    }, PAUSA_AL_ESCRIBIR_MS);
     return;
   }
   if (!texto && st.currentFolder === CARPETA_TODO) {

@@ -32,6 +32,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Buscar en «todas las carpetas» letra a letra**: la primera letra tecleada ya lanzaba una búsqueda de esa sola
+  letra sobre todo el correo (hasta 20 s y cientos de miles de resultados). Ahora espera a tener 3 letras y a que la
+  persona deje de escribir, como dentro de una carpeta.
 - **Chat sin módulo de reuniones**: en una instalación sin la tabla de reuniones programadas, el servicio de
   recordatorios dejaba un error por minuto en el registro. Ahora lo detecta, lo anota una sola vez y queda en pausa.
 
