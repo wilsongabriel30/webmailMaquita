@@ -41,7 +41,7 @@ export function EmitirOrden({ catalogo, equipos, seleccion, onCerrar, onHecho }:
         </div>
         <label className="block text-xs">Orden
           <select value={f.tipo} onChange={(e) => setF({ ...f, tipo: e.target.value, accion: "", confirmacion: "" })} className="mt-1 block w-full px-2.5 py-1.5 border border-ms-gray-40 rounded">
-            {catalogo.tipos.map((t) => <option key={t.tipo} value={t.tipo} disabled={!t.habilitado}>{t.nombre}{t.habilitado ? "" : " — fase 3, bloqueada"}</option>)}
+            {catalogo.tipos.filter((t) => !t.dedicada).map((t) => <option key={t.tipo} value={t.tipo} disabled={!t.habilitado}>{t.nombre}{t.habilitado ? "" : " — fase 3, bloqueada"}</option>)}
           </select>
           {tipo && <span className="block mt-1 text-ms-gray-60">{tipo.desc}</span>}
         </label>

@@ -3,6 +3,7 @@ import { api } from "../../api/client";
 import { TablaOrdenes } from "./TablaOrdenes";
 import { TablaRegistro } from "./TablaRegistro";
 import { Asiento, Orden, fechaHora } from "./tipos";
+import { TunelSoporte } from "./TunelSoporte";
 
 // Ficha de un equipo enrolado: datos del enrolamiento, último inventario que devolvió el agente,
 // sus órdenes y su registro. Desde aquí se le emite una orden o se le retira de la flota.
@@ -13,9 +14,9 @@ interface Equipo {
   ultimo_sondeo?: string; ultima_ip: string; retirado_en?: string; retirado_por?: string; motivo_retiro?: string;
 }
 
-interface Props { id: string; onCerrar: () => void; onOrden: (ids: string[]) => void; onCambio: () => void }
+interface Props { id: string; firmaDisponible: boolean; onCerrar: () => void; onOrden: (ids: string[]) => void; onCambio: () => void }
 
-export function FichaEquipo({ id, onCerrar, onOrden, onCambio }: Props) {
+export function FichaEquipo({ id, firmaDisponible, onCerrar, onOrden, onCambio }: Props) {
   const [d, setD] = useState<{ equipo: Equipo; ordenes: Orden[]; registro: Asiento[] } | null>(null);
   const [error, setError] = useState("");
   const cargar = () => api.get<{ equipo: Equipo; ordenes: Orden[]; registro: Asiento[] }>(`/flota/equipos/${id}`).then(setD).catch((e) => setError(e.message));
@@ -48,6 +49,7 @@ export function FichaEquipo({ id, onCerrar, onOrden, onCambio }: Props) {
       <div className="bg-white rounded-lg border border-ms-gray-30 p-4 grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-1 text-sm">
         {datos.map(([k, v]) => <div key={k}><span className="text-xs text-ms-gray-60">{k}: </span><span className="break-all">{v}</span></div>)}
       </div>
+      {e.estado === "activo" && <TunelSoporte equipoId={e.equipo_id} nombre={e.nombre} firmaDisponible={firmaDisponible} onCambio={() => { cargar(); onCambio(); }} />}
       {e.inventario && <details className="bg-white rounded-lg border border-ms-gray-30 p-4"><summary className="text-sm font-semibold cursor-pointer">Último inventario del agente</summary>
         <pre className="text-xs mt-2 whitespace-pre-wrap max-h-96 overflow-auto">{JSON.stringify(e.inventario, null, 2)}</pre></details>}
       <h3 className="text-sm font-semibold">Órdenes</h3>

@@ -5,7 +5,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 from app.auth.dependencies import require_operador
-from app.flota import catalogo, firma, inventario
+from app.flota import catalogo, firma, inventario, tunel, tunel_ajustes
 from app.flota.comun import anotar, auditar, con_json, db, texto, uuid_o_400
 
 router = APIRouter(prefix="/api/flota", tags=["flota"])
@@ -18,7 +18,8 @@ async def equipos(request: Request, admin: dict = Depends(require_operador)):
 
 @router.get("/catalogo")
 async def catalogo_y_firma(request: Request, admin: dict = Depends(require_operador)):
-    datos = {"tipos": catalogo.para_panel(), "kid": firma.KID, "firma_disponible": firma.disponible()}
+    datos = {"tipos": catalogo.para_panel(), "kid": firma.KID, "firma_disponible": firma.disponible(),
+             "tunel": tunel_ajustes.para_panel()}
     if datos["firma_disponible"]:
         datos["clave_publica"] = firma.publica_pem()
     return datos
@@ -65,5 +66,8 @@ async def retirar(equipo_id: str, request: Request, cuerpo: dict = Body(default=
             "SELECT count(*) FROM a", equipo_id, admin["username"])
         await anotar(c, request, admin, "equipo_retirado", equipo_id=equipo_id,
                      detalle={"motivo": motivo, "ordenes_anuladas": anuladas})
+    broker = await tunel.revocar({"equipo_id": equipo_id, "nombre": nombre})  # solo en modo automático
+    if broker:
+        await anotar(db(request), request, admin, "tunel_clave_revocada", equipo_id=equipo_id, detalle=broker)
     await auditar(request, admin, "flota_equipo_retirado", nombre, {"equipo_id": equipo_id, "motivo": motivo})
     return {"ok": True, "ordenes_anuladas": anuladas}
