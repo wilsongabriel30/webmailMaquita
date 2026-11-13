@@ -7,6 +7,23 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.21.1] - 2026-11-13
+
+El chat del repositorio se pone al día con el que está en servicio (llamadas, archivos, contadores y un tema nuevo en
+vista previa) y se corrige la burbuja del chat. Reinicia el servicio de chat: hay rutas y eventos nuevos.
+
+### Añadido
+
+- **Chat, llamadas y reuniones**: un solo timbre por persona (al contestar en un equipo, los demás callan); botón de
+  cámara siempre presente en la llamada de voz; estado «en una reunión»; grabaciones en el Drive; en la conferencia,
+  aro alrededor de quien habla y micrófono apagado visible en cada mosaico.
+- **Chat, archivos**: lista de archivos por conversación y general (página «Archivos») y aviso al enviar un documento
+  con el mismo nombre y contenido distinto.
+- **Chat, respuesta rápida** desde la notificación y **contadores por socket** (no leídos y llamadas perdidas).
+- **Chat, sección «Llamadas» rehecha**: historial con filtros, grabaciones y marcación rápida.
+- **Tema nuevo del chat (Fluent 2), en vista previa**: no cambia nada para quien no lo active (`/chat/?tema=fluent` o
+  la variable opcional `CHAT_TEMA_PREVIA_USUARIOS`, ver `UPGRADING.md`).
+
 ### Corregido
 
 - **Burbuja del chat con el tema nuevo**: en la burbuja del correo y de la nube, y en teléfonos, la lista de
