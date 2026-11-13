@@ -1,4 +1,5 @@
 import asyncio
+import logging
 import re
 from datetime import datetime, timedelta, timezone
 
@@ -406,6 +407,15 @@ async def refresh(request: Request, response: Response):
         elif not await redis.exists(f"sess:{username}:{sid}"):
             motivo = "cerrada"
         if motivo:
+            # Sin este registro no se podía saber por qué a alguien «se le cerró la sesión
+            # mientras escribía» (13/11/2026): la renovación rechazaba sin dejar rastro.
+            logging.getLogger("sesiones").warning(
+                "renovacion rechazada: usuario=%s sid=%s motivo=%s clase=%s",
+                username,
+                sid,
+                motivo,
+                row["session_kind"] or "normal",
+            )
             await db.execute(
                 "UPDATE refresh_tokens SET is_revoked = true WHERE id = $1", row["id"]
             )
