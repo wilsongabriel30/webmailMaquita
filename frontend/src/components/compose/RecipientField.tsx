@@ -425,7 +425,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   }, [suggestions.length]);
 
   return (
-    <div className="flex items-start border-b border-[#edebe9] min-h-[40px] relative">
+    <div className="flex items-start border-b border-[#edebe9] min-h-[40px] relative shrink-0">
       {/* Label button */}
       <button className={`px-3 py-2 text-[13px] font-medium shrink-0 border-r border-[#edebe9] min-w-[48px] text-center ${
         primary ? 'text-[#0078d4] hover:bg-[#deecf9]' : 'text-[#605e5c] hover:bg-[#f3f2f1]'
@@ -448,7 +448,9 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
       )}
 
       {/* Chips + input area */}
-      <div className={`flex-1 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] cursor-text ${sobreCampo ? 'bg-[#deecf9]' : ''}`}
+      {/* Con muchos destinatarios (50 o más) las fichas tapaban el asunto y el cuerpo del mensaje (13/11/2026):
+          la lista crece hasta unas cuatro filas y, a partir de ahí, se recorre con su propia barra. */}
+      <div className={`flex-1 min-w-0 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] max-h-[136px] overflow-y-auto cursor-text ${sobreCampo ? 'bg-[#deecf9]' : ''}`}
         onClick={() => inputRef.current?.focus()}
         onDragOver={e => { permitirSoltar(e); if (esArrastreDeDestinatario(e)) setSobreCampo(true); }}
         onDragLeave={() => setSobreCampo(false)}

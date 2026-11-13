@@ -53,6 +53,16 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Multicuenta: se abría el correo de otra cuenta**. La copia local de los correos se guardaba por «carpeta y número»
+  sin distinguir la cuenta; con una cuenta asignada, si fallaba la red se abría el correo con el mismo número de la
+  cuenta propia. Ahora cada cuenta guarda sus copias aparte y lo guardado antes se borra una vez por equipo.
+- **El aviso «Actualizando a la nueva versión…» se quedaba para siempre** si había un correo en redacción (aunque
+  estuviera minimizado): la página seguía con la versión anterior y, tras un cambio de la base local, el editor no
+  cargaba. Al aplazarse la recarga, el aviso se convierte en un botón para actualizar.
+- **Base local del navegador con versión más nueva**: si otra pestaña ya la subió de versión, se abre la que haya en
+  vez de fallar.
+- **Redactor con muchos destinatarios**: con 50 o más, las fichas de «Para» tapaban el asunto y el cuerpo. La lista
+  crece hasta unas cuatro filas y luego tiene su propia barra de desplazamiento.
 - **Buscar en «todas las carpetas» letra a letra**: la primera letra tecleada ya lanzaba una búsqueda de esa sola
   letra sobre todo el correo (hasta 20 s y cientos de miles de resultados). Ahora espera a tener 3 letras y a que la
   persona deje de escribir, como dentro de una carpeta.
