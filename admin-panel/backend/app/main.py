@@ -61,6 +61,7 @@ from app.dispositivos.wifis_panel import router as dispositivos_wifis_router
 from app.flota.router_equipos import router as flota_equipos_router
 from app.flota.router_codigos import router as flota_codigos_router
 from app.flota.router_ordenes import router as flota_ordenes_router
+from app.flota.router_tunel import router as flota_tunel_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -291,6 +292,7 @@ app.include_router(dispositivos_router)
 app.include_router(flota_equipos_router)  # T-88 Flota Maquita
 app.include_router(flota_codigos_router)
 app.include_router(flota_ordenes_router)
+app.include_router(flota_tunel_router)  # T-120 túnel de soporte
 app.include_router(geoaccess_router)
 app.include_router(solo_webmail_router)
 app.include_router(envios_masivos_router)  # antes que el general: rutas más concretas

@@ -4,6 +4,10 @@ Formato de la carga firmada (contrato T-88, v1) — ver `firma.py`:
     {"proposito": "maquita-flota-orden", "v": 1, "kid": "...", "orden_id": "<uuid>", "equipo_id": "<uuid>",
      "machine_guid": "<uuid>", "tipo": "...", "parametros": {...}, "emitida_en": "...Z", "caduca_en": "...Z",
      "emitida_por": "<usuario del panel>"}
+
+Túnel de soporte (T-120): `abrir_tunel_soporte` lleva además sus campos PLANOS junto a `tipo` y, si procede,
+la clave privada en `clave` (ver `cargas.py`). Esa clave no se guarda en `parametros`, no se anota en ningún
+registro y no se devuelve al navegador; de la carga guardada la retira `tunel_purga.py`.
 """
 
 from __future__ import annotations
@@ -15,7 +19,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException, Query, Request
 
 from app.auth.dependencies import require_operador
-from app.flota import catalogo, firma
+from app.flota import cargas, catalogo, firma, tunel, tunel_parametros, tunel_purga
 from app.flota.comun import anotar, auditar, con_json, db, texto, uuid_o_400
 
 router = APIRouter(prefix="/api/flota", tags=["flota"])
@@ -30,12 +34,14 @@ def _z(momento: datetime) -> str:
 @router.post("/ordenes")
 async def emitir(request: Request, cuerpo: dict = Body(default={}), admin: dict = Depends(require_operador)):
     tipo = str(cuerpo.get("tipo") or "")
-    parametros = catalogo.validar(tipo, cuerpo.get("parametros") or {}, str(cuerpo.get("confirmacion") or ""))
+    es_tunel = tipo in tunel.aj.TIPOS
+    recibidos = cuerpo.get("parametros") if isinstance(cuerpo.get("parametros"), dict) else {}
+    parametros = catalogo.validar(tipo, recibidos, str(cuerpo.get("confirmacion") or ""))
     motivo = texto(cuerpo.get("motivo"), 300)
     if not motivo or len(motivo) < 5:
         raise HTTPException(400, "Indique el motivo de la orden (mínimo 5 caracteres): queda en el registro")
     try:
-        horas = int(cuerpo.get("horas_validez") or 72)
+        horas = tunel_parametros.validez(cuerpo) if es_tunel else int(cuerpo.get("horas_validez") or 72)
     except (TypeError, ValueError):
         raise HTTPException(400, "horas_validez debe ser un número")
     if not 1 <= horas <= 720:
@@ -59,6 +65,8 @@ async def emitir(request: Request, cuerpo: dict = Body(default={}), admin: dict 
         raise HTTPException(400, "No hay equipos activos en la flota")
     if len(destinos) > MAX_EQUIPOS:
         raise HTTPException(400, f"Máximo {MAX_EQUIPOS} equipos por orden")
+    if es_tunel:
+        tunel.un_solo_equipo(cuerpo, destinos)
 
     ahora = datetime.now(timezone.utc).replace(microsecond=0)
     caduca = ahora + timedelta(hours=horas)
@@ -66,11 +74,14 @@ async def emitir(request: Request, cuerpo: dict = Body(default={}), admin: dict 
     async with base.acquire() as c, c.transaction():
         for d in destinos:
             orden_id = str(uuid.uuid4())
-            carga = {"proposito": firma.PROPOSITO, "v": 1, "kid": firma.KID, "orden_id": orden_id,
-                     "equipo_id": d["equipo_id"], "machine_guid": d["machine_guid"], "tipo": tipo,
-                     "parametros": parametros, "emitida_en": _z(ahora), "caduca_en": _z(caduca),
-                     "emitida_por": admin["username"]}
+            firmados, clave = parametros, None  # `parametros` es lo que se guarda y se muestra: nunca lleva la clave
+            if tipo == tunel.aj.ABRIR:
+                firmados, clave, parametros = await tunel.preparar(c, d, parametros, recibidos.get("clave"))
+            carga = cargas.construir(orden_id=orden_id, equipo_id=d["equipo_id"], machine_guid=d["machine_guid"],
+                                     tipo=tipo, parametros=firmados, emitida_en=_z(ahora), caduca_en=_z(caduca),
+                                     emitida_por=admin["username"], clave=clave)
             carga_b64, firma_b64 = firma.firmar(carga)
+            del carga, clave
             await c.execute(
                 "INSERT INTO flota_ordenes (orden_id, equipo_id, tipo, parametros, kid, carga, firma, emitida_por, "
                 "motivo, emitida_en, caduca_en) VALUES ($1,$2,$3,$4::jsonb,$5,$6,$7,$8,$9,$10,$11)",
@@ -79,6 +90,11 @@ async def emitir(request: Request, cuerpo: dict = Body(default={}), admin: dict 
             await anotar(c, request, admin, "orden_emitida", equipo_id=d["equipo_id"], orden_id=orden_id,
                          detalle={"tipo": tipo, "parametros": parametros, "motivo": motivo, "caduca_en": _z(caduca)})
             emitidas.append({"orden_id": orden_id, "equipo_id": d["equipo_id"], "nombre": d["nombre"]})
+    if tipo == tunel.aj.CERRAR:  # en modo automático, la clave del equipo deja de valer desde ya
+        broker = await tunel.revocar(destinos[0])
+        if broker:
+            await anotar(base, request, admin, "tunel_clave_revocada", equipo_id=destinos[0]["equipo_id"],
+                         orden_id=emitidas[0]["orden_id"], detalle=broker)
     await auditar(request, admin, "flota_orden_emitida", tipo,
                   {"equipos": len(emitidas), "motivo": motivo, "parametros": parametros})
     return {"emitidas": emitidas, "caduca_en": _z(caduca)}
@@ -121,6 +137,8 @@ async def anular(orden_id: str, request: Request, admin: dict = Depends(require_
         await anotar(c, request, admin, "orden_anulada", equipo_id=fila["equipo_id"], orden_id=orden_id,
                      detalle={"tipo": fila["tipo"]})
     await auditar(request, admin, "flota_orden_anulada", orden_id, {"tipo": fila["tipo"]})
+    if fila["tipo"] == tunel.aj.ABRIR:
+        await tunel_purga.purgar_sin_fallar(db(request))  # la clave que llevara se retira ya
     return {"ok": True}
 
 

@@ -79,6 +79,20 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   a partir del directorio y de la agenda de la persona (`GET /api/mail/search/sugerencias`).
 - **Memoria breve de resultados**: los resultados de una búsqueda con texto se recuerdan un minuto, para que bajar por
   la lista o pasar a «todas las carpetas» no repita la búsqueda entera (hasta 30 s en buzones grandes).
+- **Panel, Flota: túnel de soporte para equipos fuera de la red**. En la ficha de cada equipo, «Abrir túnel de
+  soporte» (15, 30, 60 o 120 minutos) y «Cerrar túnel», con motivo obligatorio y la confirmación reforzada
+  (escribir «CONFIRMO»), cuenta atrás en vivo y una pestaña «Túnel de soporte» con la auditoría: quién lo pidió, a qué
+  equipo, cuándo, con qué resultado y cuánto duró. Órdenes nuevas `abrir_tunel_soporte` y `cerrar_tunel_soporte`
+  (solo a un equipo cada vez, validez de 2 horas y 12 como máximo); la carga firmada lleva los campos del túnel en el
+  nivel superior, que es donde los lee el agente. Rutas nuevas `GET /api/flota/tunel/estado` y
+  `GET /api/flota/tunel/auditoria` (solo operadores). El puerto de cada equipo (22001-22999) lo reparte el servidor.
+  La clave privada del equipo, si va en la orden, solo existe dentro de la carga firmada: no se guarda en
+  `parametros`, no se anota en ningún registro ni se devuelve al navegador, y se retira de la carga guardada en cuanto
+  el equipo contesta, la orden se anula o caduca (queda constancia en `flota_registro`). Sin migración. Ajustes:
+  `FLOTA_TUNEL_HOST`, `FLOTA_TUNEL_HOST_INTERNO`, `FLOTA_TUNEL_PUERTO_SSH` (443) y `FLOTA_TUNEL_USUARIO` (`tunel`).
+  El modo automático (un par de claves nuevo en cada apertura, registrado y revocado en el servidor de túneles por
+  SSH con la clave de host fijada) queda programado y **apagado**: se activa con `FLOTA_TUNEL_BROKER=true` y los
+  ajustes `FLOTA_BROKER_*` (ver `admin-panel/backend/app/flota/broker.py`).
 - **Resultados de búsqueda por niveles**: al buscar varias palabras, un valor o una frase, la lista trae primero las
   coincidencias exactas —todas las palabras en el remitente, los destinatarios, la copia o el asunto (las de persona, en
   un mismo campo), o correos de la persona que se llama así— y después, tras el rótulo «Coincidencias en el contenido

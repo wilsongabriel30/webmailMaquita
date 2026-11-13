@@ -1,4 +1,5 @@
 // Flota Maquita (T-88): tipos compartidos de la consola de equipos Windows.
+import type { AjustesTunel } from "./tunelTipos";
 
 export interface EquipoFlota {
   equipo_id: string | null; nombre: string; etiqueta?: string; estado?: "activo" | "retirado"; enrolado: boolean;
@@ -15,8 +16,8 @@ export interface Orden {
   motivo: string; emitida_por: string; emitida_en: string; caduca_en: string; entregas: number; entregada_en?: string;
   resultado_en?: string; registro?: string; datos?: unknown; anulada_por?: string; caducada: boolean;
 }
-export interface TipoOrden { tipo: string; fase: number; nombre: string; desc: string; acciones: string[]; habilitado: boolean }
-export interface Catalogo { tipos: TipoOrden[]; kid: string; firma_disponible: boolean; clave_publica?: string }
+export interface TipoOrden { tipo: string; fase: number; nombre: string; desc: string; acciones: string[]; habilitado: boolean; dedicada?: boolean }
+export interface Catalogo { tipos: TipoOrden[]; kid: string; firma_disponible: boolean; clave_publica?: string; tunel?: AjustesTunel }
 export interface Asiento { id: number; momento: string; equipo_id?: string; nombre?: string; orden_id?: string; actor: string; accion: string; detalle?: unknown; ip: string }
 
 export const fechaHora = (v?: string | null) => v ? new Date(v).toLocaleString("es-EC", { dateStyle: "short", timeStyle: "short" }) : "—";
