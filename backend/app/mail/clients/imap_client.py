@@ -218,6 +218,7 @@ async def list_message_uids(
     username: str = "",
     buscar_en_contenido: bool = False,
     direcciones_nombre: tuple | list = (),
+    ttl_cache: int = 300,
 ) -> dict:
     """List message UIDs with pagination (newest first).
 
@@ -303,8 +304,8 @@ async def list_message_uids(
         if redis and username and cache_key and all_uids:
             try:
                 await redis.set(
-                    cache_key, json.dumps(all_uids), ex=300
-                )  # 5min TTL (era 60s)
+                    cache_key, json.dumps(all_uids), ex=ttl_cache
+                )  # 5 min por omisión; las búsquedas piden menos
                 await registrar_clave(redis, username, folder, cache_key)
             except Exception:
                 pass

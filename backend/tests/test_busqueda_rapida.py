@@ -96,7 +96,11 @@ def test_busqueda_vacia_devuelve_todo():
 
 def test_los_operadores_en_espanol_siguen_valiendo():
     assert parse_search_query("asunto:factura") == ["SUBJECT", '"factura"']
-    assert parse_search_query("de:ana") == ["FROM", '"ana"']
+    de_ana = parse_search_query("de:ana")
+    assert (
+        de_ana[-2:] == ["FROM", '"ana"'] and 'FROM "aná"' in de_ana
+    )  # con sus variantes con tilde
+    assert parse_search_query("de:ana@example.org") == ["FROM", '"ana@example.org"']
 
 
 def test_una_comilla_no_rompe_la_consulta():
@@ -127,14 +131,18 @@ def test_los_caracteres_de_control_se_quitan():
 
 def test_las_busquedas_normales_no_cambian():
     """El escape no debe estorbar a lo de todos los dias."""
-    assert parse_search_query("factura") == [
-        "OR",
-        "OR",
-        'FROM "factura"',
-        'TO "factura"',
-        'SUBJECT "factura"',
-    ]
-    assert parse_search_query("de:ana") == ["FROM", '"ana"']
+    # 13/11/2026: en remitente y destinatario van también las variantes con tilde (fáctura…),
+    # porque ahí el índice no las quita; sigue sin entrar en el cuerpo.
+    normal = parse_search_query("factura")
+    for clave in ('FROM "factura"', 'TO "factura"', 'SUBJECT "factura"'):
+        assert clave in normal
+    assert all(c == "OR" or c.startswith(("FROM ", "TO ", "SUBJECT ")) for c in normal)
+    assert normal.count("OR") == len(normal) - normal.count("OR") - 1
+    de_ana = parse_search_query("de:ana")
+    assert (
+        de_ana[-2:] == ["FROM", '"ana"'] and 'FROM "aná"' in de_ana
+    )  # con sus variantes con tilde
+    assert parse_search_query("de:ana@example.org") == ["FROM", '"ana@example.org"']
     assert parse_search_query("dominio:andes.com.ec") == [
         "OR",
         "FROM",

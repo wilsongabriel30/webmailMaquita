@@ -72,6 +72,7 @@ from app.mail.routers.attachments import router as attachments_router
 from app.mail.routers.bloqueados import router as bloqueados_router
 from app.mail.routers.borrados import router as borrados_router
 from app.mail.routers.busqueda_capacidades import router as busqueda_capacidades_router
+from app.mail.routers.busqueda_sugerencias import router as busqueda_sugerencias_router
 from app.mail.routers.calendar_invite import router as calendar_invite_router
 from app.mail.routers.compose import router as compose_router
 from app.mail.routers.confianza import router as confianza_router
@@ -721,6 +722,7 @@ app.include_router(sieve_aplicar_router)
 app.include_router(confianza_router)  # remitentes de confianza
 app.include_router(bloqueados_router)  # remitentes bloqueados (05/11/2026)
 app.include_router(busqueda_capacidades_router)  # ¿hay índice de texto?
+app.include_router(busqueda_sugerencias_router)  # «¿quiso decir…?»
 app.include_router(identities_router)
 app.include_router(firmas_router)
 app.include_router(grandes_router)

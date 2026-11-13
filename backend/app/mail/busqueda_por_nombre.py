@@ -34,7 +34,11 @@ async def direcciones_de_nombre(db, quien_busca: str, consulta: str) -> list[str
     texto = texto_libre(consulta)
     if len(texto) < 3 or "@" in texto or db is None:
         return []
-    patron = "%" + _sin_tildes(texto.lower()) + "%"
+    # Cada palabra por separado: «ronald leon» encuentra «Ronald Xavier León» (13/11/2026).
+    palabras = [p for p in _sin_tildes(texto.lower()).split() if len(p) >= 2][:4]
+    if not palabras:
+        return []
+    patrones = ["%" + p.replace("%", "").replace("_", "") + "%" for p in palabras]
     try:
         filas = await db.fetch(
             """
@@ -46,10 +50,10 @@ async def direcciones_de_nombre(db, quien_busca: str, consulta: str) -> list[str
                           WHERE owner = $2 AND deleted_at IS NULL
             ) x
             WHERE nombre IS NOT NULL AND correo LIKE '%@%'
-              AND translate(lower(nombre), 'áéíóúüñàèìòù', 'aeiouunaeiou') LIKE $1
+              AND translate(lower(nombre), 'áéíóúüñàèìòù', 'aeiouunaeiou') LIKE ALL($1::text[])
             LIMIT $3
             """,
-            patron,
+            patrones,
             quien_busca,
             MAXIMO,
         )

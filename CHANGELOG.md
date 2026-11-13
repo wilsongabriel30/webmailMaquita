@@ -7,6 +7,29 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+
+- **Buscador del correo, palabra por palabra**: cada palabra escrita se busca por separado y puede estar en un sitio
+  distinto del correo (remitente, destinatarios, copia, asunto o texto). Antes todo lo escrito tenía que aparecer junto
+  en un mismo campo: un nombre y una palabra del asunto no encontraban nada. Lo que va entre comillas sigue siendo una
+  frase. Medido con 156 búsquedas reales de varias palabras: 107 traen ahora más resultados.
+- **Las tildes ya no cuentan al buscar personas**: «barbara» encuentra a «Bárbara» y «raices» a «Raíces» también en
+  remitente, destinatarios y copia (el índice de texto solo las quitaba en asunto y cuerpo). Vale igual para `de:`,
+  `para:` y `copia:`, y para la copia (CC), que antes no se miraba.
+- **Códigos con guion**: «T-53» o un asunto pegado con guiones y paréntesis ya no dan cero por un trozo de una letra.
+- **Buscar con el filtro «No leídos» puesto**: una búsqueda nueva quita el filtro (el correo ya leído no aparecía).
+
+### Añadido
+
+- **Resultados en otras carpetas**: al buscar dentro de una carpeta, el aviso dice cuántos resultados más hay en el
+  resto del correo y los muestra con un clic. Si en la carpeta no hay ninguno y en el resto sí, la búsqueda pasa sola
+  a todas las carpetas y lo explica, con un botón para volver. Medido: en 9 de cada 10 búsquedas había más resultados
+  en otras carpetas, y 1 de cada 3 búsquedas «sin resultados» sí tenía el correo en otra carpeta.
+- **«¿Quiso decir…?»**: cuando una búsqueda no encuentra nada y parece un nombre mal escrito, propone la forma correcta
+  a partir del directorio y de la agenda de la persona (`GET /api/mail/search/sugerencias`).
+- **Memoria breve de resultados**: los resultados de una búsqueda con texto se recuerdan un minuto, para que bajar por
+  la lista o pasar a «todas las carpetas» no repita la búsqueda entera (hasta 30 s en buzones grandes).
+
 ## [1.21.1] - 2026-11-13
 
 El chat del repositorio se pone al día con el que está en servicio (llamadas, archivos, contadores y un tema nuevo en
