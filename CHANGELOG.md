@@ -53,6 +53,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Una carpeta dejaba de abrirse por un solo correo mal formado**: si un correo traía un salto de línea dentro del
+  nombre de un destinatario, la lista entera de la carpeta respondía con error. Ahora esa cabecera se lee tal como
+  vino y la carpeta se lista y el correo se abre con normalidad.
 - **Buscar en «todas las carpetas» letra a letra**: la primera letra tecleada ya lanzaba una búsqueda de esa sola
   letra sobre todo el correo (hasta 20 s y cientos de miles de resultados). Ahora espera a tener 3 letras y a que la
   persona deje de escribir, como dentro de una carpeta.
