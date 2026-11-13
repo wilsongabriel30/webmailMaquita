@@ -11,6 +11,7 @@ No lleva credenciales ni direcciones propias: la base sale de DATABASE_URL (back
 y el remitente y el destinatario de los avisos, de /etc/maquita-mail/organizacion.env
 (ORG_REMITENTE_AVISOS, ORG_CORREOS_AVISOS) si el panel no tiene uno configurado.
 """
+import json
 import re
 import smtplib
 import subprocess
@@ -29,6 +30,10 @@ TS_RE = re.compile(r"^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})")
 SASL_RE = re.compile(r"postfix/submission/smtpd\[\d+\]:\s+([0-9A-F]+):.*sasl_username=([^,\s]+)", re.I)
 NRCPT_RE = re.compile(r"postfix/qmgr\[\d+\]:\s+([0-9A-F]+):\s+from=<[^>]*>,\s+size=\d+,\s+nrcpt=(\d+)")
 CUENTA_RE = re.compile(r"^[a-z0-9._+-]+@[a-z0-9.-]+$")
+# 06/11/2026: destinatarios que llegan por una lista (orig_to = la lista). Si quien envía está
+# AUTORIZADO en esa lista (mail_groups.allowed_senders, p. ej. nacional@), no cuentan como envío masivo.
+TO_RE = re.compile(r"postfix/[\w-]+\[\d+\]:\s+([0-9A-F]+):\s+to=<[^>]*>,(?:\s+orig_to=<([^>]+)>,)?")
+SEP_RE = re.compile(r"[\s,;]+")
 
 
 def leer_env(ruta):
@@ -130,7 +135,7 @@ def main():
     except Exception:
         return
 
-    qid_user, qid_rcpt = {}, {}
+    qid_user, qid_rcpt, qid_orig, qid_vistos = {}, {}, {}, set()
     for ln in lines:
         m = TS_RE.match(ln)
         if not m:
@@ -148,10 +153,46 @@ def main():
         n = NRCPT_RE.search(ln)
         if n:
             qid_rcpt[n.group(1)] = qid_rcpt.get(n.group(1), 0) + int(n.group(2))
+            continue
+        d = TO_RE.search(ln)
+        if d:
+            qid_vistos.add(d.group(1))
+            if d.group(2):
+                o = qid_orig.setdefault(d.group(1), {})
+                o[d.group(2).lower()] = o.get(d.group(2).lower(), 0) + 1
+
+    # Listas con remitentes autorizados: {lista: {remitentes}}
+    autorizados = {}
+    for fila in q("SELECT lower(address) || '|' || lower(allowed_senders) FROM mail_groups "
+                  "WHERE active AND coalesce(allowed_senders, '') <> ''").splitlines():
+        lista, _, rem = fila.partition("|")
+        autorizados[lista] = {x for x in SEP_RE.split(rem) if x}
+    # 13/11/2026: permisos dados desde el panel (Alertas de seguridad): esa cuenta puede escribir a esa
+    # lista sin que sus miembros cuenten como envío masivo. No restringe quién escribe a la lista.
+    for fila in q("SELECT lower(lista) || '|' || lower(username) FROM outbound_anomaly_permisos").splitlines():
+        lista, _, quien = fila.partition("|")
+        if lista and quien:
+            autorizados.setdefault(lista, set()).add(quien)
+    pendientes = set()
 
     per_user, per_user_msgs = {}, {}
+    desglose = {}  # {cuenta: {lista o «directos»: destinatarios que SÍ cuentan}}
     for qid, user in qid_user.items():
-        per_user[user] = per_user.get(user, 0) + qid_rcpt.get(qid, 1)
+        total = qid_rcpt.get(qid, 1)
+        if total >= thr and qid not in qid_vistos:
+            # Aún sin entregas en el registro: no se sabe si va a una lista autorizada; se decide
+            # en la siguiente pasada (2 min) en vez de bloquear a ciegas.
+            pendientes.add(user)
+        por_lista = sum(c for l, c in qid_orig.get(qid, {}).items() if user in autorizados.get(l, ()))
+        per_user[user] = per_user.get(user, 0) + max(0, total - por_lista)
+        d = desglose.setdefault(user, {})
+        en_listas = 0
+        for l, c in qid_orig.get(qid, {}).items():
+            en_listas += c
+            if user not in autorizados.get(l, ()):
+                d[l] = d.get(l, 0) + c
+        if total > en_listas:
+            d["directos"] = d.get("directos", 0) + (total - en_listas)
         per_user_msgs[user] = per_user_msgs.get(user, 0) + 1
 
     # Cuentas exentas (envío masivo legítimo): la misma lista que usa rspamd para el límite,
@@ -167,7 +208,7 @@ def main():
         pass
 
     for user, recips in per_user.items():
-        if recips < thr or user in exentos or not CUENTA_RE.match(user):
+        if recips < thr or user in exentos or user in pendientes or not CUENTA_RE.match(user):
             continue
         # Si ya hay un evento reciente (< 2 ventanas) o la cuenta ya está inactiva, no se repite.
         reciente = q(
@@ -191,9 +232,9 @@ def main():
                 act = "alerted"
         detail = f"{recips} destinatarios / {msgs} mensajes en {win} min"
         q(
-            "INSERT INTO outbound_anomaly_events (username, recipients, messages, window_minutes, action, detail) "
-            "VALUES (:'u', :'r'::int, :'n'::int, :'w'::int, :'a', :'d')",
-            u=user, r=recips, n=msgs, w=win, a=act, d=detail,
+            "INSERT INTO outbound_anomaly_events (username, recipients, messages, window_minutes, action, detail, desglose) "
+            "VALUES (:'u', :'r'::int, :'n'::int, :'w'::int, :'a', :'d', :'j'::jsonb)",
+            u=user, r=recips, n=msgs, w=win, a=act, d=detail, j=json.dumps(desglose.get(user, {})),
         )
         q(
             "INSERT INTO fraud_alerts (alert_type, severity, username, description, status) "

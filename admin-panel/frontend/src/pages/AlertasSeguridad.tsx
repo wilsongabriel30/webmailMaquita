@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
+import { EnviosMasivos, type Envio } from "../components/EnviosMasivos";
 
 interface Direccion { ip: string; pais: string; intentos: number; ultimo: string; servicios: string[]; bloqueada: boolean; }
 interface Ataque {
@@ -9,7 +10,7 @@ interface Ataque {
   gravedad: "alta" | "media" | "resuelta"; que_pasa: string; sugerencia: string; accion: string;
   existe: boolean; protegida: boolean; se_puede_proteger: boolean;
 }
-interface Respuesta { horas: number; ataques: Ataque[]; inicios_riesgosos: number; inicios_riesgosos_altos: number; anomalias: number; pendientes: number; }
+interface Respuesta { horas: number; ataques: Ataque[]; envios?: Envio[]; inicios_riesgosos: number; inicios_riesgosos_altos: number; anomalias: number; pendientes: number; }
 
 const GRAVEDAD: Record<string, { clase: string; texto: string }> = {
   alta: { clase: "bg-red-100 text-red-700", texto: "ATAQUE" },
@@ -42,17 +43,19 @@ export function AlertasSeguridad() {
 
   if (!d) return <div className="p-6 text-sm text-ms-gray-110">{msg ? msg.text : "Cargando…"}</div>;
   const porRevisar = d.ataques.filter((a) => a.gravedad === "media").length;
-  const nada = d.ataques.length === 0 && d.inicios_riesgosos === 0 && d.anomalias === 0;
+  const envios = d.envios || [];
+  const nada = d.ataques.length === 0 && envios.length === 0 && d.inicios_riesgosos === 0 && d.anomalias === 0;
 
   return (
     <div className="max-w-4xl">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-ms-gray-160 mb-1">Alertas de seguridad</h1>
         <SectionHelp titulo="Alertas de seguridad" items={[
-          { titulo: "Qué es esta sección", desc: "Lo que necesita su atención hoy, en una sola pantalla: cuentas cuya contraseña alguien intenta adivinar, inicios de sesión riesgosos y anomalías abiertas." },
+          { titulo: "Qué es esta sección", desc: "Lo que necesita su atención hoy, en una sola pantalla: cuentas cuya contraseña alguien intenta adivinar, cuentas bloqueadas por escribir a muchas personas, inicios de sesión riesgosos y anomalías abiertas." },
           { titulo: "Intentos de adivinar contraseñas", desc: "Una cuenta aparece cuando tres o más direcciones distintas fallaron su contraseña y ninguna de ellas ha entrado nunca. Es el ataque lento: pocos intentos desde muchos sitios." },
           { titulo: "Qué hace el botón", desc: "«Cerrar IMAP y SMTP» deja la cuenta como solo webmail: desde fuera la contraseña deja de servir aunque la adivinen. Es inmediato y se deshace en «Cuentas solo webmail»." },
           { titulo: "Antes de pulsarlo", desc: "Lea la sugerencia: si la persona usa Outlook o celular, esos equipos dejarán de funcionar hasta que cree una contraseña de aplicación." },
+          { titulo: "Cuentas bloqueadas por escribir a muchas personas", desc: "El sistema desactiva una cuenta que envía a demasiados destinatarios en pocos minutos, porque así actúa una cuenta robada. Si fue un envío normal a una lista de la casa, «Es correcto» le da permiso para escribir a esa lista y reactiva la cuenta. Los permisos concedidos se ven y se quitan aquí mismo." },
           { titulo: "Direcciones bloqueadas", desc: "Las direcciones de fuera del país se bloquean solas en el cortafuegos; aquí se indica cuáles ya lo están." },
         ]} />
       </div>
@@ -66,6 +69,8 @@ export function AlertasSeguridad() {
       </div>
 
       {nada && <div className="bg-white border border-ms-gray-30 rounded-lg p-5 text-sm text-ms-gray-130">Sin alertas: nadie está intentando adivinar contraseñas y no hay nada pendiente de revisar.</div>}
+
+      <EnviosMasivos envios={envios} alCambiar={cargar} avisar={(ok, text) => setMsg({ ok, text })} />
 
       {d.ataques.length > 0 && <h2 className="text-base font-semibold text-ms-gray-160 mb-2">Intentos de adivinar contraseñas</h2>}
       <div className="space-y-3">

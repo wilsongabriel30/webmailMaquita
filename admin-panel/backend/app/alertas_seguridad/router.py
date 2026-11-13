@@ -1,7 +1,8 @@
 """Alertas de seguridad: lo que necesita atención hoy, en una sola pantalla y en lenguaje llano.
 
 Reúne los intentos de adivinar contraseñas (con el botón para cerrar IMAP y SMTP de la cuenta),
-los inicios de sesión riesgosos pendientes y las anomalías abiertas. El panel consulta /resumen
+los bloqueos por envío a muchas personas (envios_masivos.py), los inicios de sesión riesgosos
+pendientes y las anomalías abiertas. El panel consulta /resumen
 al entrar para avisar de inmediato si hay algo pendiente.
 """
 
@@ -10,6 +11,7 @@ import re
 from fastapi import APIRouter, Depends, Request
 
 from app import organizacion
+from app.alertas_seguridad import envios_masivos
 from app.alertas_seguridad.ataques import agrupar, explicar
 from app.auth.dependencies import get_current_admin
 
@@ -128,11 +130,13 @@ def _pendientes(ataques: list[dict], otras: dict) -> int:
 async def alertas(r: Request, a=Depends(get_current_admin)):
     db = _db(r)
     ataques, otras = await _ataques(db), await _otras(db)
+    envios = await envios_masivos.pendientes(db)
     return {
         "horas": HORAS,
         "ataques": ataques,
+        "envios": envios,
         **otras,
-        "pendientes": _pendientes(ataques, otras),
+        "pendientes": _pendientes(ataques, otras) + envios_masivos.sin_revisar(envios),
     }
 
 
@@ -140,8 +144,10 @@ async def alertas(r: Request, a=Depends(get_current_admin)):
 async def resumen(r: Request, a=Depends(get_current_admin)):
     db = _db(r)
     ataques, otras = await _ataques(db), await _otras(db)
+    envios = envios_masivos.sin_revisar(await envios_masivos.pendientes(db))
     return {
-        "pendientes": _pendientes(ataques, otras),
+        "pendientes": _pendientes(ataques, otras) + envios,
+        "envios": envios,
         "ataques": sum(1 for x in ataques if x["gravedad"] == "alta"),
         "por_revisar": sum(
             1 for x in ataques if x["gravedad"] == "media" and x["existe"]
