@@ -480,7 +480,10 @@ async def listar_sesiones(
             equipo_aprox = d.get("equipo_aprox") == "1"
         else:  # sesión anterior al cambio: se agrupa aproximando por el User-Agent
             ua = d.get("ua") or ""
-            equipo_id = "old-" + hashlib.sha1(ua.encode()).hexdigest()[:16]
+            equipo_id = (
+                "old-"
+                + hashlib.sha1(ua.encode(), usedforsecurity=False).hexdigest()[:16]
+            )
             so = _sistema(ua)
             equipo_nombre = f"Navegador en {so}" if so else "Equipo"
             equipo_aprox = True

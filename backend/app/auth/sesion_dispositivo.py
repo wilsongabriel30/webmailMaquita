@@ -114,9 +114,9 @@ def nombre_de(
     if clase == "app_movil":
         aparato = modelo or equipo_nombre or "celular"
         version = (" " + app_version) if app_version else ""
-        return f"Celular {aparato} · app Maquita Mail{version}".strip()
+        return f"Celular {aparato} · aplicación de correo{version}".strip()
     if clase == "app_escritorio":
-        return "Teams Maquita de escritorio"
+        return "Aplicación de escritorio"
     if clase == "navegador":
         so = _sistema(ua)
         return f"{_navegador(ua)} en {so}" if so else _navegador(ua)
@@ -191,7 +191,11 @@ def equipo_para_app(cab: dict, ua: str):
     if inst:
         return "app-" + inst, nombre, False
     base = (cab.get("modelo", "") + "|" + (ua or "")).encode()
-    return "app-" + hashlib.sha1(base).hexdigest()[:16], nombre, True
+    return (
+        "app-" + hashlib.sha1(base, usedforsecurity=False).hexdigest()[:16],
+        nombre,
+        True,
+    )
 
 
 def describir(d: dict, kind: str) -> dict:
