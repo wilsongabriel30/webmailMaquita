@@ -1293,3 +1293,84 @@ async def update_greylist_domains(
             request, admin, "greylist_domains_update", details={"length": len(content)}
         )
     return {"status": "ok" if ok else "error"}
+
+
+# ===================== Sesiones por dispositivo (L-04, Tecnología) =====================
+# Solo administradores. Metadatos de sesión; NO da acceso a contenido de correos. Todo queda
+# en auditoría (quién consulta y quién cierra).
+_sesiones_auditoria_lista = False
+
+
+async def _asegurar_auditoria_sesiones(db):
+    global _sesiones_auditoria_lista
+    if _sesiones_auditoria_lista:
+        return
+    from app.auth.sesiones_admin import asegurar_tabla_auditoria
+
+    await asegurar_tabla_auditoria(db)
+    _sesiones_auditoria_lista = True
+
+
+@router.get("/sesiones")
+async def admin_sesiones(
+    request: Request,
+    persona: str = Query(None),
+    clase: str = Query(None),
+    antiguedad_dias: int = Query(None),
+    admin: str = Depends(require_admin),
+):
+    """Sesiones de TODAS las cuentas, con filtro por persona, clase y antigüedad de uso."""
+    from app.auth.sesiones_admin import listar_todas, registrar_auditoria
+
+    db = _get_db(request)
+    await _asegurar_auditoria_sesiones(db)
+    datos = await listar_todas(request.app.state.redis, persona, clase, antiguedad_dias)
+    await registrar_auditoria(
+        db,
+        admin,
+        "consulta",
+        persona or "*",
+        f"clase={clase} antiguedad={antiguedad_dias} n={len(datos)}",
+    )
+    # Agrupado por cuenta (lo que consume la vista de administración) y también plano.
+    from collections import OrderedDict
+
+    cuentas = OrderedDict()
+    for ses in datos:
+        cuentas.setdefault(ses.get("username"), []).append(ses)
+    cuentas_lista = [{"username": u, "sesiones": v} for u, v in cuentas.items()]
+    return {"cuentas": cuentas_lista, "sesiones": datos, "total": len(datos)}
+
+
+@router.get("/sesiones/resumen")
+async def admin_sesiones_resumen(request: Request, admin: str = Depends(require_admin)):
+    """Resumen: cuentas con muchas sesiones, sesiones sin uso prolongado, apps por versión."""
+    from app.auth.sesiones_admin import registrar_auditoria, resumen
+
+    db = _get_db(request)
+    await _asegurar_auditoria_sesiones(db)
+    r = await resumen(request.app.state.redis)
+    await registrar_auditoria(db, admin, "resumen", "*", "")
+    return r
+
+
+@router.post("/sesiones/cuenta/{username}/cerrar-todas")
+async def admin_sesiones_cerrar_cuenta(
+    username: str, request: Request, admin: str = Depends(require_admin)
+):
+    """Cierra TODAS las sesiones de una cuenta (sube su generación de autenticación)."""
+    import re as _re
+
+    if not _re.fullmatch(r"[A-Za-z0-9._%+@-]{1,255}", username or ""):
+        raise HTTPException(status_code=400, detail="Cuenta no válida")
+    from app.auth.sesiones_admin import registrar_auditoria
+
+    db = _get_db(request)
+    await _asegurar_auditoria_sesiones(db)
+    n = await revocar_todo(db, request.app.state.redis, username, "admin_cerrar_todas")
+    await registrar_auditoria(db, admin, "cerrar_todas", username, f"revocadas={n}")
+    return {
+        "message": "Sesiones de la cuenta cerradas",
+        "username": username,
+        "revocadas": n,
+    }

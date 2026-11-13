@@ -12,9 +12,12 @@ from app.auth.dovecot_auth_service import authenticate
 from app.auth.jwt import create_access_token, create_refresh_token, hash_refresh_token
 from app.auth.segundo_factor import debe_activar_2fa
 from app.auth.sesion_app import dias_refresh, parametros_sesion
+from app.auth.sesion_dispositivo import preparar_dispositivo
 from app.auth.sesiones import (
     KINDS_PRORROGABLES,
     av_actual,
+    cerrar_equipo,
+    cerrar_otras,
     cerrar_sid,
     crear_sesion,
     listar_sesiones,
@@ -198,10 +201,13 @@ async def login(body: LoginRequest, request: Request, response: Response):
 
     # Sesión propia (sid) con la generación vigente (av). La contraseña IMAP queda
     # cifrada en Redis, por sesión: cerrar esta no toca las demás. (F-01)
+    _params = parametros_sesion(request)
+    _disp = _dispositivo(request, response, _params.get("kind", "normal"))
     sesion = await crear_sesion(
-        db, redis, request, username, body.password, **parametros_sesion(request)
+        db, redis, request, username, body.password, disp=_disp, **_params
     )
     poner_cookies_sesion(response, request, sesion)
+    await _avisar_ingreso(db, redis, request, username, _disp)
 
     return {
         "message": "Login successful",
@@ -308,15 +314,19 @@ async def login_2fa(body: Login2FARequest, request: Request, response: Response)
     # Vale canjeado: no sirve dos veces.
     await redis.delete(clave_vale, clave_intentos)
     await _clear_login_rate_limit(request, username, redis)
+    _params = parametros_sesion(request)
+    _disp = _dispositivo(request, response, _params.get("kind", "normal"))
     sesion = await crear_sesion(
         db,
         redis,
         request,
         username,
         decrypt_password(datos["p"]),
-        **parametros_sesion(request),
+        disp=_disp,
+        **_params,
     )
     poner_cookies_sesion(response, request, sesion)
+    await _avisar_ingreso(db, redis, request, username, _disp)
     # Desde la app, este teléfono queda de confianza: no vuelve a pedir el código.
     from app.auth import dispositivos_confianza
 
@@ -521,6 +531,108 @@ async def cerrar_sesion_propia(
     if actual:
         quitar_cookies_sesion(response, request)
     return {"message": "Sesión cerrada", "actual": actual}
+
+
+@router.post("/sesiones/otras")
+async def cerrar_otras_sesiones(
+    request: Request, username: str = Depends(get_current_user)
+):
+    """[L-01] Cierra todas las sesiones de la cuenta MENOS la actual."""
+    n = await cerrar_otras(
+        request.app.state.db_pool,
+        request.app.state.redis,
+        username,
+        getattr(request.state, "sid", None),
+    )
+    return {"message": "Sesiones cerradas", "cerradas": n}
+
+
+@router.post("/sesiones/equipo/{equipo_id}")
+async def cerrar_equipo_sesiones(
+    equipo_id: str,
+    request: Request,
+    response: Response,
+    username: str = Depends(get_current_user),
+):
+    """[L-02] Cierra todas las sesiones de la cuenta en un mismo equipo."""
+    if not re.fullmatch(r"[A-Za-z0-9_-]{3,80}", equipo_id):
+        raise HTTPException(status_code=400, detail="Equipo no válido")
+    r = await cerrar_equipo(
+        request.app.state.db_pool,
+        request.app.state.redis,
+        username,
+        equipo_id,
+        getattr(request.state, "sid", None),
+    )
+    if r.get("incluye_actual"):
+        quitar_cookies_sesion(response, request)
+    return {"message": "Sesiones del equipo cerradas", **r}
+
+
+_aviso_tablas_listas = False
+
+
+def _dispositivo(request, response, kind: str) -> dict:
+    """Datos del equipo para la sesión. Identificar el equipo es un extra: si falla, se entra igual."""
+    try:
+        return preparar_dispositivo(request, response, kind)
+    except Exception:
+        return {}
+
+
+async def _avisar_ingreso(db, redis, request, username: str, disp: dict) -> None:
+    """Aviso de ingreso desde un equipo nuevo (correo + push). En segundo plano y a prueba
+    de fallos: nunca retrasa ni rompe el login. Si el equipo ya es conocido, no avisa.
+    """
+    global _aviso_tablas_listas
+    try:
+        from app.auth import aviso_sesion_nueva as _av
+        from app.auth.sesion_dispositivo import ip_de
+
+        if not _aviso_tablas_listas:
+            await _av.asegurar_tablas(db)
+            _aviso_tablas_listas = True
+        _av.programar_aviso_ingreso_nuevo(
+            db,
+            redis,
+            username,
+            equipo_id=(disp or {}).get("equipo_id", ""),
+            nombre_equipo=(disp or {}).get("equipo_nombre", ""),
+            ip=ip_de(request),
+        )
+    except Exception:
+        pass
+
+
+@router.get("/sesiones/aviso-nuevo-dispositivo")
+async def aviso_nuevo_dispositivo_estado(
+    request: Request, username: str = Depends(get_current_user)
+):
+    """¿Está activado el aviso de ingreso desde un dispositivo nuevo? (por omisión, sí)."""
+    try:
+        from app.auth.aviso_sesion_nueva import aviso_activado
+
+        activado = await aviso_activado(request.app.state.db_pool, username)
+    except Exception:
+        activado = True
+    return {"activado": bool(activado)}
+
+
+class _AvisoPref(BaseModel):
+    activado: bool
+
+
+@router.post("/sesiones/aviso-nuevo-dispositivo")
+async def aviso_nuevo_dispositivo_fijar(
+    body: _AvisoPref, request: Request, username: str = Depends(get_current_user)
+):
+    """Enciende o apaga el aviso de ingreso desde un dispositivo nuevo."""
+    from app.auth.aviso_sesion_nueva import asegurar_tablas, fijar_preferencia
+
+    db = request.app.state.db_pool
+    await asegurar_tablas(db)
+    await fijar_preferencia(db, username, body.activado)
+    return {"activado": body.activado}
 
 
 @router.get("/me")
