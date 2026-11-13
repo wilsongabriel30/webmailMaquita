@@ -30,6 +30,19 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel, Alertas de seguridad: botón «Enviar mensaje» a la persona**. Cuando los intentos fallidos de entrar a
+  una cuenta vienen todos del país o de la red interna (lo habitual: un celular u otro programa de correo con una
+  contraseña anterior guardada), la alerta ofrece escribirle. Se abre el mensaje ya redactado, en lenguaje llano y
+  de usted, con el destinatario fijo y el asunto y el texto editables: qué detectó el servidor y cuándo, qué debe
+  hacer (actualizar la contraseña guardada o quitar la cuenta y volver a agregarla; avisar si no reconoce el
+  equipo) y qué pasará si no lo atiende (Tecnología desactivará el acceso desde ese equipo; el correo por la web
+  sigue). Sale con el remitente de los avisos del servidor (`ORG_REMITENTE_AVISOS`) y las respuestas van a
+  Tecnología. Cada envío queda registrado (quién, a quién, cuándo y el texto) y la alerta muestra «Mensaje enviado
+  el … por …»; si ya se escribió a esa cuenta en las últimas 24 horas, pide confirmación. No se ofrece en los
+  ataques del exterior ni en cuentas ya protegidas, y no cierra ningún acceso: solo avisa. Requiere la migración
+  `2026-11-13-alertas-mensajes-a-personas.sql`; sin ella, la pantalla sigue como antes. Ajustes opcionales en
+  `organizacion.env`: `ORG_REMITENTE_MENSAJES_ALERTAS`, `ORG_CORREO_TECNOLOGIA` y `ORG_URL_APP_CORREO` (enlace de
+  la aplicación de correo; vacío por defecto: el mensaje no la menciona).
 - **Sesiones por dispositivo y aviso de ingreso desde un equipo nuevo**. En Configuración → Seguridad, las sesiones
   abiertas se agrupan por equipo y se pueden cerrar una a una, por equipo, todas las demás o todas; Tecnología tiene una
   vista «Sesiones» con el resumen por cuenta. Cuando la cuenta se abre en un equipo que no había usado antes, la persona
