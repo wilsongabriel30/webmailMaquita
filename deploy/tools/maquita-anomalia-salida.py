@@ -32,7 +32,12 @@ NRCPT_RE = re.compile(r"postfix/qmgr\[\d+\]:\s+([0-9A-F]+):\s+from=<[^>]*>,\s+si
 CUENTA_RE = re.compile(r"^[a-z0-9._+-]+@[a-z0-9.-]+$")
 # 06/11/2026: destinatarios que llegan por una lista (orig_to = la lista). Si quien envía está
 # AUTORIZADO en esa lista (mail_groups.allowed_senders, p. ej. nacional@), no cuentan como envío masivo.
-TO_RE = re.compile(r"postfix/[\w-]+\[\d+\]:\s+([0-9A-F]+):\s+to=<[^>]*>,(?:\s+orig_to=<([^>]+)>,)?")
+TO_RE = re.compile(r"postfix/[\w-]+\[\d+\]:\s+([0-9A-F]+):\s+to=<([^>]*)>,(?:\s+orig_to=<([^>]+)>,)?")
+# 13/11/2026 (decisión de Tecnología): el correo ENTRE CUENTAS DE LA CASA no es envío masivo. Solo cuentan
+# los destinatarios de fuera (dominios que no aloja este servidor). Una cuenta robada que envía correo basura
+# escribe hacia fuera; una jefatura que escribe a una lista interna de 40 personas, no. Poner True para
+# volver a contar también los internos.
+CONTAR_INTERNOS = False
 SEP_RE = re.compile(r"[\s,;]+")
 
 
@@ -156,7 +161,7 @@ def main():
     except Exception:
         return
 
-    qid_user, qid_rcpt, qid_orig, qid_vistos = {}, {}, {}, set()
+    qid_user, qid_rcpt, qid_dest, qid_vistos = {}, {}, {}, set()
     for ln in lines:
         m = TS_RE.match(ln)
         if not m:
@@ -178,9 +183,8 @@ def main():
         d = TO_RE.search(ln)
         if d:
             qid_vistos.add(d.group(1))
-            if d.group(2):
-                o = qid_orig.setdefault(d.group(1), {})
-                o[d.group(2).lower()] = o.get(d.group(2).lower(), 0) + 1
+            # Cada destinatario una sola vez (los reintentos repiten la línea): {dirección: lista o ""}
+            qid_dest.setdefault(d.group(1), {})[d.group(2).lower()] = (d.group(3) or "").lower()
 
     # Listas con remitentes autorizados: {lista: {remitentes}}
     autorizados = {}
@@ -196,24 +200,32 @@ def main():
             autorizados.setdefault(lista, set()).add(quien)
     pendientes = set()
 
+    # Dominios que aloja este servidor: sus direcciones son «de la casa».
+    casa = {x.strip().lower() for x in q("SELECT lower(domain) FROM domain WHERE active").splitlines() if x.strip()}
+
     per_user, per_user_msgs = {}, {}
     desglose = {}  # {cuenta: {lista o «directos»: destinatarios que SÍ cuentan}}
     for qid, user in qid_user.items():
         total = qid_rcpt.get(qid, 1)
-        if total >= thr and qid not in qid_vistos:
-            # Aún sin entregas en el registro: no se sabe si va a una lista autorizada; se decide
-            # en la siguiente pasada (2 min) en vez de bloquear a ciegas.
+        vistos = qid_dest.get(qid, {})
+        sin_ver = max(0, total - len(vistos))
+        if sin_ver >= thr:
+            # Aún sin (todas las) entregas en el registro: no se sabe si van a la casa o a una lista
+            # permitida; se decide en la siguiente pasada (2 min) en vez de bloquear a ciegas.
             pendientes.add(user)
-        por_lista = sum(c for l, c in qid_orig.get(qid, {}).items() if user in autorizados.get(l, ()))
-        per_user[user] = per_user.get(user, 0) + max(0, total - por_lista)
         d = desglose.setdefault(user, {})
-        en_listas = 0
-        for l, c in qid_orig.get(qid, {}).items():
-            en_listas += c
-            if user not in autorizados.get(l, ()):
-                d[l] = d.get(l, 0) + c
-        if total > en_listas:
-            d["directos"] = d.get("directos", 0) + (total - en_listas)
+        cuentan = sin_ver
+        if sin_ver:
+            d["directos"] = d.get("directos", 0) + sin_ver
+        for direccion, lista in vistos.items():
+            if not CONTAR_INTERNOS and direccion.rsplit("@", 1)[-1] in casa:
+                continue  # entre cuentas de la casa
+            if lista and user in autorizados.get(lista, ()):
+                continue  # lista a la que esta cuenta tiene permiso para escribir
+            cuentan += 1
+            clave = lista or "directos"
+            d[clave] = d.get(clave, 0) + 1
+        per_user[user] = per_user.get(user, 0) + cuentan
         per_user_msgs[user] = per_user_msgs.get(user, 0) + 1
 
     # Cuentas exentas (envío masivo legítimo): la misma lista que usa rspamd para el límite,

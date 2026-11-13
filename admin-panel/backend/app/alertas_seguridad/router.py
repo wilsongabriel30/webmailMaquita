@@ -144,10 +144,18 @@ async def alertas(r: Request, a=Depends(get_current_admin)):
 async def resumen(r: Request, a=Depends(get_current_admin)):
     db = _db(r)
     ataques, otras = await _ataques(db), await _otras(db)
-    envios = envios_masivos.sin_revisar(await envios_masivos.pendientes(db))
+    lista = await envios_masivos.pendientes(db)
+    envios = envios_masivos.sin_revisar(lista)
     return {
         "pendientes": _pendientes(ataques, otras) + envios,
         "envios": envios,
+        "envios_bloqueadas": len(
+            {
+                e["cuenta"]
+                for e in lista
+                if not e["atendido"] and e["existe"] and not e["activa"]
+            }
+        ),
         "ataques": sum(1 for x in ataques if x["gravedad"] == "alta"),
         "por_revisar": sum(
             1 for x in ataques if x["gravedad"] == "media" and x["existe"]

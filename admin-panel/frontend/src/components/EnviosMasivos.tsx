@@ -119,8 +119,9 @@ export function EnviosMasivos({ envios, alCambiar, avisar }: { envios: Envio[]; 
         <div className="mt-4 bg-white border border-ms-gray-30 rounded-lg p-4">
           <h3 className="text-sm font-semibold text-ms-gray-160">Permisos para escribir a listas</h3>
           <p className="text-xs text-ms-gray-110 mt-1">
-            El sistema bloquea una cuenta que escribe a {umbral > 0 ? `${umbral} personas o más` : "demasiadas personas"} en pocos minutos. Si alguien necesita escribir a una lista
-            grande (por ejemplo, la jefatura a su equipo), dele aquí el permiso <b>antes</b> de que envíe: no se le bloqueará por esa lista. No cambia quién puede escribir a la lista.
+            El sistema bloquea una cuenta que escribe a {umbral > 0 ? `${umbral} personas de fuera o más` : "demasiadas personas de fuera"} en pocos minutos. El correo entre cuentas de la casa
+            no cuenta. Si alguien necesita escribir a una lista que tiene miembros de fuera (proveedores, gestorías externas…), dele aquí el permiso <b>antes</b> de que envíe:
+            no se le bloqueará por esa lista. El permiso es permanente hasta que se quite y no cambia quién puede escribir a la lista.
           </p>
           <div className="flex flex-wrap items-end gap-2 mt-3">
             <label className="text-xs text-ms-gray-130">Persona (su correo)
