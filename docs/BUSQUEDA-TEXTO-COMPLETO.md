@@ -38,6 +38,29 @@ primeros bytes, no solo por el MIME declarado: un ejecutable disfrazado de PDF n
 - OCR desactivado por defecto: `bash deploy/dovecot/fts/instalar.sh --con-ocr` instala
   `tesseract-ocr` (español e inglés) y lo activa, con un tope de páginas por PDF.
 
+## Resultados por niveles, valores y frases
+
+El índice busca por comienzo de palabra y no sabe de frases ni de valores: «205,6» es para él «205» y
+«6…», y «"informe mensual"» son dos palabras sueltas. El webmail lo compensa al ordenar la lista
+(`backend/app/mail/services/busqueda_niveles.py`, comprobación en `backend/app/mail/busqueda_exacta.py`):
+
+1. **Coincidencias exactas**: todas las palabras en remitente, destinatarios, copia o asunto (las de
+   persona, en un mismo campo), o correos de la persona que se llama así. Si se buscó un valor o una
+   frase entre comillas, además se comprueba que aparece tal cual en el asunto o en el texto.
+2. **Coincidencias en el contenido**: el resto, y lo que no dio tiempo a comprobar.
+
+Cada nivel va por fecha. Una sola palabra, y las cuentas sin índice de texto, se buscan como siempre.
+
+- La búsqueda del nivel 1 se acota a los UIDs de la lista (los 4 000 más recientes): 0,1-1,7 s. Sin
+  acotar, en «todas las carpetas» costaba unos 3 s más por búsqueda.
+- Comprobar un valor o una frase obliga a abrir correos (los primeros 32 KB del texto; no los
+  adjuntos). Con el disco frío son 80-130 ms por correo, así que hay un presupuesto de 2,5 s, de lo más
+  reciente a lo más antiguo, con un máximo de 200 correos. Lo que no alcanza queda en el nivel 2.
+- Ninguna orden queda esperando: tope de 6 s por orden. Si se agota, la conexión se cierra, esa
+  búsqueda pasa cinco minutos sin niveles y la lista sale como siempre. En el registro:
+  `busqueda_niveles: … conexión cerrada y búsqueda sin niveles`.
+- La lista ordenada se guarda 60 s en Redis con clave propia (`uidsn:…`), junto a las de siempre.
+
 ## Instalación
 
 - **Servidores nuevos:** `deploy/webmail/instalar.sh` (paso 10, Dovecot) llama a los dos instaladores.
