@@ -9,7 +9,7 @@ import email.utils
 import re
 from dataclasses import dataclass, field
 
-from app.mail.parsers import asunto_limpio
+from app.mail.parsers import asunto_limpio, cabecera_segura
 
 
 @dataclass
@@ -86,19 +86,22 @@ def parse_headers(
 
     return NormalizedMessage(
         uid=uid,
-        message_id=msg.get("Message-ID", "") or "",
-        from_addr=msg.get("From", "") or "",
-        to_addr=msg.get("To", "") or "",
-        cc_addr=msg.get("Cc", "") or "",
-        subject=asunto_limpio.limpiar(msg.get("Subject", "") or "") or "(No Subject)",
+        message_id=cabecera_segura.leer(msg, raw_headers, "Message-ID") or "",
+        from_addr=cabecera_segura.leer(msg, raw_headers, "From") or "",
+        to_addr=cabecera_segura.leer(msg, raw_headers, "To") or "",
+        cc_addr=cabecera_segura.leer(msg, raw_headers, "Cc") or "",
+        subject=asunto_limpio.limpiar(
+            cabecera_segura.leer(msg, raw_headers, "Subject") or ""
+        )
+        or "(No Subject)",
         date=date_parsed,
         date_raw=date_str,
         size=size,
         flags=flags,
         seen="\\Seen" in flags,
         flagged="\\Flagged" in flags,
-        references=msg.get("References", "") or "",
-        in_reply_to=msg.get("In-Reply-To", "") or "",
+        references=cabecera_segura.leer(msg, raw_headers, "References") or "",
+        in_reply_to=cabecera_segura.leer(msg, raw_headers, "In-Reply-To") or "",
         importance=_detect_importance(msg),
     )
 
@@ -128,11 +131,14 @@ def parse_full_message(
 
     return NormalizedMessage(
         uid=uid,
-        message_id=msg.get("Message-ID", "") or "",
-        from_addr=msg.get("From", "") or "",
-        to_addr=msg.get("To", "") or "",
-        cc_addr=msg.get("Cc", "") or "",
-        subject=asunto_limpio.limpiar(msg.get("Subject", "") or "") or "(No Subject)",
+        message_id=cabecera_segura.leer(msg, raw_email, "Message-ID") or "",
+        from_addr=cabecera_segura.leer(msg, raw_email, "From") or "",
+        to_addr=cabecera_segura.leer(msg, raw_email, "To") or "",
+        cc_addr=cabecera_segura.leer(msg, raw_email, "Cc") or "",
+        subject=asunto_limpio.limpiar(
+            cabecera_segura.leer(msg, raw_email, "Subject") or ""
+        )
+        or "(No Subject)",
         date=date_parsed,
         date_raw=date_str,
         size=len(raw_email),
@@ -146,8 +152,8 @@ def parse_full_message(
         has_attachments=any(not a.is_inline for a in attachments),
         cid_map=cid_map,
         calendar_invite=calendar_invite,
-        references=msg.get("References", "") or "",
-        in_reply_to=msg.get("In-Reply-To", "") or "",
+        references=cabecera_segura.leer(msg, raw_email, "References") or "",
+        in_reply_to=cabecera_segura.leer(msg, raw_email, "In-Reply-To") or "",
         importance=_detect_importance(msg),
     )
 
