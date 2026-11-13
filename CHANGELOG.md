@@ -21,6 +21,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Avisos de correo al instante para la app móvil, sin servicios de Google**. Al registrar el teléfono
+  (`POST /api/mobile/register-device`, con sesión) el servidor le entrega un tema secreto del ntfy propio; cuando llega
+  un correo, publica ahí un aviso **sin contenido** («hay correo nuevo» y la cuenta) y la app pide el detalle con su
+  sesión. Deja de avisarse al dar de baja el teléfono, al cerrarse su sesión, si apaga los avisos o si lleva 45 días
+  sin sincronizar. Un teléfono con varias cuentas tiene un tema por cuenta. Requiere `NTFY_TOKEN` y la migración
+  `2026-11-13-avisos-app-movil.sql`; sin ntfy configurado, todo sigue como antes.
 - **Panel, Alertas de seguridad: cuentas bloqueadas por escribir a muchas personas**. El vigilante de envío masivo
   desactivaba la cuenta y el administrador solo se enteraba cuando la persona llamaba. Ahora el bloqueo aparece en
   Alertas explicado en lenguaje llano (cuántos correos, a cuántas personas, por qué listas) y con la decisión a un clic:
