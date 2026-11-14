@@ -3,6 +3,7 @@ import { api } from "../api/client";
 import { Link } from "react-router-dom";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from "recharts";
 import { SectionHelp } from "../components/SectionHelp";
+import { TarjetaDosPasos } from "./buzones/TarjetaDosPasos";
 import { nombreAccionRspamd } from "../lib/accionesRspamd";
 
 interface DashData {
@@ -90,6 +91,8 @@ export function Dashboard() {
         </div>
         <span className="text-blue-700 text-lg">&rarr;</span>
       </Link>
+
+      <TarjetaDosPasos />
 
       {/* Stats cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
