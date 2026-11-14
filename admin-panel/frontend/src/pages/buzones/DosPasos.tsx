@@ -22,6 +22,16 @@ export function useResumenDosPasos() {
   return { resumen, recargar };
 }
 
+/** Filtro con el que se abre la lista: el que venga en la dirección (?dos_pasos=con|sin) o «todas». */
+export function filtroDosPasosInicial(): FiltroDosPasos {
+  try {
+    const v = new URLSearchParams(window.location.search).get("dos_pasos");
+    return v === "con" || v === "sin" ? v : "todas";
+  } catch {
+    return "todas";
+  }
+}
+
 export const coincideDosPasos = (filtro: FiltroDosPasos, activa?: boolean) =>
   filtro === "todas" || (filtro === "con") === !!activa;
 

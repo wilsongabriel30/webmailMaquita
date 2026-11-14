@@ -30,6 +30,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel, tablero inicial: tarjeta de verificación en dos pasos**. Muestra cuántas cuentas activas la tienen activa, cuántas faltan y cuántas de las obligadas siguen sin activarla, y lleva a la lista de buzones ya filtrada por las que faltan (`/mailboxes?dos_pasos=sin`).
 - **Panel → Buzones: quién tiene la verificación en dos pasos**: la lista muestra en cada cuenta el distintivo
   «2 pasos: Activa / Sin activar», un filtro («Todas», «Con verificación en dos pasos», «Sin verificación en dos
   pasos») que se combina con la búsqueda, y el recuento «N de M cuentas activas la tienen activa». Las cuentas

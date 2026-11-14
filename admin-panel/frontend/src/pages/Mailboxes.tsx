@@ -5,7 +5,7 @@ import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
 import { CuentasAsignadasBuzon } from "../components/CuentasAsignadasBuzon";
 import { BotonDesbloqueo, useBloqueosAcceso } from "../components/BotonDesbloqueo";
 import { ImportarCsv } from "./buzones/ImportarCsv";
-import { DistintivoDosPasos, FiltroDosPasosBuzones, coincideDosPasos, useResumenDosPasos, type FiltroDosPasos } from "./buzones/DosPasos";
+import { DistintivoDosPasos, FiltroDosPasosBuzones, coincideDosPasos, filtroDosPasosInicial, useResumenDosPasos, type FiltroDosPasos } from "./buzones/DosPasos";
 
 interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string; dos_pasos?: boolean; dos_pasos_desde?: string | null; dos_pasos_obligatoria?: boolean }
 
@@ -13,7 +13,7 @@ export function Mailboxes() {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [quotas, setQuotas] = useState<Record<string, any>>({});
   const [filter, setFilter] = useState("");
-  const [filtroDosPasos, setFiltroDosPasos] = useState<FiltroDosPasos>("todas");
+  const [filtroDosPasos, setFiltroDosPasos] = useState<FiltroDosPasos>(filtroDosPasosInicial);   // el tablero enlaza con ?dos_pasos=sin
   const dosPasos = useResumenDosPasos();
   const [showForm, setShowForm] = useState(false);
   const [importar, setImportar] = useState(false);
