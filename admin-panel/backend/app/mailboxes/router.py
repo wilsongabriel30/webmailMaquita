@@ -34,15 +34,14 @@ async def _run(*cmd) -> tuple[str, str, int]:
 
 
 @router.get("")
-async def list_mailboxes(request: Request, domain: str = None, admin: dict = Depends(get_current_admin)):
-    db = _db(request)
-    if domain:
-        rows = await db.fetch(
-            "SELECT username, name, domain, quota, active, local_part, phone, email_other, created, modified FROM mailbox WHERE domain=$1 ORDER BY username", domain)
-    else:
-        rows = await db.fetch(
-            "SELECT username, name, domain, quota, active, local_part, phone, email_other, created, modified FROM mailbox ORDER BY domain, username")
-    return [dict(r) for r in rows]
+async def list_mailboxes(
+    request: Request, domain: str = None, dos_pasos: str = None, admin: dict = Depends(get_current_admin)
+):
+    # Cada buzón llega con su verificación en dos pasos (un LEFT JOIN, sin consulta por fila);
+    # `dos_pasos` = «con» o «sin» filtra en la base. Ver mailboxes/dos_pasos.py.
+    from app.mailboxes.dos_pasos import listar
+
+    return await listar(_db(request), domain, dos_pasos)
 
 
 @router.get("/search/autocomplete")

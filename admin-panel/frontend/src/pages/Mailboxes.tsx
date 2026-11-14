@@ -5,13 +5,16 @@ import { DrivePanel, type DriveConfig } from "../components/DrivePanel";
 import { CuentasAsignadasBuzon } from "../components/CuentasAsignadasBuzon";
 import { BotonDesbloqueo, useBloqueosAcceso } from "../components/BotonDesbloqueo";
 import { ImportarCsv } from "./buzones/ImportarCsv";
+import { DistintivoDosPasos, FiltroDosPasosBuzones, coincideDosPasos, useResumenDosPasos, type FiltroDosPasos } from "./buzones/DosPasos";
 
-interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string }
+interface Mailbox { username: string; name: string; domain: string; quota: number; active: boolean; phone: string; email_other: string; created: string; dos_pasos?: boolean; dos_pasos_desde?: string | null; dos_pasos_obligatoria?: boolean }
 
 export function Mailboxes() {
   const [mailboxes, setMailboxes] = useState<Mailbox[]>([]);
   const [quotas, setQuotas] = useState<Record<string, any>>({});
   const [filter, setFilter] = useState("");
+  const [filtroDosPasos, setFiltroDosPasos] = useState<FiltroDosPasos>("todas");
+  const dosPasos = useResumenDosPasos();
   const [showForm, setShowForm] = useState(false);
   const [importar, setImportar] = useState(false);
   const [form, setForm] = useState({ username: "", password: "", password2: "", name: "", quota_mb: 0 });
@@ -88,7 +91,7 @@ export function Mailboxes() {
   const [titularLoading, setTitularLoading] = useState(false);
   const [titularResult, setTitularResult] = useState<any>(null);
 
-  const load = () => { api.get<Mailbox[]>("/mailboxes").then(setMailboxes); api.get<Record<string, any>>("/mailboxes/quota/all").then(setQuotas).catch(() => {}); };
+  const load = () => { api.get<Mailbox[]>("/mailboxes").then(setMailboxes); api.get<Record<string, any>>("/mailboxes/quota/all").then(setQuotas).catch(() => {}); dosPasos.recargar(); };
   useEffect(() => { load(); }, []);
   const bloqueos = useBloqueosAcceso();
 
@@ -154,6 +157,7 @@ export function Mailboxes() {
     try {
       const r: any = await api.post(`/segundo-factor/buzon/${encodeURIComponent(u)}/restablecer`);
       alert(r.tenia_segundo_factor ? `Segundo factor de ${u} restablecido. Sus sesiones se cerraron.` : `${u} no tenía segundo factor activo. Sus sesiones se cerraron.`);
+      load();
     } catch (e: any) {
       alert("No se pudo restablecer: " + (e.message || "error desconocido"));
     }
@@ -198,7 +202,7 @@ export function Mailboxes() {
     setTitularResult(null);
   };
 
-  const filtered = mailboxes.filter((m) => !filter || m.username.toLowerCase().includes(filter.toLowerCase()) || m.name?.toLowerCase().includes(filter.toLowerCase()));
+  const filtered = mailboxes.filter((m) => coincideDosPasos(filtroDosPasos, m.dos_pasos)).filter((m) => !filter || m.username.toLowerCase().includes(filter.toLowerCase()) || m.name?.toLowerCase().includes(filter.toLowerCase()));
   const formatQuota = (q: number) => q > 0 ? `${(q / 1048576).toFixed(0)} MB` : "Sin límite";
 
   return (
@@ -213,6 +217,7 @@ export function Mailboxes() {
               { titulo: "Columnas Cuota y Uso", desc: "Cuota es el espacio máximo asignado (Sin límite si es 0). Uso muestra cuánto ocupa el buzón hoy; la barra se pone amarilla sobre 70% y roja sobre 90%." },
               { titulo: "Estado y Bloquear", desc: "Un buzón Inactivo queda bloqueado: no envía ni recibe, pero sus correos se conservan. Útil para suspender sin borrar nada." },
               { titulo: "Desbloquear", desc: "Tras más de 10 contraseñas equivocadas en 15 minutos el webmail bloquea el ingreso de ese buzón. La fila muestra «Bloqueado · N min» y el botón Desbloquear lo quita en el acto. Queda registrado en auditoría." },
+              { titulo: "Verificación en dos pasos", desc: "La columna «2 pasos» indica si la cuenta la tiene activa (confirmada con un código) o sin activar. El filtro de arriba muestra solo las que la tienen o las que no, y el recuento es sobre las cuentas activas. La activa cada persona desde el webmail; el botón 2FA la restablece si perdió el teléfono." },
               { titulo: "Abrir buzón", desc: "Entra al webmail del usuario como administrador (impersonación) sin conocer su contraseña, para soporte o revisión. Queda registrado en auditoría." },
               { titulo: "Cambiar titular", desc: "Cuando un colaborador sale y otro toma su correo: cambia nombre, contraseña, firma y avisa a los contactos internos en un solo paso." },
               { titulo: "Eliminar", desc: "Borra el buzón y TODOS sus correos de forma permanente e irreversible. Si solo necesita suspender la cuenta, use Bloquear." },
@@ -225,6 +230,7 @@ export function Mailboxes() {
 
       <input placeholder="Buscar por nombre o email..." value={filter} onChange={(e) => setFilter(e.target.value)} title="Filtra la lista de buzones por nombre o dirección de correo."
         className="w-full px-3 py-2 border border-ms-gray-40 rounded text-sm bg-white focus:outline-none focus:border-ms-blue focus:ring-1 focus:ring-ms-blue" />
+      <FiltroDosPasosBuzones valor={filtroDosPasos} onCambio={setFiltroDosPasos} resumen={dosPasos.resumen} mostrados={filtered.length} total={mailboxes.length} />
 
       {importar && <ImportarCsv onCerrar={() => setImportar(false)} onCreadas={load} />}
 
@@ -481,6 +487,7 @@ export function Mailboxes() {
               <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Cuota</th>
               <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Uso</th>
               <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Activo = puede enviar/recibir. Inactivo = bloqueado.">Estado</th>
+              <th className="text-center px-4 py-2.5 font-medium text-ms-gray-90 text-xs" title="Verificación en dos pasos del webmail: Activa o Sin activar.">2 pasos</th>
               <th className="text-right px-4 py-2.5 font-medium text-ms-gray-90 text-xs">Acciones</th>
             </tr>
           </thead>
@@ -510,6 +517,7 @@ export function Mailboxes() {
                     {m.active ? "Activo" : "Inactivo"}
                   </button>
                 </td>
+                <td className="px-4 py-2.5 text-center"><DistintivoDosPasos activa={m.dos_pasos} desde={m.dos_pasos_desde} obligatoria={m.dos_pasos_obligatoria} /></td>
                 <td className="px-4 py-2.5 text-right space-x-1">
                   <BotonDesbloqueo username={m.username} estado={bloqueos.mapa[m.username]} onHecho={bloqueos.recargar} />
                   <button onClick={() => impersonate(m.username)}

@@ -30,6 +30,12 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel → Buzones: quién tiene la verificación en dos pasos**: la lista muestra en cada cuenta el distintivo
+  «2 pasos: Activa / Sin activar», un filtro («Todas», «Con verificación en dos pasos», «Sin verificación en dos
+  pasos») que se combina con la búsqueda, y el recuento «N de M cuentas activas la tienen activa». Las cuentas
+  obligadas a usarla (las de administración del correo) que aún no la activaron salen señaladas y contadas aparte.
+  Cuenta como activa solo la que la persona ya confirmó con un código. La API de buzones acepta `dos_pasos=con|sin`
+  y hay un recuento en `/api/mailboxes/dos-pasos/resumen`. Sin migración.
 - **Panel, Alertas de seguridad: botón «Enviar mensaje» a la persona**. Cuando los intentos fallidos de entrar a
   una cuenta vienen todos del país o de la red interna (lo habitual: un celular u otro programa de correo con una
   contraseña anterior guardada), la alerta ofrece escribirle. Se abre el mensaje ya redactado, en lenguaje llano y
