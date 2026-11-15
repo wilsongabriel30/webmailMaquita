@@ -23,11 +23,27 @@ import { cifrar, descifrar, esPaquete } from './cifradoLocal';
 const DB_NAME = 'maquita-mail-offline';
 const MARCA = 'maquita:cache-cifrado:v1';
 
-function abrir(): Promise<IDBDatabase> {
+// Devuelve null si la base todavía no existe (navegador o equipo nuevo): no hay nada que migrar.
+// 15/11/2026: abrirla aquí la CREABA vacía, sin almacenes, y esta conexión se quedaba abierta; offlineStore
+// necesitaba entonces subir la versión para crear los almacenes, la conexión de aquí lo bloqueaba y a los 4 s
+// saltaba «La base local del navegador no responde» en cada navegador limpio (informe de Andes). Ahora la
+// creación se cancela (la crea offlineStore, con sus almacenes) y la conexión se suelta si otra la necesita.
+function abrir(): Promise<IDBDatabase | null> {
   return new Promise((ok, mal) => {
+    let noExistia = false;
     const p = indexedDB.open(DB_NAME);
-    p.onsuccess = () => ok(p.result);
-    p.onerror = () => mal(p.error);
+    p.onupgradeneeded = () => {
+      noExistia = true;
+      try { p.transaction?.abort(); } catch { /* ya cancelada */ }
+    };
+    p.onsuccess = () => {
+      const db = p.result;
+      db.onversionchange = () => { try { db.close(); } catch { /* ya cerrada */ } };
+      ok(db);
+    };
+    p.onerror = (e) => {
+      if (noExistia) { e.preventDefault(); ok(null); } else mal(p.error);
+    };
   });
 }
 
@@ -110,6 +126,7 @@ export async function limpiarRestos(): Promise<'hecha' | 'aplazada' | 'no-hacia-
   if (!localStorage.getItem(MARCA_LIMPIEZA)) return 'no-hacia-falta';
   try {
     const db = await abrir();
+    if (!db) { localStorage.removeItem(MARCA_LIMPIEZA); return 'hecha'; }   // sin base no hay restos
     const pendientes = db.objectStoreNames.contains('outbox')
       ? await pedir(db.transaction('outbox', 'readonly').objectStore('outbox').count())
       : 0;
@@ -142,6 +159,11 @@ export async function migrarCacheACifrado(): Promise<{
   }
   try {
     const db = await abrir();
+    if (!db) {
+      // Navegador limpio: nada guardado en claro. Lo que se guarde desde ahora ya nace cifrado.
+      localStorage.setItem(MARCA, new Date().toISOString());
+      return { yaEstaba: false, borrados: 0, cifrados: 0, intactos: 0 };
+    }
 
     // 1) lo que el servidor puede volver a dar: fuera, y se rellena cifrado con el uso
     let borrados = 0;

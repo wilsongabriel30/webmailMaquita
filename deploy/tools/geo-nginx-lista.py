@@ -4,7 +4,8 @@ que nginx usa para el filtro por país del puerto 443 (deploy/webmail/nginx/filt
 
 Entrada: por stdin, la salida concatenada de «nft -j list set inet filter <conjunto>».
 Salida:  líneas «RED 1;» para el bloque «geo» de nginx.
-Sin ningún conjunto (la instalación no filtra por país) la lista deja pasar a todos (las dos mitades de IPv4).
+Sin ningún conjunto (la instalación no filtra por país) la lista deja pasar a todos: las dos mitades de IPv4
+y las dos de IPv6 (sin estas, quien llegaba por IPv6 recibía 444 aunque no hubiera filtro; informe de Andes).
 Con conjuntos pero casi vacíos se niega a escribir (código 3): mejor conservar la lista anterior.
 """
 
@@ -13,8 +14,12 @@ import json
 import sys
 
 MINIMO_REDES = 5
-# Las dos mitades de IPv4, y no «0.0.0.0/0», que nginx avisa como duplicado del «default» del bloque geo.
-ABIERTA = "# Esta instalación no filtra por país: se deja pasar a todos.\n0.0.0.0/1 1;\n128.0.0.0/1 1;\n"
+# Las dos mitades de cada familia, y no «0.0.0.0/0» ni «::/0», que nginx avisa como duplicado del «default»
+# del bloque geo.
+ABIERTA = (
+    "# Esta instalación no filtra por país: se deja pasar a todos.\n"
+    "0.0.0.0/1 1;\n128.0.0.0/1 1;\n::/1 1;\n8000::/1 1;\n"
+)
 
 
 def documentos(texto: str):

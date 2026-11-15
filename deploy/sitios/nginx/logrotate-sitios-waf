@@ -1,6 +1,9 @@
 # Registros del cortafuegos de aplicación de cada sitio (los lee el visor de bloqueos del panel y del portal).
 # copytruncate: ModSecurity mantiene el archivo abierto y no lo vuelve a abrir al recibir USR1.
-/var/log/nginx/sitios-waf/*.log /var/log/nginx/sitios-waf.log {
+# 15/11/2026: aquí solo van los registros por sitio. /var/log/nginx/sitios-waf.log ya lo rota la regla de serie de
+# nginx (/var/log/nginx/*.log); repetirlo aquí era «duplicate log entry»: logrotate descartaba este bloque entero
+# cada noche con error y los registros por sitio no rotaban (informe de Andes, 04/11 y 15/11/2026).
+/var/log/nginx/sitios-waf/*.log {
     weekly
     rotate 4
     maxsize 50M

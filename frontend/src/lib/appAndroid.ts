@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { nombreApp } from './marca';
+import { hayAppMovil, nombreApp } from './marca';
 
 /** Manifiesto de la app Android publicado por el servidor (AM-11). */
 export interface ManifiestoApp { versionName: string; tamano?: number; fecha?: string; notas?: string; nombre?: string; }
@@ -46,8 +46,10 @@ export function textoTamano(m: ManifiestoApp): string {
 /** Manifiesto publicado (null si no hay versión); se lee una sola vez por sesión. */
 export function cargarManifiestoApp(): Promise<ManifiestoApp | null> {
   if (!cache) {
-    cache = fetch(RUTA_JSON, { cache: 'no-store' })
-      .then(r => (r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : null))
+    // 15/11/2026: donde no hay app publicada, pedir el manifiesto era un 404 en cada carga (Andes).
+    cache = hayAppMovil()
+      .then(hay => (hay ? fetch(RUTA_JSON, { cache: 'no-store' }) : null))
+      .then(r => (r && r.ok && (r.headers.get('content-type') || '').includes('json') ? r.json() : null))
       .then(j => (j && typeof j.versionName === 'string' ? (j as ManifiestoApp) : null))
       .catch(() => null);
   }

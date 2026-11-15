@@ -81,9 +81,13 @@ def test_sin_conjuntos_la_instalacion_no_filtra_y_se_deja_pasar_a_todos():
         for l in abierta.splitlines()
         if l.endswith(" 1;")
     ]
-    # Dos mitades que juntas cubren todo IPv4; nunca la red completa, que nginx avisa como duplicada.
-    assert len(mitades) == 2 and sum(m.num_addresses for m in mitades) == 2**32
-    assert all(m.prefixlen == 1 for m in mitades)
+    # Dos mitades por familia que juntas la cubren entera; nunca la red completa, que nginx avisa como
+    # duplicada. Sin las de IPv6, quien llegaba por IPv6 recibía 444 sin haber filtro (Andes, 15/11/2026).
+    for version, total in ((4, 2**32), (6, 2**128)):
+        familia = [m for m in mitades if m.version == version]
+        assert len(familia) == 2 and sum(m.num_addresses for m in familia) == total
+        assert all(m.prefixlen == 1 for m in familia)
+    assert len(mitades) == 4
 
 
 def test_conjunto_casi_vacio_no_escribe_lista():

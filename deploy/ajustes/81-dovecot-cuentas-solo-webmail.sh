@@ -41,4 +41,24 @@ if ! doveconf -n >/dev/null 2>&1; then
     exit 1
 fi
 doveadm reload
+# Una recarga del passdb dejó una vez el acceso aceptando cualquier clave (informe de Andes, septiembre de 2026).
+# Se prueba una clave inventada con un buzón real: si entra, se reinicia Dovecot y se vuelve a probar; si aun
+# así entra, se restaura la configuración anterior y el ajuste falla.
+clave_mala_entra() {
+    local buzon
+    buzon="$(sudo -u postgres psql -d "$BASE_DATOS" -Atc "SELECT username FROM mailbox WHERE active ORDER BY username LIMIT 1" 2>/dev/null || true)"
+    [ -n "$buzon" ] || return 1
+    doveadm auth cache flush >/dev/null 2>&1 || true
+    doveadm auth test "$buzon" "clave-inventada-$(date +%s)-$RANDOM" >/dev/null 2>&1
+}
+sleep 1
+if clave_mala_entra; then
+    echo "Dovecot aceptó una clave inventada tras la recarga: se reinicia." >&2
+    systemctl restart dovecot; sleep 2
+    if clave_mala_entra; then
+        cp -p "$RESPALDO" "$CONF"; systemctl restart dovecot
+        echo "Dovecot seguía aceptando una clave inventada: se restauró $CONF. Revise la consulta de contraseñas." >&2
+        exit 1
+    fi
+fi
 echo "Hecho: Dovecot respeta las cuentas solo webmail (respaldo en $RESPALDO)."
