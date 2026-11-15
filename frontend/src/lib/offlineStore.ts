@@ -30,8 +30,32 @@ const CAMPOS_CORREO = ["from", "to", "cc", "bcc", "subject", "html_body",
                        "text_body", "attachments", "references", "in_reply_to",
                        "preview", "snippet"];
 
+// Multicuenta (13/11/2026): cada cuenta guarda sus correos aparte. Antes la clave era solo
+// «carpeta:uid»: el correo 683 de una cuenta asignada pisaba (y se confundía con) el 683 de la
+// propia, y al fallar la red se abría la copia de la OTRA cuenta (reporte de Logística, 13/11).
+function claveDeCuenta(): string {
+  const c = (cuentaActiva() || "").trim().toLowerCase();
+  return c ? `${c}|` : "";
+}
+function cuentaDeAhora(): string {
+  return (cuentaActiva() || "").trim().toLowerCase();
+}
+// Lo guardado antes de este arreglo no dice de qué cuenta es: se borra una sola vez por equipo.
+const MARCA_LIMPIEZA = "maquita_offline_por_cuenta_v1";
+let limpiezaHecha = false;
+function limpiarCopiasSinCuenta(db: IDBDatabase): void {
+  if (limpiezaHecha) return;
+  limpiezaHecha = true;
+  try {
+    if (localStorage.getItem(MARCA_LIMPIEZA) === "1") return;
+    const tx = db.transaction(["messages", "folders"], "readwrite");
+    tx.objectStore("messages").clear();
+    tx.objectStore("folders").clear();
+    tx.oncomplete = () => { try { localStorage.setItem(MARCA_LIMPIEZA, "1"); } catch { /* sin almacenamiento */ } };
+  } catch { /* si no se puede limpiar ahora, se reintenta en la próxima carga */ limpiezaHecha = false; }
+}
+
 const DB_NAME = "maquita-mail-offline";
-const DB_VERSION = 2;
 
 export interface OfflineMessage {
   id: string; // folder:uid
@@ -76,6 +100,13 @@ export interface OutboxEmail {
   request_read_receipt?: boolean;
   request_delivery_receipt?: boolean;
   importance?: 'normal' | 'high' | 'low';
+  /** Igual que en el envío directo (13/11/2026): remitente elegido, sensibilidad, permiso de
+   *  protección de datos y el borrador que el servidor retira cuando el correo sale. */
+  from_email?: string;
+  sensitivity?: string;
+  draft_uid?: number | null;
+  dlp_override?: boolean;
+  dlp_reason?: string;
   /** Multicuenta: cuenta asignada desde la que se escribió (null = la propia). Se envía
    *  con ESA cuenta aunque la cola se vacíe más tarde desde otra pestaña o cuenta. */
   cuenta?: string | null;
@@ -103,34 +134,91 @@ export interface OfflineAction {
   createdAt: number;
 }
 
-function openDB(): Promise<IDBDatabase> {
+/** Crea los almacenes que falten. Solo puede llamarse durante una subida de versión. */
+function crearAlmacenes(db: IDBDatabase): void {
+  // Messages store
+  if (!db.objectStoreNames.contains("messages")) {
+    const msgStore = db.createObjectStore("messages", { keyPath: "id" });
+    msgStore.createIndex("folder", "folder");
+    msgStore.createIndex("cachedAt", "cachedAt");
+  }
+  // Actions queue
+  if (!db.objectStoreNames.contains("actions")) {
+    db.createObjectStore("actions", { keyPath: "id" });
+  }
+  // Folders cache
+  if (!db.objectStoreNames.contains("folders")) {
+    db.createObjectStore("folders", { keyPath: "name" });
+  }
+  // Outbox for offline-composed emails
+  if (!db.objectStoreNames.contains("outbox")) {
+    const outboxStore = db.createObjectStore("outbox", { keyPath: "id" });
+    outboxStore.createIndex("status", "status");
+    outboxStore.createIndex("createdAt", "createdAt");
+  }
+  // Tareas: cache de SOLO LECTURA de la vista «Tareas» (T-118). Clave por vista/lista o meta.
+  // La lógica (guardar/leer/tope 500) vive en lib/tareasOffline.ts para no engordar este módulo.
+  if (!db.objectStoreNames.contains("tareas")) {
+    const tStore = db.createObjectStore("tareas", { keyPath: "clave" });
+    tStore.createIndex("cachedAt", "cachedAt");
+  }
+}
+
+const ALMACENES_BASICOS = ["messages", "actions", "folders", "outbox"];
+
+// 13/11/2026 — La base se abre SIN pedir versión. Pedir una versión mayor obliga a que todas las
+// demás ventanas suelten la suya; si alguna tiene la página anterior abierta (en la app de escritorio
+// pasa siempre: tiene varias ventanas), la apertura se queda esperando PARA SIEMPRE, y con ella todo
+// lo que guarda o lee aquí: el envío esperaba a la cola de salida y los correos no salían (se quedaban
+// en Borradores), y el editor no terminaba de cargar. Los almacenes se crean al crear la base; el de
+// «tareas» solo existe en las bases creadas desde el 13/11 (quien lo usa ya tolera que falte).
+const ESPERA_BASE_MS = 4000;
+
+export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      // Messages store
-      if (!db.objectStoreNames.contains("messages")) {
-        const msgStore = db.createObjectStore("messages", { keyPath: "id" });
-        msgStore.createIndex("folder", "folder");
-        msgStore.createIndex("cachedAt", "cachedAt");
+    const request = indexedDB.open(DB_NAME);
+    let resuelta = false;
+    const reloj = setTimeout(() => {
+      if (resuelta) return;
+      resuelta = true;
+      reject(new Error("La base local del navegador no responde"));
+    }, ESPERA_BASE_MS);
+    request.onupgradeneeded = () => crearAlmacenes(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Si otra ventana necesita cambiar la base, esta suelta su conexión en vez de bloquearla.
+      db.onversionchange = () => { try { db.close(); } catch { /* ya cerrada */ } };
+      if (resuelta) { try { db.close(); } catch { /* ya cerrada */ } return; }
+      // Otra parte de la página pudo crear la base vacía (se abre sin versión y sin almacenes): en ese
+      // caso sí hace falta una subida de versión para crearlos. Si otra ventana la bloquea, vence el
+      // reloj y quien llama sigue sin copia local, que es mejor que quedarse esperando.
+      if (ALMACENES_BASICOS.some((n) => !db.objectStoreNames.contains(n))) {
+        const siguiente = db.version + 1;
+        db.close();
+        const subida = indexedDB.open(DB_NAME, siguiente);
+        subida.onupgradeneeded = () => crearAlmacenes(subida.result);
+        subida.onsuccess = () => {
+          const nueva = subida.result;
+          nueva.onversionchange = () => { try { nueva.close(); } catch { /* ya cerrada */ } };
+          if (resuelta) { try { nueva.close(); } catch { /* ya cerrada */ } return; }
+          resuelta = true;
+          clearTimeout(reloj);
+          resolve(nueva);
+        };
+        subida.onerror = () => { if (!resuelta) { resuelta = true; clearTimeout(reloj); reject(subida.error); } };
+        return;
       }
-      // Actions queue
-      if (!db.objectStoreNames.contains("actions")) {
-        db.createObjectStore("actions", { keyPath: "id" });
-      }
-      // Folders cache
-      if (!db.objectStoreNames.contains("folders")) {
-        db.createObjectStore("folders", { keyPath: "name" });
-      }
-      // Outbox for offline-composed emails
-      if (!db.objectStoreNames.contains("outbox")) {
-        const outboxStore = db.createObjectStore("outbox", { keyPath: "id" });
-        outboxStore.createIndex("status", "status");
-        outboxStore.createIndex("createdAt", "createdAt");
-      }
+      resuelta = true;
+      clearTimeout(reloj);
+      limpiarCopiasSinCuenta(db);
+      resolve(db);
     };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error);
+    request.onerror = () => {
+      if (resuelta) return;
+      resuelta = true;
+      clearTimeout(reloj);
+      reject(request.error);
+    };
   });
 }
 
@@ -143,18 +231,20 @@ export async function cacheMessageList(folder: string, messages: OfflineMessage[
   const preparados: Record<string, unknown>[] = [];
   const lectura = db.transaction("messages", "readonly");
   const store = lectura.objectStore("messages");
+  const cuenta = cuentaDeAhora();
   for (const msg of messages) {
-    const id = `${folder}:${msg.uid}`;
+    const id = `${claveDeCuenta()}${folder}:${msg.uid}`;
     // Preserve existing full body if we already have it
     const existing = await new Promise<OfflineMessage | undefined>((resolve) => {
       const req = store.get(id);
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => resolve(undefined);
     });
-    const record: OfflineMessage = {
+    const record: OfflineMessage & { cuenta: string } = {
       ...msg,
       id,
       folder,
+      cuenta,
       cachedAt: Date.now(),
     };
     // Keep full body from previous cache
@@ -205,9 +295,9 @@ export async function cacheFullMessage(folder: string, msg: OfflineMessage) {
   const db = await openDB();
   const tx = db.transaction("messages", "readwrite");
   const store = tx.objectStore("messages");
-  const id = `${folder}:${msg.uid}`;
+  const id = `${claveDeCuenta()}${folder}:${msg.uid}`;
   // cifrar primero, guardar despues (ver la nota de addToOutbox)
-  const guardable = await meterEnSobre({ ...msg, id, folder, cachedAt: Date.now() },
+  const guardable = await meterEnSobre({ ...msg, id, folder, cuenta: cuentaDeAhora(), cachedAt: Date.now() },
                                        CAMPOS_CORREO);
   store.put(guardable);
 }
@@ -220,7 +310,8 @@ export async function getCachedMessages(folder: string): Promise<OfflineMessage[
     const req = idx.getAll(IDBKeyRange.only(folder));
     req.onsuccess = async () => {
       // Sort by date descending
-      const crudos = req.result || [];
+      const cuenta = cuentaDeAhora();
+      const crudos = (req.result || []).filter((c: Record<string, unknown>) => ((c.cuenta as string) || "") === cuenta);
       const msgs = (await Promise.all(crudos.map((c: Record<string, unknown>) => abrirSobre<OfflineMessage>(c))))
         .filter(Boolean) as OfflineMessage[];
       msgs.sort((a: OfflineMessage, b: OfflineMessage) => {
@@ -239,7 +330,7 @@ export async function getCachedMessage(folder: string, uid: number): Promise<Off
   const tx = db.transaction("messages", "readonly");
   const store = tx.objectStore("messages");
   return new Promise((resolve) => {
-    const req = store.get(`${folder}:${uid}`);
+    const req = store.get(`${claveDeCuenta()}${folder}:${uid}`);
     // T-49: se abre el sobre antes de devolverlo
     req.onsuccess = async () => resolve(await abrirSobre<OfflineMessage>(req.result));
     req.onerror = () => resolve(null);
@@ -313,10 +404,11 @@ export async function removeActions(ids: string[]) {
 
 export async function addToOutbox(
   email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">,
-  opciones?: { retenidoHasta?: number },
+  opciones?: { retenidoHasta?: number; id?: string },
 ): Promise<string> {
   const db = await openDB();
-  const id = crypto.randomUUID();
+  // `id`: identificador del intento de envío (lib/intentoEnvio.ts); la cola envía con ese mismo.
+  const id = opciones?.id || crypto.randomUUID();
   const record: OutboxEmail = {
     cuenta: cuentaActiva(),
     dueno: usuarioSesion(),

@@ -2,6 +2,7 @@
 // Reglas (T-35, 28/08/2026): un correo redactado NUNCA se pierde. Sin red o con el servidor caído se queda
 // «pendiente» y se reintenta al reconectar, al abrir la app y cada 60 s; solo un rechazo definitivo del servidor
 // (4xx distinto de 401/408/429) lo marca «No se pudo entregar» (con la causa), y la persona puede reintentar o borrar.
+import { enviarUnaVez, renovarIdentificador } from './envioUnico';
 import { getPendingActions, removeActions, getOutboxEmails, updateOutboxStatus, removeFromOutbox, rescatarRetenidos } from "./offlineStore";
 import type { OfflineAction } from "./offlineStore";
 import { esDeLaSesion } from "./sesionActual";
@@ -56,10 +57,6 @@ export async function syncOfflineActions() {
   }
 }
 
-function esDefinitivo(status: number) {
-  return status >= 400 && status < 500 && ![401, 408, 429].includes(status);
-}
-
 export async function syncOutbox(soloId?: string): Promise<{ sent: number; failed: number }> {
   if (isSyncing) return { sent: 0, failed: 0 };
   isSyncing = true;
@@ -77,24 +74,22 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
       await updateOutboxStatus(email.id, 'sending');
       window.dispatchEvent(new CustomEvent('outbox-cambio'));
       try {
-        const res = await fetch('/api/mail/send', {
-          // Multicuenta: sale desde la cuenta en que se escribió, no desde la abierta ahora.
-          method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Cuenta-Activa': email.cuenta || 'propia' }, credentials: 'include',
-          body: JSON.stringify({
-            to: email.to, cc: email.cc, bcc: email.bcc, subject: email.subject, html_body: email.html_body, text_body: email.text_body,
-            in_reply_to: email.in_reply_to || '', references: email.references || '', attachments: email.attachments || [],
-            request_read_receipt: email.request_read_receipt || false, request_delivery_receipt: email.request_delivery_receipt || false,
-            importance: email.importance || 'normal',
-          }),
+        // Por la ruta que no repite (ver envioUnico.ts): si el servidor ya lo tenía, no sale dos veces.
+        const fin = await enviarUnaVez(email.id, email.cuenta || 'propia', {
+          to: email.to, cc: email.cc, bcc: email.bcc, subject: email.subject, html_body: email.html_body, text_body: email.text_body,
+          in_reply_to: email.in_reply_to || '', references: email.references || '', attachments: email.attachments || [],
+          request_read_receipt: email.request_read_receipt || false, request_delivery_receipt: email.request_delivery_receipt || false,
+          importance: email.importance || 'normal',
+          // Como el envío directo: sin `draft_uid` el correo salía y su borrador se quedaba en Borradores.
+          from_email: email.from_email || undefined, sensitivity: email.sensitivity || undefined,
+          draft_uid: email.draft_uid ?? null, dlp_override: email.dlp_override || false, dlp_reason: email.dlp_reason || undefined,
         });
-        if (res.ok) {
+        if (fin.tipo === 'enviado') {
           await removeFromOutbox(email.id); sent++;
-        } else if (esDefinitivo(res.status)) {
-          const body = await res.json().catch(() => ({}));
-          await updateOutboxStatus(email.id, 'failed', body.detail || `El servidor rechazó el envío (HTTP ${res.status})`); failed++;
+        } else if (fin.tipo === 'rechazado') {
+          await updateOutboxStatus(email.id, 'failed', fin.mensaje); failed++;
         } else {
-          // 5xx / 401 / 429: transitorio, sigue en cola
-          await updateOutboxStatus(email.id, 'pending', `Servidor ocupado (HTTP ${res.status}); se reintentará`);
+          await updateOutboxStatus(email.id, 'pending', fin.mensaje);
         }
       } catch {
         await updateOutboxStatus(email.id, 'pending', causaSinConexion());
@@ -109,6 +104,7 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
 
 /** Reintentar a mano un correo marcado «No se pudo entregar». */
 export async function reintentarEnvio(id: string) {
+  renovarIdentificador(id);   // lo pidió la persona: es un intento nuevo de verdad
   await updateOutboxStatus(id, 'pending');
   return syncOutbox(id);
 }

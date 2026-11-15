@@ -10,9 +10,12 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 // @ts-expect-error -- el paquete no publica tipos
 import sri from 'vite-plugin-sri'
+// Color de acento personalizable (Configuración → Apariencia): ver complementos/acento/tonos.ts
+import { acentoEnCss, acentoEnLinea } from './complementos/acento/index.ts'
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), sri()],
+  plugins: [acentoEnLinea(), react(), tailwindcss(), sri()],
+  css: { postcss: { plugins: [acentoEnCss()] } },
   base: '/webmail/',
   build: {
     outDir: 'dist',

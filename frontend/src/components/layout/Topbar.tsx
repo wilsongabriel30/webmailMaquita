@@ -6,7 +6,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { useNavigate } from 'react-router-dom';
 import { getFolderDisplayName } from '../../folders';
 import { SearchAdvanced } from "../common/SearchAdvanced";
-import { aplicarBusqueda, cambiarAmbito } from "../../lib/busquedaGlobal";
+import { aplicarBusqueda, cambiarAmbito, TODO_EL_CORREO_DISPONIBLE } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
@@ -172,8 +172,8 @@ export function Topbar() {
           onChange={aplicarBusqueda}
           onSearch={aplicarBusqueda}
           onBuscarEnContenido={setBuscarEnContenido}
-          enTodo={buscarEnTodo}
-          onEnTodo={cambiarAmbito}
+          enTodo={TODO_EL_CORREO_DISPONIBLE && buscarEnTodo}
+          onEnTodo={TODO_EL_CORREO_DISPONIBLE ? cambiarAmbito : undefined}
           placeholder="Buscar en el correo (/ para enfocar)"
         />
       </div>

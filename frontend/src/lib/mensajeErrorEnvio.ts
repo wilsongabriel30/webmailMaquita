@@ -10,6 +10,9 @@ export function textoErrorEnvio(crudo: string): string {
   const texto = (crudo || '').replace(/^(Error al enviar:\s*)+/i, '').trim();
   if (texto) console.warn('[correo] detalle del error al enviar:', crudo);
 
+  // No se sabe si salió: se dice tal cual. Invitar a reintentar haría que saliera repetido.
+  if (/^No se pudo confirmar/.test(texto)) return texto;
+
   if (/\b55[03]\b|5\.1\.[0-9]|user unknown|no such user|mailbox unavailable|recipient address rejected/i.test(texto)) {
     const dir = texto.match(DIRECCION)?.[0];
     return dir

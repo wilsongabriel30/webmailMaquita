@@ -9,8 +9,10 @@ import { Toolbar } from '../mail/Toolbar';
 import { ToastContainer } from '../common/ToastContainer';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
+import { useApariencia } from '../../hooks/useApariencia';
 
 export function ComposePopup() {
+  useApariencia({ soloClaro: true });   // color principal elegido en Configuración → Apariencia
   const composeWindows = useMailStore(s => s.composeWindows);
   const openCompose = useMailStore(s => s.openCompose);
   const restoreCompose = useMailStore(s => s.restoreCompose);

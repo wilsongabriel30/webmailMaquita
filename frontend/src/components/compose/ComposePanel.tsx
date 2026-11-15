@@ -14,7 +14,7 @@ import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos, type ArchivoAdjunto } from '../../lib/adjuntosBorrador';
 import { tomarArchivosParaRedaccion } from '../../lib/archivosParaRedaccion';
-import { leerEstadoRedaccion } from '../../lib/estadoRedaccion';
+import { borradorVigente, leerEstadoRedaccion } from '../../lib/estadoRedaccion';
 import { CitaMarcable } from './CitaMarcable';
 import { TIPO_ARRASTRE_CORREOS, EVENTO_ADJUNTAR_CORREO, correosArrastrados, descargarCorreosComoEml, type CorreoAAdjuntar } from '../../lib/correosComoAdjunto';
 import { SelectorCorreoAdjunto } from './SelectorCorreoAdjunto';
@@ -39,8 +39,8 @@ import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
-import { TableCell } from '@tiptap/extension-table-cell';
-import { TableHeader } from '@tiptap/extension-table-header';
+import { CeldaConFormato, EncabezadoConFormato, tablasParaCorreo } from './celdasConFormato';   // tablas de Excel con su formato (13/11/2026)
+import { tablasPegadasConEstilos } from './tablasPegadas';
 import { Subscript } from '@tiptap/extension-subscript';
 import { Superscript } from '@tiptap/extension-superscript';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -56,16 +56,19 @@ import { FormatoParrafo } from './formatoParrafo';
 import { useMailStore, type DraftWindow } from '../../store/mailStore';
 import { api } from '../../api/client';
 import type { AttachmentInfo } from '../../types';
-import { showToast, updateToast, dismissToast } from '../common/Toast';
+import { showToast, dismissToast } from '../common/Toast';
 import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
 import { BotonDescartarRedaccion } from './BotonDescartarRedaccion';
 import { ZonaSoltarArchivos, type ZonaSoltar } from './ZonaSoltarArchivos';
 import { DirectoryPanel } from '../contacts/DirectoryPanel';
 import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
+import { anotarEnvioReciente, retirarEnvioReciente } from '../../lib/enviosRecientes';   // envío sin aviso de «enviando» (13/11/2026)
+import { reabrirRedaccion } from './reabrirRedaccion';
+import { envioPrevioSi, huellaDeEnvio, idDeIntento, paraCola } from '../../lib/intentoEnvio';   // un identificador por intento (13/11/2026)
 
 // Module-level pending send map (persists after compose unmounts)
-interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; intervalId: ReturnType<typeof setInterval>; }
+interface PendingSend { timerId: ReturnType<typeof setTimeout>; toastId: string; }
 const pendingSendMap: Map<string, PendingSend> = new Map();
 
 interface Props { win: DraftWindow; }
@@ -214,8 +217,8 @@ export function ComposePanel({ win }: Props) {
       Image.configure({ inline: true, allowBase64: true, resize: OPCIONES_RESIZE }),
       Table.configure({ resizable: true }),
       TableRow,
-      TableCell,
-      TableHeader,
+      CeldaConFormato,
+      EncabezadoConFormato,
       Subscript,
       Superscript,
       Placeholder.configure({ placeholder: '' }),
@@ -231,7 +234,7 @@ export function ComposePanel({ win }: Props) {
         style: 'font-family: Calibri, Segoe UI, sans-serif;',
       },
       handlePaste: (view, event) => pegarImagenes(view, event),
-      transformPastedHTML: (html) => quitarImagenesLocales(html, showToast),
+      transformPastedHTML: (html) => tablasPegadasConEstilos(quitarImagenesLocales(html, showToast)),
       handleDrop: (view, event, slice, moved) => soltarImagenes(view, event, slice, moved),
     },
   });
@@ -242,25 +245,9 @@ export function ComposePanel({ win }: Props) {
   // Fix #5 (2026-06-19): TipTap serializa <table>/<td> sin estilos inline;
   // los bordes del editor vienen del CSS .tiptap, que NO existe en el correo
   // recibido -> la tabla se ve como texto. Inyectamos estilos inline al enviar.
-  const styleTablesForEmail = (html: string): string => {
-    if (!html || html.indexOf('<table') === -1) return html;
-    try {
-      const doc = new DOMParser().parseFromString(html, 'text/html');
-      const add = (el: Element, css: string) => {
-        const prev = el.getAttribute('style') || '';
-        el.setAttribute('style', (prev ? prev.replace(/;?\s*$/, ';') : '') + css);
-      };
-      doc.querySelectorAll('table').forEach((t) => add(t, 'border-collapse:collapse;border:1px solid #d0d0d0;'));
-      doc.querySelectorAll('td,th').forEach((c) => add(c, 'border:1px solid #d0d0d0;padding:6px 8px;'));
-      doc.querySelectorAll('th').forEach((h) => add(h, 'background:#f3f2f1;font-weight:600;text-align:left;'));
-      return doc.body.innerHTML;
-    } catch {
-      return html;
-    }
-  };
-
+  // Desde 13/11/2026 esa preparación vive en celdasConFormato.ts y respeta el formato propio de cada celda.
   const getFullHtml = useCallback(() => {
-    const body = styleTablesForEmail(editor?.getHTML() || '');
+    const body = tablasParaCorreo(editor?.getHTML() || '');
     // No duplicar: si el cuerpo ya trae la firma (p.ej. un borrador antiguo
     // guardado con la firma incrustada), no la reagregamos.
     const sigBlock = (signatureHtml && !body.includes('email-signature'))
@@ -553,7 +540,7 @@ export function ComposePanel({ win }: Props) {
 
   // Convertir File a base64 para enviar adjuntos al backend
 
-  // handleSend with 5-second undo  MUST be defined before keyboard useEffect
+  // handleSend with 3-second undo  MUST be defined before keyboard useEffect
   const enviarUnaVez = useCallback(async () => {
     if (encrypt) {
       const recipients = to.split(',').map(x => x.trim()).filter(Boolean);
@@ -662,25 +649,33 @@ export function ComposePanel({ win }: Props) {
       request_delivery_receipt: trackingState.delivery,
       importance,
     };
-    const savedData = { mode: win.mode, data: { ...win.data, to: recipients, subject, html_body: getFullHtml(), text_body: '' } };
+    const savedData = { mode: win.mode, data: { ...win.data, to: recipients, cc: sendPayload.cc, bcc: sendPayload.bcc, subject, html_body: getFullHtml(), text_body: '', draft_uid: draftUidVigente, envio_previo: undefined } };
+    // El mismo identificador para la copia retenida, el envío directo y la cola (lib/intentoEnvio.ts).
+    const huellaEnvio = huellaDeEnvio(sendPayload);
+    const idEnvio = idDeIntento(win.data.envio_previo, huellaEnvio);
     const winId = win.id;
     closeCompose(winId);
-    const SEGUNDOS_PARA_ARREPENTIRSE = 5;
-    let remaining = SEGUNDOS_PARA_ARREPENTIRSE;
+    // Desde este instante el correo se ve en «Enviados»; el envío real sigue por detrás (13/11/2026).
+    const idReciente = anotarEnvioReciente(subject, recipients);
+    const SEGUNDOS_PARA_ARREPENTIRSE = 3;   // antes 5 (15/11/2026: el correo interno debe llegar al instante)
 
     // El correo se guarda en la cola de salida ANTES de empezar la cuenta atrás, retenido hasta
     // que esta venza. Así deja de vivir solo en memoria: si la pestaña se cierra durante esos
     // segundos, el correo sigue ahí y sale al volver a abrir, en lugar de perderse sin aviso.
-    const guardadoEnCola = addToOutbox({
-      to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc,
-      subject: sendPayload.subject, html_body: sendPayload.html_body, text_body: sendPayload.text_body,
-      in_reply_to: sendPayload.in_reply_to, references: sendPayload.references,
-      attachments: sendPayload.attachments,
-      request_read_receipt: sendPayload.request_read_receipt,
-      request_delivery_receipt: sendPayload.request_delivery_receipt,
-      importance: sendPayload.importance,
-    }, { retenidoHasta: Date.now() + SEGUNDOS_PARA_ARREPENTIRSE * 1000 })
+    const guardadoEnColaReal = addToOutbox(paraCola(sendPayload), { retenidoHasta: Date.now() + SEGUNDOS_PARA_ARREPENTIRSE * 1000, id: idEnvio })
       .catch(() => null); // Si no se pudo guardar, el envío sigue su curso como antes.
+    // El envío NUNCA espera a la base local más de 3 s (13/11/2026): con la base del navegador
+    // bloqueada, esta promesa no terminaba, el correo no salía y se quedaba en Borradores sin
+    // ningún aviso. Si la cola responde tarde, se retira esa copia para no enviarlo dos veces.
+    let colaVencida = false;
+    let reencolado = false;   // el correo volvió a la cola con el mismo identificador: la retirada tardía no debe borrarlo
+    const guardadoEnCola: Promise<string | null> = Promise.race([
+      guardadoEnColaReal,
+      new Promise<null>((ok) => setTimeout(() => { colaVencida = true; ok(null); }, 3000)),
+    ]);
+    void guardadoEnColaReal.then((idTardio) => {
+      if (colaVencida && idTardio && !reencolado) void removeFromOutbox(idTardio).catch(() => { /* ya no está */ });
+    });
 
     /** Saca el correo de la cola: se va a enviar ahora, o la persona se ha arrepentido.
      *  Devuelve `false` solo si el correo sigue en la cola y hay que dejárselo a ella. */
@@ -696,26 +691,24 @@ export function ComposePanel({ win }: Props) {
       }
     };
 
-    const toastId = showToast(`Enviando en ${remaining}s...`, { label: 'Deshacer', onClick: () => {
-      const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); clearInterval(p.intervalId); pendingSendMap.delete(winId); }
+    // Sin cuenta atrás ni «Enviando…» (pedido del personal, 13/11/2026): un aviso corto con «Deshacer».
+    const toastId = showToast(navigator.onLine ? 'Correo enviado' : 'Sin internet: el correo saldrá solo al volver la conexión', { label: 'Deshacer', onClick: () => {
+      retirarEnvioReciente(idReciente);
+      const p = pendingSendMap.get(winId); if (p) { clearTimeout(p.timerId); pendingSendMap.delete(winId); }
       void soltarDeLaCola();
-      dismissToast(toastId); useMailStore.getState().openCompose(savedData.mode, savedData.data); showToast('Envío cancelado');
+      dismissToast(toastId); reabrirRedaccion(savedData.mode, savedData.data, attachments, winId); showToast('Envío cancelado');
     }});
-    // Repintar el aviso en cada segundo: sin esto el contador se queda clavado en 5s y la
-    // persona no sabe cuánto le queda para arrepentirse.
-    const intervalId = setInterval(() => {
-      remaining--;
-      if (remaining <= 0) return;
-      updateToast(toastId, `Enviando en ${remaining}s...`);
-    }, 1000);
-    const timerId = setTimeout(async () => {
+    const alVencer = async () => {
+      // Si un guardado del borrador seguía en curso al pulsar «Enviar», se espera a su UID: es el
+      // borrador que el servidor debe retirar cuando el correo salga.
+      sendPayload.draft_uid = await borradorVigente(winId, sendPayload.draft_uid);
       // Vencida la cuenta atrás, el correo deja de estar retenido: o se envía ahora, o se
       // vuelve a encolar como pendiente unas líneas más abajo (sin red o con el servidor caído).
       //
       // Si NO se ha podido sacar de la cola, no se envía por aquí: sigue guardado y lo entrega
       // la cola, una sola vez. Enviarlo igualmente lo mandaría dos veces.
       if (!(await soltarDeLaCola())) {
-        clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
+        pendingSendMap.delete(winId); dismissToast(toastId);
         const id = await guardadoEnCola;
         if (id) await updateOutboxStatus(id, 'pending').catch(() => {});
         window.dispatchEvent(new CustomEvent('outbox-cambio'));
@@ -725,24 +718,17 @@ export function ComposePanel({ win }: Props) {
       }
       // OFFLINE: queue in outbox instead of sending
       if (!navigator.onLine) {
-        clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
+        pendingSendMap.delete(winId); dismissToast(toastId);
         try {
-          await addToOutbox({
-            to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc,
-            subject: sendPayload.subject, html_body: sendPayload.html_body,
-            text_body: sendPayload.text_body, in_reply_to: sendPayload.in_reply_to,
-            references: sendPayload.references, attachments: sendPayload.attachments,
-            request_read_receipt: sendPayload.request_read_receipt,
-            request_delivery_receipt: sendPayload.request_delivery_receipt,
-            importance: sendPayload.importance,
-          });
+          reencolado = true; await addToOutbox(paraCola(sendPayload), { id: idEnvio });
           window.dispatchEvent(new CustomEvent('outbox-cambio'));
           showToast('Sin internet: el correo quedó en cola y se enviará solo al volver la conexión (aunque cierres la app).');
         } catch { showToast('Error al guardar correo offline'); }
         return;
       }
-      clearInterval(intervalId); pendingSendMap.delete(winId); dismissToast(toastId);
-      try { await enviarCorreo(sendPayload); showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
+      pendingSendMap.delete(winId); dismissToast(toastId);
+      // Sin aviso de «Mensaje enviado»: para la persona ya estaba enviado; solo se avisa si algo falla.
+      try { await enviarCorreo(sendPayload, idEnvio); retirarEnvioReciente(idReciente, 1500); window.dispatchEvent(new CustomEvent('refresh-messages'));
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
         const bloqueo = leerBloqueoSensibilidad(errMsg);
@@ -751,7 +737,7 @@ export function ComposePanel({ win }: Props) {
           if (motivo) {
             try {
               await enviarCorreo({ ...sendPayload, dlp_override: true, dlp_reason: motivo });
-              showToast('Mensaje enviado'); window.dispatchEvent(new CustomEvent('refresh-messages'));
+              retirarEnvioReciente(idReciente, 1500); window.dispatchEvent(new CustomEvent('refresh-messages'));
               return;
             } catch (err2: unknown) {
               showToast(textoErrorEnvio(err2 instanceof Error ? err2.message : ''), undefined, { fijo: true });
@@ -773,12 +759,8 @@ export function ComposePanel({ win }: Props) {
         } else if (!navigator.onLine || /Failed to fetch|NetworkError|Sin conexion|offline|50[234]|timeout|abort/i.test(errMsg)) {
           // T-35: el servidor no responde o se fue la red a mitad del envío: a la cola persistente, nunca se pierde
           try {
-            await addToOutbox({
-              to: sendPayload.to, cc: sendPayload.cc, bcc: sendPayload.bcc, subject: sendPayload.subject, html_body: sendPayload.html_body,
-              text_body: sendPayload.text_body, in_reply_to: sendPayload.in_reply_to, references: sendPayload.references,
-              attachments: sendPayload.attachments, request_read_receipt: sendPayload.request_read_receipt, request_delivery_receipt: sendPayload.request_delivery_receipt,
-              importance: sendPayload.importance,
-            });
+            // Con el identificador del intento: si la petición llegó al servidor y solo se perdió la respuesta, no sale otra vez.
+            reencolado = true; await addToOutbox(paraCola(sendPayload), { id: idEnvio });
             window.dispatchEvent(new CustomEvent('outbox-cambio'));
             showToast(navigator.onLine ? 'El servidor no responde: el correo quedó en cola y se enviará solo al restablecerse.' : 'Sin internet: el correo quedó en cola y se enviará solo al volver la conexión.');
             return;
@@ -788,10 +770,12 @@ export function ComposePanel({ win }: Props) {
         } else {
           showToast(textoErrorEnvio(errMsg), undefined, { fijo: true });
         }
-        useMailStore.getState().openCompose(savedData.mode, savedData.data);
+        reabrirRedaccion(savedData.mode, { ...savedData.data, draft_uid: sendPayload.draft_uid, envio_previo: envioPrevioSi(err, idEnvio, huellaEnvio) }, attachments);
       }
-    }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
-    pendingSendMap.set(winId, { timerId, toastId, intervalId });
+    };
+    // Pase lo que pase (enviado, en cola o fallido), la fila provisional de «Enviados» se retira.
+    const timerId = setTimeout(() => { void alVencer().finally(() => retirarEnvioReciente(idReciente)); }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
+    pendingSendMap.set(winId, { timerId, toastId });
   }, [to, cc, bcc, subject, editor, win, trackingState, importance, closeCompose, attachments, encrypt]);
 
   // 2026-09-16: un doble clic en Enviar (o Ctrl+Enter repetido) disparaba dos

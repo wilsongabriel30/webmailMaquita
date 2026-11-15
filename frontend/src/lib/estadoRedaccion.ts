@@ -60,6 +60,25 @@ export function enColaDeGuardado<T>(id: string, tarea: () => Promise<T>): Promis
   return propia;
 }
 
+// Último borrador que guardó cada ventana. Se consulta DESPUÉS de cerrarla (al enviar o al
+// reabrirla): un guardado que seguía en curso deja aquí su UID aunque la ventana ya no exista.
+const uids = new Map<string, number>();
+
+export function anotarUidBorrador(id: string, uid: number): void {
+  uids.set(id, uid);
+}
+
+/**
+ * UID del borrador de una ventana una vez terminados sus guardados en curso (se espera como mucho
+ * `maxMs`). Sin esto, al enviar con un guardado a medias el envío no sabía qué borrador retirar
+ * y el correo ya enviado seguía en Borradores (13/11/2026).
+ */
+export async function borradorVigente(id: string, conocido: number | null | undefined, maxMs = 6000): Promise<number | null> {
+  const cola = colas.get(id);
+  if (cola) await Promise.race([cola.catch(() => undefined), new Promise(r => setTimeout(r, maxMs))]);
+  return uids.get(id) ?? conocido ?? null;
+}
+
 /** Sin destinatarios, asunto, adjuntos ni texto: no vale la pena guardar un borrador. */
 export function redaccionVacia(e: Pick<EstadoRedaccion, 'to' | 'cc' | 'bcc' | 'subject' | 'cuerpoHtml' | 'attachments'>): boolean {
   const texto = e.cuerpoHtml.replace(/<img\b/gi, 'x<').replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();

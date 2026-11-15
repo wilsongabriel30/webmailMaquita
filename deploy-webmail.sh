@@ -34,6 +34,13 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# Un solo despliegue a la vez (15/11/2026): el 13/11 dos sesiones compilaron sobre la misma carpeta.
+exec 9>/run/lock/deploy-webmail.lock
+if ! flock -n 9; then
+    echo -e "${RED}Hay otro despliegue del webmail en curso. No se hace nada.${NC}"
+    exit 1
+fi
+
 echo -e "${YELLOW}=== Deploy Maquita Webmail ===${NC}"
 echo "Fecha: $(date '+%Y-%m-%d %H:%M:%S')"
 
@@ -150,24 +157,26 @@ fi
 
 # --- Paso 4: Deploy (NUNCA tocar www/ raíz, solo www/webmail/) ---
 echo -e "\n${YELLOW}[3/5] Desplegando en ${DEPLOY_TARGET}...${NC}"
-# Conservar assets con hash de deploys anteriores (pestañas abiertas siguen
-# pidiendo chunks viejos; sin esto ven \"Failed to fetch dynamically imported module\").
-OLD_ASSETS=""
+# Publicación en un solo paso (15/11/2026). La versión nueva se arma completa en una carpeta
+# aparte, con los assets con hash de despliegues anteriores (las pestañas abiertas siguen
+# pidiendo partes viejas), y se cambia por la publicada con dos «mv». Antes la carpeta publicada
+# se borraba y se volvía a copiar (más de 250 MB): durante esos segundos toda página abierta
+# recibía 404 al pedir una parte de la interfaz y se recargaba sola, «como si pulsaran F5».
+NUEVO="${DEPLOY_TARGET}.nuevo"
+VIEJO="${DEPLOY_TARGET}.viejo"
+rm -rf "${NUEVO}" "${VIEJO}"
+mkdir -p "${NUEVO}"
+cp -r "${DIST_DIR}/"* "${NUEVO}/"
 if [ -d "${DEPLOY_TARGET}/assets" ]; then
-    OLD_ASSETS=$(mktemp -d)
-    cp -r "${DEPLOY_TARGET}/assets/." "${OLD_ASSETS}/"
-fi
-# CRÍTICO: Solo borrar el contenido de www/webmail/, NUNCA www/ completo
-rm -rf "${DEPLOY_TARGET}"
-mkdir -p "${DEPLOY_TARGET}"
-cp -r "${DIST_DIR}/"* "${DEPLOY_TARGET}/"
-# Restaurar assets anteriores SIN pisar los nuevos (hash único = sin colisiones)
-if [ -n "${OLD_ASSETS}" ] && [ -d "${OLD_ASSETS}" ]; then
-    cp -rn "${OLD_ASSETS}/." "${DEPLOY_TARGET}/assets/" 2>/dev/null || true
-    rm -rf "${OLD_ASSETS}"
+    # Sin pisar los nuevos (hash único = sin colisiones) y conservando la fecha, para la purga
+    cp -rnp "${DEPLOY_TARGET}/assets/." "${NUEVO}/assets/" 2>/dev/null || true
     # Purgar assets con más de 14 días (huérfanos de deploys muy viejos)
-    find "${DEPLOY_TARGET}/assets" -type f -mtime +14 -delete 2>/dev/null || true
+    find "${NUEVO}/assets" -type f -mtime +14 -delete 2>/dev/null || true
 fi
+# CRÍTICO: solo se cambia www/webmail/, NUNCA www/ completo
+if [ -d "${DEPLOY_TARGET}" ]; then mv "${DEPLOY_TARGET}" "${VIEJO}"; fi
+mv "${NUEVO}" "${DEPLOY_TARGET}"
+rm -rf "${VIEJO}"
 # Recrear symlink de downloads (directorio persistente fuera del deploy)
 ln -sf /opt/maquita-webmail/downloads "${DEPLOY_TARGET}/downloads"
 

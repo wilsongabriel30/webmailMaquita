@@ -122,6 +122,9 @@ async def send(
     body: ComposeRequest,
     username: str = Depends(get_current_user),
 ):
+    from app.mail.services.tramos_envio import Tramos
+
+    _tr = Tramos(username)
     password = await get_user_password(request, username)
     await _check_send_rate(request, username)
 
@@ -158,6 +161,7 @@ async def send(
             pass
         raise HTTPException(status_code=429, detail=anomaly["reason"])
 
+    _tr.marca("limites")
     # -- DLP: prevencion de fuga de datos sensibles (salientes) --
     from app.dlp import policy as dlp_policy
     from app.dlp import service as dlp_service
@@ -210,6 +214,7 @@ async def send(
             _ext,
         )
 
+    _tr.marca("dlp_cuerpo")
     # -- Communication Compliance: monitoreo segun politicas (no bloquea) --
     try:
         from app.comm_compliance import service as cc_service
@@ -226,6 +231,7 @@ async def send(
     except Exception:
         pass
 
+    _tr.marca("cumplimiento")
     # -- Etiqueta de sensibilidad: control de salida (B) + marca visible (A) --
     from app.mail import sensitivity as _sens
 
@@ -251,6 +257,7 @@ async def send(
 
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
+    _tr.marca("buzon")
     try:
         # Nombre del remitente: el de sus preferencias o, si no lo puso, el de su buzón (06/11/2026)
         db = request.app.state.db_pool
@@ -264,6 +271,7 @@ async def send(
             await resolver_remitente(db, username, body.from_email, display_name)
         )
 
+        _tr.marca("remitente")
         # Tipos de archivo que nunca salen (ejecutables, scripts, .dat...)
         rechazar_peligrosos(a.filename for a in (body.attachments or []))
         # Decodificar adjuntos base64 — los grandes van al Almacén (Drive)
@@ -303,12 +311,14 @@ async def send(
             links_block = "<br>".join(large_links_html)
             body.html_body = (body.html_body or "") + "<br>" + links_block
 
+        _tr.marca("adjuntos")
         # Firma normalizada y con sus imágenes incrustadas (cid); citado con tamaño acotado
         body.html_body, _inline_firma, _ = await asyncio.to_thread(
             preparar_envio, body.html_body or ""
         )
         attachments.extend(_inline_firma)
 
+        _tr.marca("firma")
         # -- DLP Nivel 2: datos sensibles DENTRO de los adjuntos (fail-open) --
         if attachments and (await dlp_service.get_config(_dlp_db)).get(
             "scan_attachments", True
@@ -394,6 +404,7 @@ async def send(
             except Exception:
                 pass
 
+        _tr.marca("dlp_adjuntos")
         # Anti-malware de adjuntos salientes (safeattach: ClamAV + oletools + file-type).
         # Decision de diseno (no es hallazgo): fail-open. Un motor caido no detiene el correo
         # institucional; solo bloquea con veredicto malicioso y enforce. Ver docs/REVISIONES-DE-SEGURIDAD.md.
@@ -445,6 +456,7 @@ async def send(
                 raise
             except Exception:
                 pass  # fail-open: el escaner no debe romper el envio
+        _tr.marca("antimalware")
         try:
             result = await send_and_save(
                 imap=imap_remitente or imap,
@@ -507,10 +519,12 @@ async def send(
             all_recipients.extend(body.cc)
         if body.bcc:
             all_recipients.extend(body.bcc)
+        _tr.marca("smtp_y_enviados")
         await _save_sent_recipients(db, username, all_recipients)
 
         return result
     finally:
+        _tr.cerrar()
         for _c in (imap, locals().get("imap_remitente")):
             try:
                 if _c is not None:

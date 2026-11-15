@@ -8,6 +8,7 @@ import { Outlet } from "react-router-dom";
 import { useKeyboardShortcuts } from "../../hooks/useKeyboardShortcuts";
 import { useWebSocket } from "../../hooks/useWebSocket";
 import { useThemeStore } from "../../store/themeStore";
+import { useApariencia } from "../../hooks/useApariencia";
 import { useNombreApp } from "../../lib/marca";
 import { useMailStore } from "../../store/mailStore";
 import { api } from "../../api/client";
@@ -30,6 +31,7 @@ export function AppLayout() {
   const nombreApp = useNombreApp();
   useDeepLinkCorreo();
   useKeyboardShortcuts();
+  useApariencia();   // color principal elegido en Configuración → Apariencia
   useWebSocket();
   useOfflineSync();
   const dark = useThemeStore((s) => s.dark);

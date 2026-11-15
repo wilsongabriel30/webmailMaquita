@@ -92,6 +92,11 @@ export function useKeyboardShortcuts() {
       }
 
       if (isInput || enControl) return;
+      // Con un correo en redacción a la vista, los atajos de la lista quedan en pausa (15/11/2026).
+      // Bastaba que el cursor saliera del texto (un clic en una zona vacía de la ventana) para que
+      // una flecha abriera otro correo y minimizara lo que se escribía, o que la «n» de una palabra
+      // abriera un correo nuevo en blanco: «parpadea y lo que escribía se va solo a Borradores».
+      if (state.composeWindows.some(w => !w.minimized)) return;
 
       // Los atajos de una letra (N, R, F, E, /) solo valen sin Ctrl, Cmd ni Alt: Ctrl+F es
       // «buscar en la página», Ctrl+R recarga y Ctrl+N abre ventana. Antes Ctrl+F abría un

@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
 import {
-  CARPETA_TODO, ampliadaDesde, ampliarPorFaltaDeResultados, cambiarAmbito, volverALaCarpeta,
+  CARPETA_TODO, TODO_EL_CORREO_DISPONIBLE, ampliadaDesde, ampliarPorFaltaDeResultados, cambiarAmbito, volverALaCarpeta,
 } from '../../lib/busquedaGlobal';
 import { useTotalEnTodoElCorreo } from '../../hooks/useTotalEnTodoElCorreo';
 
@@ -38,7 +38,7 @@ export function AvisoBusquedaEnCarpeta() {
   // NO tiene ningún resultado. Preguntar en cada búsqueda (como se publicó el 13/11 por la mañana) lanzaba una
   // búsqueda en todo el correo por cada búsqueda normal: con el disco de buzones cargado tardaban 30 s de
   // mediana y se acumulaban. Buscar en todas las carpetas sigue a un clic.
-  const listo = enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery && totalAqui === 0;
+  const listo = TODO_EL_CORREO_DISPONIBLE && enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery && totalAqui === 0;
   const totalTodo = useTotalEnTodoElCorreo(buscada, listo);
   const enOtras = totalTodo === null ? null : Math.max(0, totalTodo - totalAqui);
 
@@ -73,9 +73,11 @@ export function AvisoBusquedaEnCarpeta() {
           ? <>Buscando en <strong>{carpeta}</strong>. Hay <strong>{enOtras.toLocaleString('es')}</strong> {enOtras === 1 ? 'resultado más' : 'resultados más'} en otras carpetas.</>
           : <>La búsqueda se realizará únicamente en la carpeta <strong>{carpeta}</strong>.</>}
       </span>
-      <button type="button" onClick={() => cambiarAmbito(true)} className={BOTON}>
-        {enOtras ? 'Ver todos' : 'Buscar en todas las carpetas'}
-      </button>
+      {TODO_EL_CORREO_DISPONIBLE && (
+        <button type="button" onClick={() => cambiarAmbito(true)} className={BOTON}>
+          {enOtras ? 'Ver todos' : 'Buscar en todas las carpetas'}
+        </button>
+      )}
     </div>
   );
 }

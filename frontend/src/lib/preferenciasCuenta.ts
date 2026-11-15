@@ -14,8 +14,9 @@ import { api } from '../api/client';
 
 export const CLAVES_DE_CUENTA: string[] = [
   'theme',
+  'maquita_tema', 'maquita_acento',   // Configuración → Apariencia (13/11/2026)
   // «maquita_escala» (la calcula cada pantalla) no va: solo la escala que la persona ELIGE.
-  'maquita_cinta_contraida', 'maquita_buscar_en_todo', 'maquita_escala_elegida',
+  'maquita_cinta_contraida', 'maquita_buscar_en_todo', 'maquita_adjuntos_en_pestana', 'maquita_escala_elegida',
   'maquita_mi_dia', 'maquita_pinned_msgs', 'maquita_sig_settings', 'maquita_dictado_modo',
   'webmail.carpetasFavoritas.v2', 'webmail.ordenLista',
   'sidebar_secciones_plegadas', 'sidebar.etiquetas.plegado',
@@ -30,6 +31,13 @@ const permitidas = new Set(CLAVES_DE_CUENTA);
 let aplicando = false;
 let temporizador: number | undefined;
 let vigilando = false;
+
+/** Ejecuta cambios en el navegador que NO deben guardarse en la cuenta (p. ej. la limpieza al cerrar sesión). */
+export function sinGuardarEnCuenta(cambios: () => void) {
+  const antes = aplicando;
+  aplicando = true;
+  try { cambios(); } finally { aplicando = antes; }
+}
 
 /** Lo que este navegador tiene ahora para las claves de la cuenta. */
 export function preferenciasLocales(): Record<string, string> {
@@ -86,14 +94,16 @@ export function aplicarPreferenciasDeCuenta(guardadas: unknown): boolean {
 }
 
 /** Al entrar: aplica lo de la cuenta; si no había nada guardado, sube lo de este navegador. */
-export function sincronizarAlEntrar(guardadas: unknown) {
+export function sincronizarAlEntrar(guardadas: unknown, hayRedaccion?: () => boolean) {
   vigilarPreferencias();
   const hayGuardadas = !!guardadas && typeof guardadas === 'object' && Object.keys(guardadas as object).length > 0;
   if (!hayGuardadas) { if (Object.keys(preferenciasLocales()).length > 0) guardarEnCuenta(); return; }
   const cambio = aplicarPreferenciasDeCuenta(guardadas);
   let yaRecargo = false;
   try { yaRecargo = sessionStorage.getItem(MARCA_RECARGA) === '1'; } catch { yaRecargo = true; }
-  if (cambio && !yaRecargo) {
+  // Con un correo en redacción no se recarga (15/11/2026): los valores ya quedaron en el navegador
+  // y se verán en la próxima carga; recargar aquí era «como si pulsaran F5» mientras se escribe.
+  if (cambio && !yaRecargo && !hayRedaccion?.()) {
     try { sessionStorage.setItem(MARCA_RECARGA, '1'); } catch { return; }
     window.location.reload();   // una sola vez por sesión: todo arranca con lo de la cuenta
   }

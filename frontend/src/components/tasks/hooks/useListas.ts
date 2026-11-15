@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../../../api/client';
 import type { Orden, TaskGroup, TaskList } from '../types';
 import type { Elemento } from '../components/barraOrden';
+import { guardarListasCache, leerListasCache } from '../../../lib/tareasOffline';  // T-118: solo lectura offline
 
 export function useListas(alCambiar: () => void) {
   const [listas, setListas] = useState<TaskList[]>([]);
@@ -17,13 +18,19 @@ export function useListas(alCambiar: () => void) {
       const [l, g] = await pedir();
       setListas(l);
       setGrupos(g);
+      void guardarListasCache(l, g);
     } catch { /* se conserva lo que había */ }
     alCambiar();
   }, [alCambiar]);
 
   useEffect(() => {
     let vigente = true;
-    pedir().then(([l, g]) => { if (vigente) { setListas(l); setGrupos(g); } }).catch(() => {});
+    pedir()
+      .then(([l, g]) => { if (vigente) { setListas(l); setGrupos(g); } void guardarListasCache(l, g); })
+      .catch(async () => {
+        const copia = await leerListasCache();  // T-118: sin red, se muestran las listas ya cargadas
+        if (vigente && copia) { setListas(copia.listas); setGrupos(copia.grupos); }
+      });
     return () => { vigente = false; };
   }, []);
 

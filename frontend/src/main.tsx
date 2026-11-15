@@ -41,6 +41,10 @@ prepararCacheLocal().finally(() => {
 // versión nueva. Guard en sessionStorage para no entrar en bucle.
 window.addEventListener("vite:preloadError", (event) => {
   const key = "chunk-reload-" + window.location.pathname;
+  // 13/11/2026: con un correo en redacción NO se recarga la página. Al adjuntar o abrir una parte
+  // que se carga aparte, un fallo momentáneo de red recargaba todo «como un F5» y la persona veía
+  // desaparecer lo que escribía. Esa parte fallará sola; el correo abierto se queda como está.
+  if (useMailStore.getState().composeWindows.length > 0) return;
   if (!sessionStorage.getItem(key)) {
     sessionStorage.setItem(key, String(Date.now()));
     event.preventDefault();
@@ -101,8 +105,24 @@ if ("serviceWorker" in navigator) {
                   const tag = (el.tagName || "").toLowerCase();
                   return tag === "input" || tag === "textarea" || el.isContentEditable === true;
                 };
+                // 13/11/2026: con un correo en redacción la recarga se aplaza, pero el aviso no puede quedarse
+                // para siempre en «Actualizando…»: hubo personas horas con la versión anterior (y su editor
+                // sin cargar) porque tenían un borrador minimizado. Al aplazarse, el aviso se vuelve un botón.
+                let _aplazado = false;
+                const _ofrecerBoton = () => {
+                  const aviso = document.getElementById("sw-update-banner");
+                  if (!aviso || _aplazado) return;
+                  _aplazado = true;
+                  aviso.textContent = "Hay una versión nueva del correo. Pulse aquí para actualizar (su borrador se guarda).";
+                  aviso.setAttribute("role", "button");
+                  aviso.tabIndex = 0;
+                  aviso.style.cursor = "pointer";
+                  const recargar = () => { try { window.location.reload(); } catch { /* noop */ } };
+                  aviso.addEventListener("click", recargar);
+                  aviso.addEventListener("keydown", (ev) => { if (ev.key === "Enter" || ev.key === " ") recargar(); });
+                };
                 const _tryReload = () => {
-                  if (_editing()) { setTimeout(_tryReload, 4000); return; }
+                  if (_editing()) { _ofrecerBoton(); setTimeout(_tryReload, 4000); return; }
                   try { window.location.reload(); } catch { /* noop */ }
                 };
                 setTimeout(_tryReload, 2500);

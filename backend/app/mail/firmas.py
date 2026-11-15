@@ -142,7 +142,9 @@ def _ancho_declarado(img) -> int | None:
     return min(ancho, ANCHO_MAX) if ancho else None
 
 
-def _procesar_imagen(img, descargar: bool, resultado: Resultado) -> None:
+def _procesar_imagen(
+    img, descargar: bool, resultado: Resultado, recordar: bool = False
+) -> None:
     src = (img.get("src") or "").strip()
     declarado = _ancho_declarado(img)
     try:
@@ -165,7 +167,7 @@ def _procesar_imagen(img, descargar: bool, resultado: Resultado) -> None:
         elif src.lower().startswith(("http://", "https://")):
             if not descargar:
                 raise imagenes.ImagenRechazada("es una dirección externa")
-            info = imagenes.guardar_redimensionada(imagenes.descargar(src), declarado)
+            info = _externa(src, declarado, recordar)
             resultado.imagenes += 1
         else:
             raise imagenes.ImagenRechazada("origen no admitido")
@@ -185,6 +187,28 @@ def _procesar_imagen(img, descargar: bool, resultado: Resultado) -> None:
         return
     img.set("src", info.src)
     _fijar_tamano(img, info.ancho, info.alto)
+
+
+def _externa(src: str, declarado: int | None, recordar: bool):
+    """Imagen externa de la firma. Al enviar (`recordar`) no se vuelve a descargar si se bajó hace
+    poco, y si la descarga falla se usa la última copia buena (15/11/2026, firmas_cache_url.py).
+    """
+    if not recordar:
+        return imagenes.guardar_redimensionada(imagenes.descargar(src), declarado)
+    from app.mail import firmas_cache_url as memoria
+
+    info = memoria.vigente(src, declarado)
+    if info is not None:
+        return info
+    try:
+        info = imagenes.guardar_redimensionada(imagenes.descargar(src), declarado)
+    except imagenes.ImagenRechazada:
+        info = memoria.ultima(src, declarado)
+        if info is None:
+            raise
+        return info
+    memoria.guardar(src, declarado, info)
+    return info
 
 
 def _procesar_tabla(tabla) -> None:
@@ -236,7 +260,10 @@ def _revisar_mailto(enlace, correo_usuario: str | None, avisos: list[str]) -> No
 
 
 def normalizar_firma(
-    html: str, correo_usuario: str | None = None, descargar: bool = True
+    html: str,
+    correo_usuario: str | None = None,
+    descargar: bool = True,
+    recordar: bool = False,
 ) -> Resultado:
     """Devuelve la firma normalizada y los avisos para la persona (imágenes quitadas, mailto)."""
     resultado = Resultado(html="")
@@ -244,7 +271,7 @@ def normalizar_firma(
         return resultado
     raiz = _parsear(sanear(html, con_data=True))
     for img in list(raiz.iter("img")):
-        _procesar_imagen(img, descargar, resultado)
+        _procesar_imagen(img, descargar, resultado, recordar)
     for tabla in raiz.iter("table"):
         _procesar_tabla(tabla)
     for celda in raiz.iter("td", "th"):
@@ -308,7 +335,7 @@ def preparar_envio(html: str) -> tuple[str, list[dict], list[str]]:
         return salida, pegadas, []
     avisos: list[str] = []
     for bloque in [e for e in raiz.iter("div") if _es_bloque_firma(e)]:
-        normalizada = normalizar_firma(_serializar(bloque))
+        normalizada = normalizar_firma(_serializar(bloque), recordar=True)
         avisos += normalizada.avisos
         for hijo in list(bloque):
             bloque.remove(hijo)

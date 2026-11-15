@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { estadoRed, type EstadoRed } from "../../lib/conexionLenta";
 import { estadoConexion } from "../../lib/conexion";
+import { esClienteEscritorio } from "../../lib/clienteEscritorio";
 
 const OCULTAR_MS = 10 * 60 * 1000;   // «Entendido» la oculta 10 minutos
 const OFRECER_RECARGA_S = 45;        // tras tanto rato esperando, se ofrece recargar
@@ -24,6 +25,9 @@ export function AvisoConexionLenta() {
   }, [estado]);
 
   // Sin conexión ya lo explica OfflineBanner; no se ponen dos franjas
+  // 13/11/2026: en el navegador este aviso salía a cada rato y estorbaba; queda solo para la
+  // aplicación de escritorio, que sí trabaja sin conexión.
+  if (!esClienteEscritorio()) return null;
   if (estado === "normal" || !estadoConexion().hayConexion) return null;
   if (estado === "lenta" && oculta) return null;
 

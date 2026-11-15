@@ -26,6 +26,8 @@ import { getFolderDisplayName } from '../../folders';
 import { cargarEtiquetasDeMensajes, claveEtiquetas } from '../../lib/etiquetasDeMensajes';   // por carpeta real (05/11/2026)
 import { cargarCorreosDeEtiqueta } from '../../lib/correosPorEtiqueta';   // vista «Etiqueta: X» (05/11/2026)
 import { carpetaDeUid } from '../../lib/carpetaReal';
+import { copiasRepetidas } from '../../lib/copiasEnTodo';
+import { AvisoCopiasOcultas } from './AvisoCopiasOcultas';
 import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
 import { CabeceraEtiqueta } from '../labels/CabeceraEtiqueta';
 import { SinResultados } from './SinResultados';
@@ -837,7 +839,9 @@ export function MessageList() {
   // Con «No leídos» o «Marcados» se ven TODOS los que cumplen, sean de Prioritarios o de Otros:
   // antes los de Otros salían un instante y desaparecían al llegar la clasificación (07/11/2026).
   const ordenLista = useOrdenLista(currentFolder);
+  const copiasOcultas = copiasRepetidas(messages, currentFolder);   // mismo correo en varias carpetas: una sola fila (13/11/2026)
   const filtered = messages.filter(m => {
+    if (copiasOcultas.has(m.uid)) return false;
     // Vista por etiqueta: «No leídos»/«Marcados» se aplican aquí (el servidor devuelve todos) y las
     // pestañas Prioritarios/Otros no intervienen (09/11/2026).
     if (etiquetaFiltro) {
@@ -1431,6 +1435,7 @@ export function MessageList() {
           threadGroups.map((group, gIdx) => renderThreadGroup(group, gIdx))
         ) : (
           filtered.map((msg, idx) => [
+            idx === 0 && copiasOcultas.size > 0 && <AvisoCopiasOcultas key="copias-ocultas" n={copiasOcultas.size} />,
             rotuloNiveles?.uid === msg.uid && <RotuloCoincidencias key="rotulo-niveles" sinExactas={rotuloNiveles.sinExactas} consulta={searchQuery} />,
             renderMessageRow(msg, idx),
           ])

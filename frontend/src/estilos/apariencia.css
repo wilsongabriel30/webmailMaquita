@@ -1,0 +1,13 @@
+/* Apariencia elegida por la persona (Configuración → Apariencia, 13/11/2026). */
+
+/* En tema oscuro, los fondos en línea del color de acento usan el tono vivo (antes lo hacía una
+   regla de dark-theme.css que buscaba el azul exacto en el atributo style). */
+html.dark {
+  --acento-fondo-linea: var(--acento-vivo, #0a84ff);
+}
+
+/* Opciones de la pestaña Apariencia: el foco del teclado siempre se ve. */
+.aspecto-opcion:focus-visible {
+  outline: 2px solid #0078d4;
+  outline-offset: 2px;
+}

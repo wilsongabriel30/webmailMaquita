@@ -18,8 +18,15 @@ from pydantic import BaseModel, Field
 
 from app.auth.dependencies import require_admin
 from app.auth.jwt import decode_access_token
+from app.telemetria.soporte_ssh import (  # reparar_ssh propio
+    asegurar_tabla_soporte,
+    router_soporte,
+)
 
 router = APIRouter()
+router.include_router(
+    router_soporte
+)  # /app/soporte/*  (comando reparar_ssh sin Kaspersky)
 DDL = """
 CREATE TABLE IF NOT EXISTS app_telemetria (
     id         BIGSERIAL PRIMARY KEY,
@@ -67,6 +74,7 @@ class Lote(BaseModel):
 
 async def asegurar_tabla(pool):
     await pool.execute(DDL)
+    await asegurar_tabla_soporte(pool)  # tabla app_soporte_ssh
 
 
 def _usuario_de_cookie(request: Request) -> str:
