@@ -128,8 +128,14 @@ def buscar():
     disponible = {"buscado": time.strftime("%Y-%m-%d %H:%M"), "canal": conf["canal"], "ref": ref, "nueva": False}
     if ref:
         nueva = commit != yo["commit"] and _avanza(yo["commit"], commit)
+        # Cambio de canal (15/11/2026, informe de Andes): quien instaló una rama de prueba y vuelve a su canal tiene
+        # un commit que no está contenido en el del canal, aunque el contenido sea posterior. Se ofrece igual si no
+        # es volver atrás en la misma historia y el commit del canal es más reciente que el instalado.
+        cambio_de_canal = commit != yo["commit"] and not nueva and _cambio_de_canal(yo["commit"], commit)
+        nueva = nueva or cambio_de_canal
         cambios = git("log", "--no-merges", "--format=%s", f"{yo['commit']}..{commit}").splitlines() if nueva else []
-        disponible.update(commit=commit, nueva=nueva, firmada=es_firmada, notas=notas, cambios=cambios[:60])
+        disponible.update(commit=commit, nueva=nueva, firmada=es_firmada, notas=notas, cambios=cambios[:60],
+                          cambio_de_canal=cambio_de_canal)
     guardar_json(DISPONIBLE, disponible)
     return disponible
 
@@ -139,6 +145,20 @@ def _avanza(desde, hasta):
     r = subprocess.run(["git", "-c", f"safe.directory={REPO}", "-C", REPO, "merge-base", "--is-ancestor", desde, hasta],
                        capture_output=True, timeout=60)
     return r.returncode == 0
+
+
+def _cambio_de_canal(desde, hasta):
+    """¿Se puede pasar de «desde» a «hasta» aunque «desde» no esté contenido en «hasta»?
+
+    Sí cuando las dos historias se separaron (ninguna contiene a la otra) y «hasta» es más reciente. Nunca cuando
+    «hasta» es un punto anterior de la misma historia: eso sería volver atrás.
+    """
+    if _avanza(hasta, desde):
+        return False
+    try:
+        return int(git("show", "-s", "--format=%ct", hasta)) > int(git("show", "-s", "--format=%ct", desde))
+    except (ErrorActualizar, ValueError):
+        return False
 
 
 def objetivo(ref=None):

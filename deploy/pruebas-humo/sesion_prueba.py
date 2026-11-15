@@ -18,7 +18,6 @@ Uso: python3 sesion_prueba.py [cuenta]   → imprime el access_token
 import json
 import sys
 import urllib.error
-import urllib.request
 from datetime import datetime, timedelta, timezone
 
 import os
@@ -26,7 +25,8 @@ import os
 APP_BACKEND = os.environ.get('HUMO_BACKEND', '/opt/maquita-webmail/backend')
 sys.path.insert(0, APP_BACKEND)
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from comun import BASE, CUENTA  # noqa: E402
+from comun import CUENTA  # noqa: E402
+from comun import abrir as _pedir  # noqa: E402
 
 
 CACHE = '/var/lib/maquita-humo/sesiones.json'
@@ -57,10 +57,9 @@ def _guardada(cuenta):
     if not t:
         return ''
     try:
-        r = urllib.request.Request(BASE + '/api/auth/me')
-        r.add_header('Cookie', 'access_token=' + t)
-        r.add_header('User-Agent', 'candado-humo')
-        datos = json.loads(urllib.request.urlopen(r, timeout=15).read().decode() or '{}')
+        resp = _pedir('/api/auth/me', cabeceras={'Cookie': 'access_token=' + t, 'User-Agent': 'candado-humo'},
+                      tiempo=15)
+        datos = json.loads(resp.read().decode() or '{}')
         return t if (datos.get('user') or {}).get('username') else ''
     except Exception:
         return ''
@@ -76,11 +75,9 @@ def _sesion_viva(token):
     """
     if not token:
         return False
-    r = urllib.request.Request(BASE + '/api/mail/folders')
-    r.add_header('Cookie', 'access_token=' + token)
-    r.add_header('User-Agent', 'candado-humo')
     try:
-        with urllib.request.urlopen(r, timeout=20) as resp:
+        with _pedir('/api/mail/folders', cabeceras={'Cookie': 'access_token=' + token,
+                                                     'User-Agent': 'candado-humo'}, tiempo=20) as resp:
             return resp.status == 200
     except Exception:
         return False
@@ -117,11 +114,11 @@ def abrir(cuenta=CUENTA):
                           'exp': datetime.now(timezone.utc) + timedelta(minutes=5)},
                          s.admin_jwt_secret, algorithm='HS256')
     cuerpo = json.dumps({'username': cuenta, 'admin_token': admin}).encode()
-    r = urllib.request.Request(BASE + '/api/auth/impersonate', data=cuerpo, method='POST')
-    r.add_header('Content-Type', 'application/json')
-    r.add_header('User-Agent', 'candado-humo')
     try:
-        resp = urllib.request.urlopen(r, timeout=25)
+        # Por comun.abrir: respeta HUMO_CONECTAR (servidores detrás de un proxy). Antes este paso iba siempre a la
+        # dirección pública y la prueba «ajustes» fallaba con «Hostname mismatch» (informe de Andes, 15/11/2026).
+        resp = _pedir('/api/auth/impersonate', 'POST', cuerpo,
+                      {'Content-Type': 'application/json', 'User-Agent': 'candado-humo'})
         galletas = resp.headers.get_all('Set-Cookie') or []
         for c in galletas:
             if c.startswith('access_token='):
