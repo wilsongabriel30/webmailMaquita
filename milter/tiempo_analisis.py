@@ -56,6 +56,12 @@ def anotar_parcial(remitente: str, pendientes: int, presupuesto: Presupuesto) ->
     )
 
 
+def anotar_sin_analizar(remitente: str, archivo: str, error: BaseException) -> None:
+    """Adjunto que no se pudo analizar (tiempo agotado o error del motor): se entrega, pero con constancia."""
+    motivo = "tiempo-agotado" if isinstance(error, TimeoutError) else "error"
+    log.warning("ADJUNTO_SIN_ANALIZAR de=%s archivo=%s motivo=%s", (remitente or "")[:120], (archivo or "")[:80], motivo)
+
+
 def anotar_mensaje(remitente: str, sentido: str, inicio: float, parcial: bool) -> None:
     ms = int((time.monotonic() - inicio) * 1000)
     nivel = log.warning if ms > AVISO_S * 1000 else log.info
