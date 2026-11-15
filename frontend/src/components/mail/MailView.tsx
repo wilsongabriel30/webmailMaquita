@@ -11,6 +11,7 @@ import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
 import { usePreferenciasVista } from '../../hooks/usePreferenciasVista';
 import { PanelProgramados } from './Programados';
+import { PanelBandejaSalida } from './BandejaSalida';   // T-117
 import { api } from '../../api/client';
 import { EventoDesdeCorreo } from '../calendar/EventoDesdeCorreo';
 
@@ -479,6 +480,7 @@ export function MailView() {
 
       <ToastContainer />
       <PanelProgramados />
+      <PanelBandejaSalida />
     </div>
   );
 }

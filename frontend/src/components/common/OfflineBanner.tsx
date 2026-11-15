@@ -1,5 +1,6 @@
 // Franja de estado de conexión y cola de envío (T-35). Sin red: causa clara y acceso a la bandeja de salida;
 // con red pero con correos en cola o fallidos: también se muestra para que nada quede olvidado.
+import { esClienteEscritorio } from '../../lib/clienteEscritorio';
 import { useState, useEffect } from "react";
 import { getPendingActions, getOutboxEmails } from "../../lib/offlineStore";
 import { esDeLaSesion } from "../../lib/sesionActual";
@@ -64,6 +65,9 @@ export function OfflineBanner() {
   const detalles: string[] = [];
   if (pendingActions > 0) detalles.push(`${pendingActions} acción(es) pendiente(s)`);
   if (cola.pendientes > 0) detalles.push(`${cola.pendientes} correo(s) en cola`);
+  // 13/11/2026: en el navegador la franja «sin internet» no se muestra (salía constantemente);
+  // es un aviso de la aplicación de escritorio. Solo se conserva si hay algo esperando salir.
+  if (!esClienteEscritorio() && detalles.length === 0) return panel;
   return (<>
     <div data-sin-conexion className="bg-amber-500 text-white text-center py-2 px-4 text-sm font-medium shrink-0 flex items-center justify-center gap-2">
       <span>{causa === 'sin internet en este equipo' ? 'Sin internet en este equipo' : 'El servidor de correo no responde'}: viendo el correo descargado; lo nuevo llegará al reconectar.{detalles.length ? ` (${detalles.join(', ')})` : ''}</span>{enlace}

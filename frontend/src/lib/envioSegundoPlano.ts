@@ -8,6 +8,7 @@
  * Si la pestaña se cierra, el servidor termina igual y, si falla, avisa en la campanita.
  */
 import { api } from '../api/client';
+import { EnvioTerminado, nuevoIdDeEnvio } from './intentoEnvio';
 
 export interface EnvioEnCurso { id: string; asunto: string; para: string; inicio: number }
 
@@ -21,20 +22,19 @@ export function enviosEnCurso(): EnvioEnCurso[] {
   return [...enCurso.values()].sort((a, b) => b.inicio - a.inicio);
 }
 
-function nuevoId(): string {
-  try { return crypto.randomUUID(); } catch { return `${Date.now()}-${Math.random().toString(36).slice(2, 12)}`; }
-}
-
 const esperar = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 interface Estado { estado: 'enviando' | 'enviado' | 'error' | 'desconocido'; mensaje?: string; resultado?: unknown }
 
-const SIN_CONFIRMAR = 'No se pudo confirmar si el correo salió. Revisa la carpeta Enviados antes de volver a enviarlo.';
+const SIN_CONFIRMAR = 'No se pudo confirmar si el correo salió. Revise la carpeta Enviados antes de volver a enviarlo.';
 
 export async function enviarEnSegundoPlano<T = unknown>(
   payload: { subject?: string; to?: string[] } & Record<string, unknown>,
+  idEnvio?: string,
 ): Promise<T> {
-  const id = nuevoId();
+  // El identificador es el del intento (lib/intentoEnvio.ts): el mismo con el que el correo está
+  // o entrará en la cola de salida, para que el servidor no lo envíe dos veces.
+  const id = idEnvio || nuevoIdDeEnvio();
   const ruta = `/mail/send-segundo-plano?envio_id=${encodeURIComponent(id)}`;
   // Si esta petición falla (sin red, servidor caído), el error sube tal cual y el redactor lo
   // manda a la cola de salida como siempre.
@@ -56,8 +56,9 @@ export async function enviarEnSegundoPlano<T = unknown>(
         continue;
       }
       if (e.estado === 'enviado') return (e.resultado ?? { status: 'sent' }) as T;
-      if (e.estado === 'error') throw new Error(e.mensaje || 'Error al enviar');
-      if (e.estado === 'desconocido') throw new Error(SIN_CONFIRMAR);
+      // Resultado final del servidor para este identificador: un reintento necesita otro.
+      if (e.estado === 'error') throw new EnvioTerminado(e.mensaje || 'Error al enviar');
+      if (e.estado === 'desconocido') throw new EnvioTerminado(SIN_CONFIRMAR);
     }
   } finally {
     enCurso.delete(id);
@@ -77,7 +78,7 @@ function envioInmediatoActivo(): Promise<boolean> {
 }
 
 /** Envía por el camino que corresponda: inmediato (por detrás) o el de siempre (/mail/send). */
-export async function enviarCorreo<T = unknown>(payload: { subject?: string; to?: string[] } & Record<string, unknown>): Promise<T> {
-  if (await envioInmediatoActivo()) return enviarEnSegundoPlano<T>(payload);
+export async function enviarCorreo<T = unknown>(payload: { subject?: string; to?: string[] } & Record<string, unknown>, idEnvio?: string): Promise<T> {
+  if (await envioInmediatoActivo()) return enviarEnSegundoPlano<T>(payload, idEnvio);
   return api.post<T>('/mail/send', payload);
 }

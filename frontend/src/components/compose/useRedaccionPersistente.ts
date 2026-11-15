@@ -12,7 +12,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { Editor } from '@tiptap/react';
 import { useMailStore, type DraftWindow } from '../../store/mailStore';
 import {
-  enColaDeGuardado, guardarBorradorEnServidor, guardarEstadoRedaccion, leerEstadoRedaccion, type EstadoRedaccion,
+  anotarUidBorrador, enColaDeGuardado, guardarBorradorEnServidor, guardarEstadoRedaccion, leerEstadoRedaccion, type EstadoRedaccion,
 } from '../../lib/estadoRedaccion';
 import { huellaAdjuntos } from '../../lib/adjuntosBorrador';
 import { api } from '../../api/client';
@@ -90,7 +90,7 @@ export function useRedaccionPersistente(
       mantenerAdjuntos: adjuntosEnCargaRef.current || undefined,
     });
     if (!res) return;
-    if (res.draftUid) ultimoUidRef.current = res.draftUid;
+    if (res.draftUid) { ultimoUidRef.current = res.draftUid; anotarUidBorrador(win.id, res.draftUid); }
     huellaGuardadaRef.current = res.huella;
     const enMemoria = leerEstadoRedaccion(win.id);
     if (enMemoria) enMemoria.huellaGuardada = res.huella;
@@ -101,17 +101,30 @@ export function useRedaccionPersistente(
   // Devuelve false si el servidor no guardó el borrador. El guardado automático lo ignora
   // (es de cortesía y se reintenta), pero al CERRAR la ventana importa: si no se guardó, no
   // se puede cerrar diciendo «Borrador guardado» y tirar lo escrito.
+  // Primer guardado sin respuesta (13/11/2026): si la petición llegó al servidor y la respuesta se
+  // perdió, el borrador existe pero la ventana no conoce su UID, y el siguiente guardado creaba
+  // otro igual. Se repite UNA vez a los 4 s con el mismo contenido: el servidor reconoce durante
+  // 20 s un borrador recién creado con el mismo asunto y destinatarios y lo reemplaza.
+  const reintentoRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (reintentoRef.current) clearTimeout(reintentoRef.current); }, []);
   const saveDraft = useCallback(async (): Promise<boolean> => {
+    if (editor && !editor.isDestroyed) cuerpoRef.current = editor.getHTML();
+    const estado = instantaneaRef.current();
     try {
-      if (editor && !editor.isDestroyed) cuerpoRef.current = editor.getHTML();
-      await guardarDesdeInstantanea(instantaneaRef.current());
+      await guardarDesdeInstantanea(estado);
       return true;
     } catch {
       /* el guardado automatico es de cortesia: si falla, el texto sigue en pantalla y se
          reintenta en el siguiente cambio, sin interrumpir a quien escribe */
+      if (!reintentoRef.current && !ultimoUidRef.current && !uidActual() && sigueAbierta()) {
+        reintentoRef.current = setTimeout(() => {
+          reintentoRef.current = null;
+          if (sigueAbierta()) guardarDesdeInstantanea(estado).catch(() => { /* lo intentará el siguiente guardado */ });
+        }, 4000);
+      }
       return false;
     }
-  }, [editor, guardarDesdeInstantanea]);
+  }, [editor, guardarDesdeInstantanea, uidActual, sigueAbierta]);
 
   // Foto al momento para la pestaña: la piden la anotación periódica y la salida de la página.
   const fotoRef = useRef<() => RedaccionGuardada | null>(() => null);

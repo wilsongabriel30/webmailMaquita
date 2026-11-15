@@ -1132,7 +1132,7 @@ export function Toolbar() {
                   {/* Group: Deshacer */}
                   <Group label="Deshacer">
                     <ToolbarButton icon={ICONS.undo} label="Deshacer (Ctrl+Z)"
-                      onClick={() => { void deshacerUltimo().then(hecho => { if (!hecho) showToast('Nada que deshacer: el último movimiento se puede deshacer durante 2 minutos. El envío de un correo se deshace en sus primeros 5 segundos.'); }); }} />
+                      onClick={() => { void deshacerUltimo().then(hecho => { if (!hecho) showToast('Nada que deshacer: el último movimiento se puede deshacer durante 2 minutos. El envío de un correo se deshace en sus primeros 3 segundos.'); }); }} />
                   </Group>
                 </>
               )}

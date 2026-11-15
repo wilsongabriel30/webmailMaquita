@@ -64,7 +64,7 @@ export function usePreferenciasVista() {
         const rp = s?.reading_pane;
         if (rp === 'fullscreen' || rp === 'popout') useMailStore.getState().setReadingPane(rp);
         const guardada = s?.vista && typeof s.vista === 'object' ? s.vista : null;
-        sincronizarAlEntrar(guardada?.local);
+        sincronizarAlEntrar(guardada?.local, () => useMailStore.getState().composeWindows.length > 0);
         if (guardada && Object.keys(guardada).some((k) => k !== 'local')) aplicar(guardada);
         else guardar(JSON.stringify(vistaActual()));   // primera vez: sube lo que tenía este navegador
       })

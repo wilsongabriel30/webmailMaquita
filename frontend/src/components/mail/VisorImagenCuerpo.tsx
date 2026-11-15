@@ -1,6 +1,7 @@
 // Visor de imágenes incrustadas en el cuerpo del correo (08/10/2026). Antes solo se veían al tamaño que
 // venían en el mensaje; ahora un clic las abre en grande, con anterior/siguiente, zoom al tamaño real y descarga.
 import { useEffect, useState } from 'react';
+import { descargarImagenConAviso } from './descargarImagenConAviso';   // misma descarga que el menú «⋮» (13/11/2026)
 
 export interface ImagenCuerpo { src: string; alt: string }
 
@@ -50,7 +51,7 @@ export default function VisorImagenCuerpo({ imagenes, indice, onCerrar, onIr }: 
           <button className={boton} onClick={() => setReal(v => !v)} title={real ? 'Ajustar a la pantalla' : 'Tamaño real'}>
             {real ? 'Ajustar' : 'Tamaño real'}
           </button>
-          <a className={boton} href={actual.src} download target="_blank" rel="noopener noreferrer" title="Descargar">Descargar</a>
+          <button className={boton} onClick={() => { void descargarImagenConAviso(actual.src, actual.alt); }} title="Descargar imagen">Descargar</button>
           <button className={boton} onClick={onCerrar} aria-label="Cerrar" title="Cerrar (Esc)">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>

@@ -1,3 +1,5 @@
+import { ROTULO_SIGUIENTE, guardarTamano, leerTamano, siguienteTamano, type TamanoVista } from '../../lib/tamanoVistaPrevia';
+import { abrirAdjuntoEnPestana, rotuloAparte, seAbreEnPestana } from '../../lib/abrirAdjuntoEnPestana';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { imprimirAdjunto } from './imprimirAdjunto';
 import { showToast } from '../common/Toast';
@@ -73,6 +75,10 @@ export function AttachmentPreview({
 
   // Compute derived values safely (handle null attachment)
   const type = attachment ? getPreviewType(attachment.content_type, attachment.filename) : 'unsupported';
+  // Tamaño elegido por la persona: ventana, al lado del correo o pantalla completa.
+  const [tamano, setTamano] = useState<TamanoVista>(leerTamano);
+  const cambiarTamano = () => { const s = siguienteTamano(tamano); setTamano(s); guardarTamano(s); };
+  const altoVisor = tamano === 'ventana' ? 'h-[70vh]' : 'h-[calc(100vh-150px)]';
   const url = attachment ? buildUrl(folder, uid, attachment.part_number, attachment.filename) : '';
   const hasNav = allAttachments && allAttachments.length > 1 && onNavigate != null;
   const total = allAttachments?.length || 1;
@@ -198,13 +204,15 @@ export function AttachmentPreview({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/70"
-      onClick={onClose}
+      className={tamano === 'lado'
+        ? 'fixed inset-y-0 right-0 z-[100] flex pointer-events-none'
+        : 'fixed inset-0 z-[100] flex items-center justify-center bg-black/50 dark:bg-black/70'}
+      onClick={tamano === 'lado' ? undefined : onClose}
     >
       <div
         ref={modalRef}
         tabIndex={-1}
-        className={`bg-white dark:bg-[#2d2d2d] rounded-lg shadow-2xl flex flex-col overflow-hidden outline-none ${type === 'office' ? 'w-[96vw] max-w-[1400px] h-[94vh]' : 'w-[90vw] max-w-[900px] max-h-[90vh]'}`}
+        className={`bg-white dark:bg-[#2d2d2d] rounded-lg shadow-2xl flex flex-col overflow-hidden outline-none ${tamano === 'lado' ? 'pointer-events-auto w-[50vw] min-w-[420px] h-full !rounded-none border-l border-[#c8c6c4]' : tamano === 'completa' ? 'w-screen h-screen !rounded-none' : type === 'office' ? 'w-[96vw] max-w-[1400px] h-[94vh]' : 'w-[90vw] max-w-[900px] max-h-[90vh]'}`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -234,6 +242,32 @@ export function AttachmentPreview({
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.041 48.041 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z" />
                 </svg>
                 <span className="hidden sm:inline">{imprimiendo ? 'Preparando…' : 'Imprimir'}</span>
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={cambiarTamano}
+              title="Cambiar el tamaño de esta vista: ventana, al lado del correo o pantalla completa"
+              aria-label={ROTULO_SIGUIENTE[tamano]}
+              className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+              </svg>
+              <span className="hidden sm:inline">{ROTULO_SIGUIENTE[tamano]}</span>
+            </button>
+            {seAbreEnPestana(attachment.filename) && (
+              <button
+                type="button"
+                onClick={() => { void abrirAdjuntoEnPestana(url, attachment.filename).then(ok => { if (ok) onClose(); else showToast(`No se pudo abrir en una ${rotuloAparte()}.`); }); }}
+                title="Abrir este documento aparte, fuera del correo"
+                aria-label={`Abrir en ${rotuloAparte()}`}
+                className="flex items-center gap-1 px-3 py-1.5 text-[13px] text-[#0078d4] hover:bg-[#f3f2f1] dark:hover:bg-[#383838] rounded"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
+                </svg>
+                <span className="hidden sm:inline">Abrir en {rotuloAparte()}</span>
               </button>
             )}
             <a
@@ -278,7 +312,7 @@ export function AttachmentPreview({
             <iframe
               ref={pdfRef}
               src={'/api/mail/preview/' + encodeURIComponent(folder) + '/' + uid + '/' + attachment.part_number + '/' + encodeURIComponent(attachment.filename)}
-              className="w-full h-[70vh] border-0"
+              className={`w-full ${altoVisor} border-0`}
               title={attachment.filename}
               onLoad={() => setLoading(false)}
             />

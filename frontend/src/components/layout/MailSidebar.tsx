@@ -5,6 +5,7 @@
 // modal de mover carpeta, estadísticas.
 // ===========================================================================
 import { EntradaProgramados } from '../mail/Programados';
+import { EntradaBandejaSalida } from '../mail/BandejaSalida';   // T-117: bandeja de salida visible (modo app)
 import { PaletaColorCarpeta } from './PaletaColorCarpeta';
 import { quitarDeColores, renombrarEnColores } from '../../lib/coloresCarpetas';
 import { DivisorCarpetas } from './DivisorCarpetas';
@@ -519,6 +520,9 @@ export function MailSidebar() {
           Nuevo correo
         </button>
       </div>
+
+      {/* T-117: Bandeja de salida — solo dentro de la app (modo Teams); fija y visible aunque esté vacía. */}
+      <div className="px-1"><EntradaBandejaSalida /></div>
 
       {/* Árbol de carpetas */}
       <nav ref={arbolRef} className="flex-1 min-h-0 overflow-y-auto px-1 text-[13px]"

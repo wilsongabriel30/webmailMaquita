@@ -75,6 +75,16 @@ export function instalarCuentaActiva(): void {
     /* sin URL o sin almacenamiento: se sigue con la cuenta guardada */
   }
   ponerCookie(cuentaActiva());
+  // La cuenta es de cada pestaña, pero la cookie es de TODO el navegador: otra pestaña abierta en otra cuenta
+  // la cambiaba, y lo que esta pestaña pide por dirección (vista previa de un PDF, descargas, imágenes) iba a
+  // la cuenta equivocada. Visto el 13/11/2026: el PDF de la cuenta asignada se abría en blanco («0 de 0»)
+  // porque el servidor devolvía el adjunto con el mismo número de la cuenta propia. La pestaña que la
+  // persona está usando vuelve a poner su cuenta en la cookie al tomar el foco y antes de cada clic.
+  const afirmarCookie = () => ponerCookie(cuentaActiva());
+  window.addEventListener('focus', afirmarCookie);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) afirmarCookie(); });
+  document.addEventListener('pointerdown', afirmarCookie, true);
+  document.addEventListener('keydown', afirmarCookie, true);
   const original = window.fetch.bind(window);
   window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;

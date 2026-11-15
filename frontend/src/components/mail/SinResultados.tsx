@@ -4,7 +4,7 @@
  */
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
-import { aplicarBusqueda, cambiarAmbito } from '../../lib/busquedaGlobal';
+import { aplicarBusqueda, cambiarAmbito, TODO_EL_CORREO_DISPONIBLE } from '../../lib/busquedaGlobal';
 import { QuisoDecir } from './QuisoDecir';
 
 interface Props { consulta: string; enTodo: boolean; carpeta: string; }
@@ -32,7 +32,10 @@ export function SinResultados({ consulta, enTodo, carpeta }: Props) {
       <QuisoDecir consulta={consulta} />
       <p className="text-[12px] text-[#605e5c] mt-2">Sugerencias para afinar la búsqueda:</p>
       <ul className="text-[12px] text-[#605e5c] text-left mt-1 space-y-1 list-disc pl-5">
-        {!enTodo && (
+        {!enTodo && !TODO_EL_CORREO_DISPONIBLE && (
+          <li>Pruebe también en otras carpetas (Enviados, subcarpetas): la búsqueda mira solo la carpeta abierta.</li>
+        )}
+        {!enTodo && TODO_EL_CORREO_DISPONIBLE && (
           <li>
             <button type="button" className="text-[#0078d4] hover:underline" onClick={() => cambiarAmbito(true)}>
               Buscar en todas las carpetas

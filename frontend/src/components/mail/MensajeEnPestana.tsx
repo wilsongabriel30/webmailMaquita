@@ -15,6 +15,7 @@ import { useSearchParams } from 'react-router-dom';
 import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
+import { useApariencia } from '../../hooks/useApariencia';
 import { ToastContainer } from '../common/ToastContainer';
 import { MessageView } from './MessageView';
 import { ComposePanel } from '../compose/ComposePanel';
@@ -23,6 +24,7 @@ import { BarraVolverAlCorreo } from './BarraVolverAlCorreo';
 import type { Folder, MessageFull } from '../../types';
 
 export function MensajeEnPestana() {
+  useApariencia({ soloClaro: true });   // color principal elegido en Configuración → Apariencia
   const [searchParams] = useSearchParams();
   const { user, setUser } = useAuthStore();
   const setFolders = useMailStore(s => s.setFolders);

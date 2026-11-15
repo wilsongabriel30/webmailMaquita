@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { corregirTablasSinAncho } from '../../lib/tablasSinAncho';   // tablas de Excel con width:0 (05/11/2026)
 import VisorImagenCuerpo, { type ImagenCuerpo } from './VisorImagenCuerpo';
+import { MenuImagenCuerpo } from './MenuImagenCuerpo';   // «⋮» con «Descargar imagen» (13/11/2026)
 import { abrirEnlacePropio } from './enlacePropio';
 import { abrirPorEnlaceSeguro, mostrarDestinosReales } from '../../lib/enlacesReales';
 
@@ -26,6 +27,7 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [imagenes, setImagenes] = useState<ImagenCuerpo[]>([]);
   const [indice, setIndice] = useState<number | null>(null);
+  const [cargas, setCargas] = useState(0);   // cada carga del marco: el menú de imagen se vuelve a enganchar
 
   const sanitized = corregirTablasSinAncho(sanitizeHtml(htmlBody));
 
@@ -57,6 +59,7 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
   const alCargar = useCallback(() => {
     const doc = iframeRef.current?.contentDocument;
     if (!doc) return;
+    setCargas(c => c + 1);
     const marcar = () => {
       doc.querySelectorAll('img').forEach(img => {
         const grande = (img.naturalWidth || img.width) >= LADO_MINIMO && (img.naturalHeight || img.height) >= LADO_MINIMO;
@@ -104,6 +107,7 @@ export default function SafeEmailViewer({ htmlBody, className, style }: SafeEmai
         }}
         title="Email content"
       />
+      <MenuImagenCuerpo marco={iframeRef} cargas={cargas} />
       {indice !== null && imagenes.length > 0 && (
         <VisorImagenCuerpo imagenes={imagenes} indice={indice} onCerrar={() => setIndice(null)} onIr={setIndice} />
       )}

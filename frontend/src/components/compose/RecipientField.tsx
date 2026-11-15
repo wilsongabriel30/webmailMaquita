@@ -134,6 +134,8 @@ function ChipAvatar({ chip }: { chip: Chip }) {
 
 // ── Main component ──
 
+const MUCHOS_DESTINATARIOS = 12;
+
 export function RecipientField({ label, value, onChange, onToggleExtra, showExtra, autoFocus, primary, onOpenDirectory }: Props) {
   const [chips, setChips] = useState<Chip[]>([]);
   const [input, setInput] = useState('');
@@ -149,6 +151,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   const [sobreCampo, setSobreCampo] = useState(false);
   const [sobreChip, setSobreChip] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fichasRef = useRef<HTMLDivElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
   // Alto real de la lista abierta: es el hueco que hay que reservar debajo para que no tape nada.
   const [altoSugerencias, setAltoSugerencias] = useState(0);
@@ -273,6 +276,13 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
   }, [chips]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const nombreVisible = (chip: Chip) => (chip.display !== chip.email ? chip.display : (nombres[chip.email] || ''));
+  // Lo que se lee en la ficha: el NOMBRE de la persona cuando se conoce (como en Outlook), no su dirección.
+  // Antes, un destinatario que venía de una respuesta, de pegar direcciones o de una lista se veía solo como
+  // correo y no se sabía quién era (13/11/2026). La dirección sigue a la vista al pasar el ratón.
+  const etiquetaDe = (chip: Chip) => {
+    const nombre = nombreVisible(chip).replace(/\s*<[^>]*>\s*$/, '').replace(/^["']|["']$/g, '').trim();
+    return nombre || chip.email;
+  };
 
   /* Arrastre: soltar sobre el campo (al final) o sobre un chip (en su posición) */
   const soltar = (e: React.DragEvent, en?: number) => {
@@ -424,6 +434,41 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
     setAltoSugerencias(alto ? altoCampo + 4 + alto : 0);   // 4 px: la separación con el campo
   }, [suggestions.length]);
 
+  // Con muchos destinatarios (más de MUCHOS_DESTINATARIOS) las fichas tapaban el asunto y el cuerpo
+  // (reporte del 13/11/2026 con 50). La zona de fichas toma altura máxima y barra propia; como esa zona
+  // recorta lo que sobresale, la lista de sugerencias se pinta fuera de ella y la ficha emergente se omite.
+  // Con pocos destinatarios todo queda exactamente como antes.
+  const muchos = chips.length > MUCHOS_DESTINATARIOS;
+  const listaSugerencias = suggestions.length > 0 && (
+            <div ref={suggestionsRef}
+              style={muchos ? { top: (fichasRef.current?.offsetHeight ?? 136) + 4 } : undefined}
+              className={`absolute ${muchos ? 'left-[96px]' : 'left-0 top-full mt-1'} w-[380px] bg-white rounded-lg shadow-xl border border-[#e1dfdd] z-50 py-1 max-h-[248px] overflow-y-auto`}>
+              {suggestions.map((s, i) => (
+                <button key={s.source === 'list' ? `list-${s.list_id}` : s.email}
+                  onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
+                  className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
+                    i === selectedSuggestion ? 'bg-[#deecf9]' : 'hover:bg-[#f3f2f1]'
+                  }`}>
+                  <SuggestionAvatar suggestion={s} size={36} />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] font-semibold text-[#323130] truncate">
+                        {s.source === 'list' ? `Lista: ${s.name}` : (s.name || s.email.split("@")[0])}
+                      </span>
+                      <SourceBadge source={s.source} memberCount={s.member_count} />
+                    </div>
+                    <div className="text-[11px] text-[#605e5c] truncate">{s.email}</div>
+                    {(s.job_title || s.department) && (
+                      <div className="text-[10px] text-[#a19f9d] truncate mt-0.5">
+                        {[s.job_title, s.department].filter(Boolean).join(' - ')}
+                      </div>
+                    )}
+                  </div>
+                </button>
+              ))}
+            </div>
+  );
+
   return (
     <div className="flex items-start border-b border-[#edebe9] min-h-[40px] relative shrink-0">
       {/* Label button */}
@@ -448,9 +493,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
       )}
 
       {/* Chips + input area */}
-      {/* Con muchos destinatarios (50 o más) las fichas tapaban el asunto y el cuerpo del mensaje (13/11/2026):
-          la lista crece hasta unas cuatro filas y, a partir de ahí, se recorre con su propia barra. */}
-      <div className={`flex-1 min-w-0 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] max-h-[136px] overflow-y-auto cursor-text ${sobreCampo ? 'bg-[#deecf9]' : ''}`}
+      <div ref={fichasRef} className={`flex-1 min-w-0 flex flex-wrap items-center gap-[3px] px-2 py-[6px] min-h-[40px] cursor-text ${muchos ? 'max-h-[136px] overflow-y-auto' : ''} ${sobreCampo ? 'bg-[#deecf9]' : ''}`}
         onClick={() => inputRef.current?.focus()}
         onDragOver={e => { permitirSoltar(e); if (esArrastreDeDestinatario(e)) setSobreCampo(true); }}
         onDragLeave={() => setSobreCampo(false)}
@@ -464,7 +507,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
             onDragLeave={() => setSobreChip(null)}
             onDrop={e => soltar(e, i)}
             onContextMenu={e => abrirMenu(e, i)}
-            title=""
+            title={muchos ? `${etiquetaDe(chip)} <${chip.email}>` : ''}
             onMouseEnter={() => {
               if (tooltipTimerRef.current) clearTimeout(tooltipTimerRef.current);
               tooltipTimerRef.current = setTimeout(() => setHoveredChip(i), 400);
@@ -475,9 +518,9 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
             }}>
             <span className={`inline-flex items-center gap-1 px-1.5 py-[2px] border rounded-[3px] text-[13px] text-[#323130] hover:shadow-sm transition-all group ${chipBorderColor(chip.source)}`}>
               <ChipAvatar chip={chip} />
-              <span className="max-w-[180px] truncate">{chip.display}</span>
+              <span className="max-w-[180px] truncate">{etiquetaDe(chip)}</span>
               <button onClick={(e) => { e.stopPropagation(); removeChip(i); }}
-                aria-label={`Quitar a ${chip.display}`} title={`Quitar a ${chip.display}`}
+                aria-label={`Quitar a ${etiquetaDe(chip)}`} title={`Quitar a ${etiquetaDe(chip)}`}
                 className="w-5 h-5 rounded-full flex items-center justify-center text-[#605e5c] hover:text-[#323130] hover:bg-[#c8c6c4] opacity-70 group-hover:opacity-100 transition-all ml-0.5">
                 <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" />
@@ -485,7 +528,7 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
               </button>
             </span>
             {/* Tooltip */}
-            {hoveredChip === i && (
+            {hoveredChip === i && !muchos && (
               <div className="absolute left-0 top-full mt-1 z-[60] bg-[#323130] text-white rounded-md px-3 py-2 text-[11px] leading-[16px] shadow-xl whitespace-nowrap pointer-events-none">
                 <div className="font-semibold text-[12px]">{nombreVisible(chip) || chip.email}</div>
                 {nombreVisible(chip) && <div className="text-gray-300">{chip.email}</div>}
@@ -513,37 +556,11 @@ export function RecipientField({ label, value, onChange, onToggleExtra, showExtr
             </span>
           )}
 
-          {/* Autocomplete dropdown — enterprise */}
-          {suggestions.length > 0 && (
-            <div ref={suggestionsRef}
-              className="absolute left-0 top-full mt-1 w-[380px] bg-white rounded-lg shadow-xl border border-[#e1dfdd] z-50 py-1 max-h-[248px] overflow-y-auto">
-              {suggestions.map((s, i) => (
-                <button key={s.source === 'list' ? `list-${s.list_id}` : s.email}
-                  onMouseDown={(e) => { e.preventDefault(); selectSuggestion(s); }}
-                  className={`w-full text-left px-3 py-2.5 flex items-center gap-3 transition-colors ${
-                    i === selectedSuggestion ? 'bg-[#deecf9]' : 'hover:bg-[#f3f2f1]'
-                  }`}>
-                  <SuggestionAvatar suggestion={s} size={36} />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[13px] font-semibold text-[#323130] truncate">
-                        {s.source === 'list' ? `Lista: ${s.name}` : (s.name || s.email.split("@")[0])}
-                      </span>
-                      <SourceBadge source={s.source} memberCount={s.member_count} />
-                    </div>
-                    <div className="text-[11px] text-[#605e5c] truncate">{s.email}</div>
-                    {(s.job_title || s.department) && (
-                      <div className="text-[10px] text-[#a19f9d] truncate mt-0.5">
-                        {[s.job_title, s.department].filter(Boolean).join(' - ')}
-                      </div>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+          {/* Autocomplete dropdown — enterprise (con muchos destinatarios va fuera de la zona con barra) */}
+          {!muchos && listaSugerencias}
         </div>
       </div>
+      {muchos && listaSugerencias}
 
       {/* Hueco reservado mientras la lista está abierta: baja el Asunto en vez de taparlo. */}
       {altoSugerencias > 0 && (

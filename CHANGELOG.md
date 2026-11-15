@@ -9,6 +9,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Cambiado
 
+- **Enviar tarda menos en el servidor**. Las imágenes externas de la firma se descargaban de Internet en cada envío,
+  una tras otra (casi 2 s con seis imágenes; con la web de origen caída, hasta 5 s por imagen y la imagen se quitaba
+  de la firma). Ahora se recuerdan 24 h por dirección (`FIRMAS_CACHE_DIRECCIONES_S`) y, si la descarga falla, se usa
+  la última copia buena. Al guardar la firma en Configuración se sigue descargando siempre.
+- **Filtro de adjuntos del servidor de correo: memoria de adjuntos limpios compartida**. La huella de un adjunto ya
+  analizado y limpio se guarda en Redis, común a todos los procesos del filtro y resistente a sus reinicios (antes
+  cada proceso tenía la suya y la misma firma se analizaba una y otra vez). Vigencia de 24 h
+  (`MILTER_CACHE_LIMPIOS_S`); sin Redis sigue con la memoria de cada proceso. Solo se recuerdan resultados limpios.
+- **«Deshacer» el envío dura 3 segundos** (antes 5).
+- **Aviso al enviar**: sin cuenta atrás ni «Enviando…»; un aviso corto con «Deshacer», y el correo recién enviado
+  se ve en la lista mientras el servidor lo entrega.
 - **Buscador del correo, palabra por palabra**: cada palabra escrita se busca por separado y puede estar en un sitio
   distinto del correo (remitente, destinatarios, copia, asunto o texto). Antes todo lo escrito tenía que aparecer junto
   en un mismo campo: un nombre y una palabra del asunto no encontraban nada. Lo que va entre comillas sigue siendo una
@@ -30,6 +41,17 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Registro de tiempos de cada envío**: una línea `ENVIO_TRAMOS` por correo enviado con lo que tardó cada paso del
+  servidor (límites, protección de datos, firma, antimalware, entrega y copia en Enviados). Solo mide.
+- **Configuración → Apariencia**: cada persona elige el color principal y cómo ve su correo; la elección sigue a la
+  cuenta.
+- **Imágenes del cuerpo de un correo**: menú «⋮» sobre cada imagen para descargarla.
+- **Adjuntos**: abrir en una pestaña aparte del navegador, preferencia de cómo se abren al hacer clic y tamaño de la
+  vista previa.
+- **Búsqueda en todas las carpetas**: un correo que está en varias carpetas se muestra una sola vez, con una nota.
+- **Aplicación de escritorio**: «Bandeja de salida» con los correos pendientes de salir y vista «Tareas» disponible
+  sin conexión (solo lectura) para las listas ya abiertas.
+- **Equipos administrados**: comando propio de soporte para reparar el acceso remoto de un equipo.
 - **Panel, tablero inicial: tarjeta de verificación en dos pasos**. Muestra cuántas cuentas activas la tienen activa, cuántas faltan y cuántas de las obligadas siguen sin activarla, y lleva a la lista de buzones ya filtrada por las que faltan (`/mailboxes?dos_pasos=sin`).
 - **Panel → Buzones: quién tiene la verificación en dos pasos**: la lista muestra en cada cuenta el distintivo
   «2 pasos: Activa / Sin activar», un filtro («Todas», «Con verificación en dos pasos», «Sin verificación en dos
@@ -111,6 +133,23 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Redactor: la ventana del correo se duplicaba y parpadeaba**. Al ir a Calendario, Contactos o Configuración y
+  volver, el correo en redacción se «recuperaba» otra vez (1, 2, 4, 7 ventanas), con varios guardados de borrador a
+  la vez: de ahí los borradores repetidos y, si se enviaba más de una copia, los envíos repetidos. La recuperación
+  ocurre ahora una sola vez por carga de página; lo recuperado de otra pestaña se abre minimizado, sin quitar lo que
+  se está escribiendo, y una pestaña abierta ya no pierde su correo a manos de otra (señal de vida con Web Locks).
+- **Redactor: una tecla fuera del texto minimizaba el correo o abría otro**. Con el cursor fuera del cuerpo, una
+  flecha abría otro mensaje y la «n» un correo nuevo. Los atajos de la lista quedan en pausa mientras hay un correo
+  en redacción a la vista.
+- **La página se recargaba sola con un correo abierto** al sincronizar las preferencias de la cuenta. Con un correo
+  en redacción ya no se recarga.
+- **Publicar una versión recargaba las páginas abiertas** («como si alguien pulsara F5»): el guion de despliegue
+  borraba y volvía a copiar la carpeta publicada. Ahora arma la carpeta nueva aparte y la cambia en un solo paso, y
+  no permite dos despliegues a la vez.
+- **Cola de salida: un correo no se envía dos veces**. Cada intento de envío lleva un identificador único que el
+  servidor reconoce; un reintento por conexión lenta o adjunto pesado ya no repite el correo.
+- **«Deshacer» tras enviar conserva los adjuntos** del correo que se vuelve a abrir.
+- **Tablas pegadas desde hojas de cálculo o procesadores de texto** conservan colores, bordes y alineación.
 - **Multicuenta: se abría el correo de otra cuenta**. La copia local de los correos se guardaba por «carpeta y número»
   sin distinguir la cuenta; con una cuenta asignada, si fallaba la red se abría el correo con el mismo número de la
   cuenta propia. Ahora cada cuenta guarda sus copias aparte y lo guardado antes se borra una vez por equipo.

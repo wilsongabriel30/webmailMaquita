@@ -41,6 +41,10 @@ prepararCacheLocal().finally(() => {
 // versión nueva. Guard en sessionStorage para no entrar en bucle.
 window.addEventListener("vite:preloadError", (event) => {
   const key = "chunk-reload-" + window.location.pathname;
+  // 13/11/2026: con un correo en redacción NO se recarga la página. Al adjuntar o abrir una parte
+  // que se carga aparte, un fallo momentáneo de red recargaba todo «como un F5» y la persona veía
+  // desaparecer lo que escribía. Esa parte fallará sola; el correo abierto se queda como está.
+  if (useMailStore.getState().composeWindows.length > 0) return;
   if (!sessionStorage.getItem(key)) {
     sessionStorage.setItem(key, String(Date.now()));
     event.preventDefault();

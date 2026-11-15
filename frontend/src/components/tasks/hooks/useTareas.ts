@@ -5,6 +5,7 @@ import { api } from '../../../api/client';
 import type { ActiveView, Task } from '../types';
 import { hoyTexto } from '../components/repeticion';
 import { conEstado, type EstadoLista } from '../components/columnasLista';
+import { guardarTareasCache, leerTareasCache } from '../../../lib/tareasOffline';  // T-118: solo lectura offline
 
 // Listas inteligentes: cada una tiene su ruta /tasks/views/<id> («tasks» es la bandeja por defecto).
 export const VISTAS_INTELIGENTES = ['my-day', 'important', 'planned', 'assigned', 'flagged', 'tasks'];
@@ -32,9 +33,32 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
     return api.get<Task[]>(`/tasks/lists/${activeView}/tasks`);
   }, [activeView, busqueda]);
 
-  const fetchTasks = useCallback(async () => {
+  // Clave de cache offline (T-118). null = no se cachea: búsqueda y vistas que no piden datos aquí.
+  const claveCache = useCallback((): string | null => {
+    if (busqueda.trim()) return null;
+    if (activeView === 'seguimiento' || activeView === 'assigned') return null;
+    return activeView;
+  }, [activeView, busqueda]);
+
+  // Pide al servidor y, de paso, guarda en IndexedDB; si no hay red, devuelve la última copia guardada.
+  const pedirConCache = useCallback(async (): Promise<Task[]> => {
+    const ck = claveCache();
     try {
       const r = await pedir();
+      if (ck) void guardarTareasCache(ck, r);
+      return r;
+    } catch (e) {
+      if (ck) {
+        const copia = await leerTareasCache(ck);
+        if (copia) return copia;
+      }
+      throw e;
+    }
+  }, [pedir, claveCache]);
+
+  const fetchTasks = useCallback(async () => {
+    try {
+      const r = await pedirConCache();
       setTasks(r);
       // El panel abierto se pone al día (otra persona pudo cambiar la tarea).
       setSelectedTask(prev => (prev ? r.find(t => t.id === prev.id) ?? prev : prev));
@@ -42,16 +66,16 @@ export function useTareas(activeView: ActiveView, busqueda: string, alCambiar: (
       // Se conserva lo que se veía: vaciar la lista hacía creer que las tareas se habían borrado.
       setError('No se pudieron cargar las tareas: ' + mensaje(e, 'sin conexión con el servidor'));
     }
-  }, [pedir]);
+  }, [pedirConCache]);
 
   useEffect(() => {
     let vigente = true;
-    pedir()
+    pedirConCache()
       .then(r => { if (vigente) setTasks(r); })
       .catch(e => { if (vigente) { setTasks([]); setError('No se pudieron cargar las tareas: ' + mensaje(e, 'sin conexión con el servidor')); } })
       .finally(() => { if (vigente) setCargada(clave); });
     return () => { vigente = false; };
-  }, [pedir, clave]);
+  }, [pedirConCache, clave]);
 
   // Mantiene el panel de detalle al día con lo que se cambió en la lista.
   const cambiarLocal = (id: string, cambio: (t: Task) => Task) => {

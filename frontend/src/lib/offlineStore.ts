@@ -56,7 +56,6 @@ function limpiarCopiasSinCuenta(db: IDBDatabase): void {
 }
 
 const DB_NAME = "maquita-mail-offline";
-const DB_VERSION = 2;
 
 export interface OfflineMessage {
   id: string; // folder:uid
@@ -101,6 +100,13 @@ export interface OutboxEmail {
   request_read_receipt?: boolean;
   request_delivery_receipt?: boolean;
   importance?: 'normal' | 'high' | 'low';
+  /** Igual que en el envío directo (13/11/2026): remitente elegido, sensibilidad, permiso de
+   *  protección de datos y el borrador que el servidor retira cuando el correo sale. */
+  from_email?: string;
+  sensitivity?: string;
+  draft_uid?: number | null;
+  dlp_override?: boolean;
+  dlp_reason?: string;
   /** Multicuenta: cuenta asignada desde la que se escribió (null = la propia). Se envía
    *  con ESA cuenta aunque la cola se vacíe más tarde desde otra pestaña o cuenta. */
   cuenta?: string | null;
@@ -128,42 +134,89 @@ export interface OfflineAction {
   createdAt: number;
 }
 
-function openDB(): Promise<IDBDatabase> {
+/** Crea los almacenes que falten. Solo puede llamarse durante una subida de versión. */
+function crearAlmacenes(db: IDBDatabase): void {
+  // Messages store
+  if (!db.objectStoreNames.contains("messages")) {
+    const msgStore = db.createObjectStore("messages", { keyPath: "id" });
+    msgStore.createIndex("folder", "folder");
+    msgStore.createIndex("cachedAt", "cachedAt");
+  }
+  // Actions queue
+  if (!db.objectStoreNames.contains("actions")) {
+    db.createObjectStore("actions", { keyPath: "id" });
+  }
+  // Folders cache
+  if (!db.objectStoreNames.contains("folders")) {
+    db.createObjectStore("folders", { keyPath: "name" });
+  }
+  // Outbox for offline-composed emails
+  if (!db.objectStoreNames.contains("outbox")) {
+    const outboxStore = db.createObjectStore("outbox", { keyPath: "id" });
+    outboxStore.createIndex("status", "status");
+    outboxStore.createIndex("createdAt", "createdAt");
+  }
+  // Tareas: cache de SOLO LECTURA de la vista «Tareas» (T-118). Clave por vista/lista o meta.
+  // La lógica (guardar/leer/tope 500) vive en lib/tareasOffline.ts para no engordar este módulo.
+  if (!db.objectStoreNames.contains("tareas")) {
+    const tStore = db.createObjectStore("tareas", { keyPath: "clave" });
+    tStore.createIndex("cachedAt", "cachedAt");
+  }
+}
+
+const ALMACENES_BASICOS = ["messages", "actions", "folders", "outbox"];
+
+// 13/11/2026 — La base se abre SIN pedir versión. Pedir una versión mayor obliga a que todas las
+// demás ventanas suelten la suya; si alguna tiene la página anterior abierta (en la app de escritorio
+// pasa siempre: tiene varias ventanas), la apertura se queda esperando PARA SIEMPRE, y con ella todo
+// lo que guarda o lee aquí: el envío esperaba a la cola de salida y los correos no salían (se quedaban
+// en Borradores), y el editor no terminaba de cargar. Los almacenes se crean al crear la base; el de
+// «tareas» solo existe en las bases creadas desde el 13/11 (quien lo usa ya tolera que falte).
+const ESPERA_BASE_MS = 4000;
+
+export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = (event) => {
-      const db = (event.target as IDBOpenDBRequest).result;
-      // Messages store
-      if (!db.objectStoreNames.contains("messages")) {
-        const msgStore = db.createObjectStore("messages", { keyPath: "id" });
-        msgStore.createIndex("folder", "folder");
-        msgStore.createIndex("cachedAt", "cachedAt");
-      }
-      // Actions queue
-      if (!db.objectStoreNames.contains("actions")) {
-        db.createObjectStore("actions", { keyPath: "id" });
-      }
-      // Folders cache
-      if (!db.objectStoreNames.contains("folders")) {
-        db.createObjectStore("folders", { keyPath: "name" });
-      }
-      // Outbox for offline-composed emails
-      if (!db.objectStoreNames.contains("outbox")) {
-        const outboxStore = db.createObjectStore("outbox", { keyPath: "id" });
-        outboxStore.createIndex("status", "status");
-        outboxStore.createIndex("createdAt", "createdAt");
-      }
-    };
-    request.onsuccess = () => { limpiarCopiasSinCuenta(request.result); resolve(request.result); };
-    request.onerror = () => {
-      // Otra pestaña (o una versión más nueva de la página) ya subió la base de versión: se abre la que
-      // haya en vez de fallar. Con el fallo, el editor de correo se quedaba «cargando» (13/11/2026).
-      if (request.error?.name === "VersionError") {
-        const sinVersion = indexedDB.open(DB_NAME);
-        sinVersion.onsuccess = () => resolve(sinVersion.result);
-        sinVersion.onerror = () => reject(sinVersion.error);
+    const request = indexedDB.open(DB_NAME);
+    let resuelta = false;
+    const reloj = setTimeout(() => {
+      if (resuelta) return;
+      resuelta = true;
+      reject(new Error("La base local del navegador no responde"));
+    }, ESPERA_BASE_MS);
+    request.onupgradeneeded = () => crearAlmacenes(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      // Si otra ventana necesita cambiar la base, esta suelta su conexión en vez de bloquearla.
+      db.onversionchange = () => { try { db.close(); } catch { /* ya cerrada */ } };
+      if (resuelta) { try { db.close(); } catch { /* ya cerrada */ } return; }
+      // Otra parte de la página pudo crear la base vacía (se abre sin versión y sin almacenes): en ese
+      // caso sí hace falta una subida de versión para crearlos. Si otra ventana la bloquea, vence el
+      // reloj y quien llama sigue sin copia local, que es mejor que quedarse esperando.
+      if (ALMACENES_BASICOS.some((n) => !db.objectStoreNames.contains(n))) {
+        const siguiente = db.version + 1;
+        db.close();
+        const subida = indexedDB.open(DB_NAME, siguiente);
+        subida.onupgradeneeded = () => crearAlmacenes(subida.result);
+        subida.onsuccess = () => {
+          const nueva = subida.result;
+          nueva.onversionchange = () => { try { nueva.close(); } catch { /* ya cerrada */ } };
+          if (resuelta) { try { nueva.close(); } catch { /* ya cerrada */ } return; }
+          resuelta = true;
+          clearTimeout(reloj);
+          resolve(nueva);
+        };
+        subida.onerror = () => { if (!resuelta) { resuelta = true; clearTimeout(reloj); reject(subida.error); } };
         return;
       }
+      resuelta = true;
+      clearTimeout(reloj);
+      limpiarCopiasSinCuenta(db);
+      resolve(db);
+    };
+    request.onerror = () => {
+      if (resuelta) return;
+      resuelta = true;
+      clearTimeout(reloj);
       reject(request.error);
     };
   });
@@ -351,10 +404,11 @@ export async function removeActions(ids: string[]) {
 
 export async function addToOutbox(
   email: Omit<OutboxEmail, "id" | "createdAt" | "status" | "retries">,
-  opciones?: { retenidoHasta?: number },
+  opciones?: { retenidoHasta?: number; id?: string },
 ): Promise<string> {
   const db = await openDB();
-  const id = crypto.randomUUID();
+  // `id`: identificador del intento de envío (lib/intentoEnvio.ts); la cola envía con ese mismo.
+  const id = opciones?.id || crypto.randomUUID();
   const record: OutboxEmail = {
     cuenta: cuentaActiva(),
     dueno: usuarioSesion(),

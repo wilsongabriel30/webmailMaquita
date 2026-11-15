@@ -1,3 +1,6 @@
+import { abreAdjuntosEnPestana, guardarAdjuntosEnPestana } from '../../lib/preferenciaAdjuntos';
+import { abrirAdjuntoEnPestana, rotuloAparte, seAbreEnPestana } from '../../lib/abrirAdjuntoEnPestana';
+import { showToast } from '../common/Toast';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuTeclado } from '../../lib/menuTeclado';
 import { BotonGuardarEnAlmacen } from '../files/GuardarEnAlmacen';
@@ -49,6 +52,20 @@ export function TarjetaAdjunto({ folder, uid, att, onAbrir, compacto = false }: 
   useMenuTeclado(!!menu, cerrarMenu, menuRef, caja);
   const url = `/api/mail/attachment/${encodeURIComponent(folder)}/${uid}/${att.part_number}/${encodeURIComponent(att.filename)}`;
   const b = attBadge(att.filename);
+  // En el navegador se abre una pestaña; en la aplicación de escritorio, una ventana propia.
+  const enPestana = seAbreEnPestana(att.filename);
+  const aparte = rotuloAparte();
+  // Clic en el adjunto: vista previa o pestaña nueva, según haya elegido la persona.
+  const [siempreEnPestana, setSiempreEnPestana] = useState(abreAdjuntosEnPestana);
+  useEffect(() => {
+    const h = () => setSiempreEnPestana(abreAdjuntosEnPestana());
+    window.addEventListener('adjuntos-en-pestana-cambio', h);
+    return () => window.removeEventListener('adjuntos-en-pestana-cambio', h);
+  }, []);
+  const verEnPestana = () => {
+    void abrirAdjuntoEnPestana(url, att.filename).then(ok => { if (!ok) { showToast(`No se pudo abrir en una ${aparte}. Se muestra la vista previa.`); onAbrir(); } });
+  };
+  const abrir = () => { if (enPestana && siempreEnPestana) verEnPestana(); else onAbrir(); };
 
   useEffect(() => {
     if (!menu) return;
@@ -67,7 +84,7 @@ export function TarjetaAdjunto({ folder, uid, att, onAbrir, compacto = false }: 
       position: 'relative', display: 'inline-flex', alignItems: 'stretch', width: compacto ? 190 : 230,
       borderRadius: 6, overflow: 'visible',
     }}>
-      <button type="button" onClick={onAbrir}
+      <button type="button" onClick={abrir}
         title={`${att.filename} (${formatSize(att.size ?? 0)})${att.dentro_de ? ` — viene dentro del correo adjunto «${att.dentro_de}»` : ''}`}
         style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 8, padding: compacto ? '4px 6px' : '6px 8px', border: 'none', background: 'transparent', cursor: 'pointer', textAlign: 'left' }}>
         <span style={{ background: b.bg, color: '#fff', fontSize: compacto ? 9 : 10, fontWeight: 700, width: compacto ? 26 : 32, height: compacto ? 26 : 32, borderRadius: 4, flexShrink: 0, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', letterSpacing: 0.3 }}>{b.label}</span>
@@ -83,6 +100,19 @@ export function TarjetaAdjunto({ folder, uid, att, onAbrir, compacto = false }: 
       {menu && (
         <div ref={menuRef} role="menu" aria-label={`Acciones para ${att.filename}`} className="bg-white border border-[#e1dfdd]" style={{ position: 'fixed', top: menu.top, right: menu.right, zIndex: 60, minWidth: 200, borderRadius: 6, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: '4px 0' }}>
           <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => { setMenu(null); onAbrir(); }}>{svg('M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8zM8 10a2 2 0 100-4 2 2 0 000 4z')}Vista previa</button>
+          {enPestana && (
+            <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion}
+              onClick={() => { setMenu(null); void abrirAdjuntoEnPestana(url, att.filename).then(ok => { if (!ok) showToast(`No se pudo abrir en una ${aparte}. Use «Vista previa» o «Descargar».`); }); }}>
+              {svg('M9 2.5h4.5V7M13.5 2.5L7.5 8.5M6 4H3.5a1 1 0 00-1 1v7.5a1 1 0 001 1H11a1 1 0 001-1V10')}Ver en una {aparte}
+            </button>
+          )}
+          {enPestana && (
+            <button type="button" role="menuitemcheckbox" aria-checked={siempreEnPestana} className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion}
+              title="Elija cómo se abren los adjuntos al hacer clic en ellos"
+              onClick={() => { setMenu(null); guardarAdjuntosEnPestana(!siempreEnPestana); showToast(!siempreEnPestana ? `Desde ahora, al hacer clic en un adjunto se abrirá en una ${aparte}.` : 'Desde ahora, al hacer clic en un adjunto se abrirá la vista previa.'); }}>
+              {svg(siempreEnPestana ? 'M3 8.5l3.2 3.2L13 4.8' : 'M2.5 2.5h11v11h-11z')}Abrir siempre en {aparte}
+            </button>
+          )}
           <a role="menuitem" href={url} download={att.filename} className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => setMenu(null)}>{svg('M8 2v8.5M4.8 7.5L8 10.7l3.2-3.2M2.5 12.5v1.5h11v-1.5')}Descargar</a>
           <button type="button" role="menuitem" className="bg-transparent hover:bg-[#f3f2f1] text-[#323130]" style={estiloOpcion} onClick={() => { setMenu(null); setGuardar(true); }}>{svg('M4.5 12.5h7.2a2.8 2.8 0 00.4-5.6A4 4 0 004.3 6a3.2 3.2 0 00.2 6.5z')}Guardar en Archivos</button>
         </div>

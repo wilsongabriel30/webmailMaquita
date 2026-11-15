@@ -114,6 +114,8 @@ export interface ComposeData {
   in_reply_to?: string;
   references?: string;
   draft_uid?: number | null;
+  /** Intento de envío anterior de esta redacción, si no se supo si salió (lib/intentoEnvio.ts). */
+  envio_previo?: { id: string; huella: string };
   /** Adjuntos ya guardados en el borrador (se descargan al reabrirlo). */
   adjuntos_borrador?: AttachmentInfo[];
   /** Correo que se reenvía: sus adjuntos se descargan y viajan con el reenvío. */

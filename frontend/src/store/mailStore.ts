@@ -121,7 +121,8 @@ interface MailState {
   setVisibleUids: (uids: number[], activeIndex: number) => void;
   setPage: (page: number) => void;
   // Compose
-  openCompose: (mode: ComposeMode, data?: ComposeData) => void;
+  /** `alFondo`: si ya hay un correo a la vista, la ventana nueva nace minimizada y no lo desplaza. */
+  openCompose: (mode: ComposeMode, data?: ComposeData, opciones?: { alFondo?: boolean }) => void;
   updateComposeData: (id: string, partial: Partial<ComposeData>) => void;
   closeCompose: (id: string) => void;
   minimizeCompose: (id: string) => void;
@@ -182,7 +183,7 @@ export const useMailStore = create<MailState>((set, get) => ({
   searchQuery: '',
   buscarEnContenido: false,
   // Por defecto se busca solo en la carpeta actual (misma lectura que lib/busquedaGlobal.ts).
-  buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') === '1'; } catch { return false; } })(),
+  buscarEnTodo: (() => { try { return localStorage.getItem('maquita_buscar_en_todo') !== 'carpeta'; } catch { return true; } })(),
   debouncedSearchQuery: '',
   filter: 'all',
   etiquetaFiltro: null,
@@ -314,17 +315,18 @@ export const useMailStore = create<MailState>((set, get) => ({
   },
 
   // Compose — multiple windows
-  openCompose: (mode, data) => {
+  openCompose: (mode, data, opciones) => {
+    const alFondo = !!opciones?.alFondo && get().composeWindows.some(w => !w.minimized);
     const id = `compose-${++composeCounter}`;
     const win: DraftWindow = {
       id,
       mode,
       data: data || { to: [], subject: '', text_body: '', html_body: '' },
       draftUid: data?.draft_uid || null,
-      minimized: false,
+      minimized: alFondo,
     };
     // Minimize all existing compose windows before opening new one
-    const existing = get().composeWindows.map(w => ({ ...w, minimized: true }));
+    const existing = alFondo ? get().composeWindows : get().composeWindows.map(w => ({ ...w, minimized: true }));
     set({ composeWindows: [...existing, win] });
   },
   closeCompose: (id) => {

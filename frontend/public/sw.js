@@ -34,6 +34,7 @@ const CACHEABLE_API = [
   "/api/settings/signature",
   "/api/branding",
   "/api/auth/me",
+  "/api/tasks",              // T-118: listas, grupos y tareas (solo lectura offline)
 ];
 
 function shouldCacheApi(url) {

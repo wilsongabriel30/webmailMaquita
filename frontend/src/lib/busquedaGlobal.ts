@@ -9,7 +9,18 @@
 import { useMailStore } from '../store/mailStore';
 
 export const CARPETA_TODO = 'Virtual.Todo';
+
+/**
+ * Interruptor de «buscar en todas las carpetas» (13/11/2026: APAGADO por decisión de Tecnología).
+ * En algunos casos el servidor de correo no resuelve esa búsqueda con el índice y recorre el buzón
+ * entero leyendo cada correo: hubo 16 búsquedas colgadas durante horas y el disco de buzones al 100 %.
+ * Mientras se corrige de fondo, solo se busca dentro de la carpeta abierta. Poner `true` para volver
+ * a mostrar el botón, el enlace del aviso y el salto automático cuando la carpeta no tiene resultados.
+ */
+export const TODO_EL_CORREO_DISPONIBLE = true;
 const CLAVE_PREFERENCIA = 'maquita_buscar_en_todo';
+/** Valor guardado cuando la persona elige buscar solo en la carpeta abierta. */
+const SOLO_CARPETA = 'carpeta';
 
 let carpetaPrevia = 'INBOX';
 /** Pausa tras la última tecla antes de buscar en todo el correo (algo menor que la de la lista, 800 ms). */
@@ -31,27 +42,26 @@ export function carpetaAnterior(): string {
 }
 
 /**
- * Ámbito por defecto: la carpeta en la que está la persona (19/10/2026, pedido del equipo:
- * «cuando el usuario seleccione una carpeta y utilice el buscador, la búsqueda debe realizarse
- * exclusivamente dentro de esa carpeta»). «Todas las carpetas» queda como opción a un clic.
+ * Ámbito por defecto: todas las carpetas (13/11/2026, decisión de Tecnología: «todas las carpetas
+ * es básico y debe estar siempre activo», como en los demás programas de correo). Solo busca en
+ * la carpeta abierta quien lo eligió expresamente («carpeta»). El «0» que guardaba la versión
+ * anterior se ponía solo al cambiar de carpeta, no por decisión de la persona: no cuenta.
  */
 export function leerPreferenciaTodo(): boolean {
-  try { return localStorage.getItem(CLAVE_PREFERENCIA) === '1'; } catch { return false; }
+  try { return localStorage.getItem(CLAVE_PREFERENCIA) !== SOLO_CARPETA; } catch { return true; }
 }
 
 /**
- * Al elegir una carpeta en la barra lateral, la búsqueda se limita a esa carpeta.
- * No repite ninguna búsqueda: cambiar de carpeta ya borra el texto buscado.
+ * Al elegir una carpeta en la barra lateral ya no se cambia el ámbito de la búsqueda: antes se
+ * pasaba a «solo esta carpeta» y la persona perdía «todas las carpetas» sin haberlo pedido.
+ * Se conserva la función porque la barra lateral la llama.
  */
 export function buscarSoloEnCarpetaActual() {
-  const st = useMailStore.getState();
-  if (!st.buscarEnTodo) return;
-  guardarPreferenciaTodo(false);
-  st.setBuscarEnTodo(false);
+  /* El ámbito solo lo cambia la persona, con el selector del buscador. */
 }
 
 export function guardarPreferenciaTodo(v: boolean) {
-  try { localStorage.setItem(CLAVE_PREFERENCIA, v ? '1' : '0'); } catch { /* sin almacenamiento */ }
+  try { localStorage.setItem(CLAVE_PREFERENCIA, v ? '1' : SOLO_CARPETA); } catch { /* sin almacenamiento */ }
 }
 
 /** Aplica el texto de búsqueda respetando el ámbito elegido (todas las carpetas o la actual). */
@@ -64,7 +74,7 @@ export function aplicarBusqueda(q: string) {
   if (texto && st.filter !== 'all') st.setFilter('all');
   if (!texto) origenAmpliacion = null;
   clearTimeout(relojTodo);
-  if (texto && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
+  if (texto && TODO_EL_CORREO_DISPONIBLE && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
     // Con «todas las carpetas», la primera letra tecleada ya cambiaba de buzón y lanzaba la
     // búsqueda de esa sola letra sobre todo el correo («S», «a», «k»: 20 s cada una y 360 000
     // resultados; 13/11/2026). Ahora se espera a que haya al menos 3 letras (o un operador) y a
@@ -99,6 +109,7 @@ export function ampliadaDesde(): string | null {
  */
 export function ampliarPorFaltaDeResultados(q: string) {
   const st = useMailStore.getState();
+  if (!TODO_EL_CORREO_DISPONIBLE) return;
   if (!q.trim() || st.currentFolder === CARPETA_TODO || st.searchQuery !== q || q === noAmpliar) return;
   carpetaPrevia = st.currentFolder;
   origenAmpliacion = st.currentFolder;
@@ -117,6 +128,7 @@ export function volverALaCarpeta() {
 /** Cambia el ámbito y, si hay una búsqueda escrita, la repite en el ámbito nuevo. */
 export function cambiarAmbito(enTodo: boolean) {
   const st = useMailStore.getState();
+  if (enTodo && !TODO_EL_CORREO_DISPONIBLE) return;
   origenAmpliacion = null;
   guardarPreferenciaTodo(enTodo);
   st.setBuscarEnTodo(enTodo);

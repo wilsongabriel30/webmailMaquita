@@ -22,6 +22,7 @@ import EspacioLocal from './EspacioLocal';   // T-49: cuánto ocupa el caché ci
 import SmimeSettings from './SmimeSettings';   // Certificados S/MIME (por usuario)
 import { RemitentesBloqueados } from './RemitentesBloqueados';   // 05/11/2026: lo que llena «Marcar como spam»
 import MiFoto from './MiFoto';
+import { Apariencia } from './Apariencia';   // 13/11/2026: color, tema, tamaño y disposición
 import { olvidarPreferenciaAcuse } from '../../lib/acuseLectura';   // 09/11/2026
 
 interface Settings {
@@ -48,7 +49,7 @@ interface VacationSettings {
 
 type FilterRule = Regla;
 
-type Tab = 'general' | 'foto' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'bloqueados' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
+type Tab = 'general' | 'apariencia' | 'foto' | 'signature' | 'identities' | 'autoreply' | 'filters' | 'bloqueados' | 'password' | 'security' | 'miequipo' | 'smime' | 'integrations' | 'mailsetup' | 'espacio';
 
 
 export function SettingsView() {
@@ -87,7 +88,7 @@ export function SettingsView() {
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     const requestedTab = params.get('tab');
-    const validTabs: Tab[] = ['general', 'foto', 'signature', 'identities', 'autoreply', 'filters', 'bloqueados', 'password', 'security', 'integrations', 'mailsetup'];
+    const validTabs: Tab[] = ['general', 'apariencia', 'foto', 'signature', 'identities', 'autoreply', 'filters', 'bloqueados', 'password', 'security', 'integrations', 'mailsetup'];
     if (requestedTab && validTabs.includes(requestedTab as Tab)) {
       setTab(requestedTab as Tab);
     }
@@ -174,6 +175,7 @@ export function SettingsView() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: 'general', label: 'General' },
+    { id: 'apariencia', label: 'Apariencia' },
     { id: 'signature', label: 'Firmas' },
     { id: 'identities', label: 'Identidades' },
     { id: 'autoreply', label: 'Fuera de la oficina' },
@@ -269,6 +271,10 @@ export function SettingsView() {
             <Toggle label="Confirmar al eliminar" checked={settings.confirm_delete}
               onChange={v => update('confirm_delete', v)} />
           </div>
+        )}
+
+        {tab === 'apariencia' && (
+          <Apariencia alCambiarPanel={p => update('reading_pane', p)} />
         )}
 
         {tab === 'signature' && (
