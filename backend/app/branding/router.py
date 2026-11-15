@@ -9,6 +9,15 @@ from app.portales.resolucion import dominio_del_portal
 router = APIRouter(prefix="/api/branding", tags=["branding"])
 
 UPLOAD_DIR = "/opt/maquita-webmail/uploads/branding"
+# Carpeta donde se publica la app móvil (deploy/webmail/nginx/descargas-app.conf).
+DESCARGAS_APP = os.getenv("DESCARGAS_APP_DIR", "/opt/maquita-webmail/descargas-app")
+
+
+def hay_app_movil(carpeta: str = DESCARGAS_APP) -> bool:
+    """¿Hay una app móvil publicada? La interfaz pedía su manifiesto en cada carga y, donde no
+    hay app, eso era un 404 en la consola (informe de Andes, 15/11/2026)."""
+    return os.path.isfile(os.path.join(carpeta, "maquita-mail.json"))
+
 
 # [H-02] Lo que puede ver cualquiera desde la pantalla de entrada: solo nombre, lema,
 # contacto, colores y archivos de marca. Nada de configuracion interna.
@@ -66,6 +75,7 @@ async def get_branding(request: Request, response: Response):
     # Pantalla de entrada del dominio por el que se entra (mail.<dominio>, webmail.<dominio>):
     # sugerencia del campo de correo, bienvenida, contacto y color. Ver entrada.py.
     result.update(await entrada.datos_de_entrada(db, request, org_general))
+    result["app_movil"] = hay_app_movil()
     # La respuesta depende del nombre de servidor pedido: que nadie la reutilice
     # para otro portal.
     response.headers["Vary"] = "Host"

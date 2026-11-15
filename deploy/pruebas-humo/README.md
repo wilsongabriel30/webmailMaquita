@@ -27,6 +27,7 @@ Desde otro equipo, pase el token: `ejecutar.sh --token <access_token>`.
 | `HUMO_DESTINO` | destinatario de los correos de prueba | la cuenta de pruebas |
 | `HUMO_PERSONA` | segunda cuenta (tareas, reuniones) | el destino |
 | `HUMO_CONVERSACION` | id de una conversación del chat de la cuenta | `1` |
+| `HUMO_CONECTAR` | (opcional) dirección real a la que conectarse, p. ej. `https://127.0.0.1`, en servidores detrás de un proxy; hoy la usa la prueba `ajustes` | la de `HUMO_URL` |
 | `HUMO_UID_CORREO` | UID de un correo de su bandeja de entrada | `1` |
 | `HUMO_DSN_GRABACIONES` | (opcional) BD de grabaciones de reuniones, solo lectura | no se comprueba |
 | `HUMO_PYTHON` / `HUMO_TIEMPO` | Python con Playwright / segundos por prueba | `python3` / `240` |

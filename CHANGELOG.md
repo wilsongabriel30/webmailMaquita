@@ -157,6 +157,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
     «malformed BASE64 / lookup problem»; esas dos líneas siguen siendo fallo y lo demás es aviso con la línea.
   - **logrotate de sitios-waf**: `sitios-waf.log` estaba repetido con la regla de serie de nginx y logrotate
     descartaba el bloque entero cada noche; ahora solo rota los registros por sitio.
+  - Tras su prueba de la rama: **sin app móvil publicada ya no se pide su manifiesto** (era un 404 en cada carga;
+    `/api/branding` trae `app_movil`), y la prueba de humo `ajustes` admite `HUMO_CONECTAR` para servidores
+    detrás de un proxy.
 - **Redactor: la ventana del correo se duplicaba y parpadeaba**. Al ir a Calendario, Contactos o Configuración y
   volver, el correo en redacción se «recuperaba» otra vez (1, 2, 4, 7 ventanas), con varios guardados de borrador a
   la vez: de ahí los borradores repetidos y, si se enviaba más de una copia, los envíos repetidos. La recuperación

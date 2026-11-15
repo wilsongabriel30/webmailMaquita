@@ -14,10 +14,9 @@ import json
 import os
 import sys
 import urllib.error
-import urllib.request
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-from comun import BASE, CUENTA  # noqa: E402
+from comun import CUENTA, abrir  # noqa: E402
 
 UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 MaquitaHumo/1'
 fallas = []
@@ -41,13 +40,11 @@ def token(correo):
 
 def api(tok, metodo, ruta, cuerpo=None):
     datos = json.dumps(cuerpo).encode() if cuerpo is not None else None
-    r = urllib.request.Request(BASE + ruta, data=datos, method=metodo)
-    r.add_header('User-Agent', UA)
-    r.add_header('Cookie', 'access_token=' + tok)
+    cabeceras = {'User-Agent': UA, 'Cookie': 'access_token=' + tok}
     if datos:
-        r.add_header('Content-Type', 'application/json')
+        cabeceras['Content-Type'] = 'application/json'
     try:
-        resp = urllib.request.urlopen(r, timeout=25)
+        resp = abrir(ruta, metodo, datos, cabeceras)
         texto = resp.read().decode('utf-8', 'ignore')
         return resp.status, (json.loads(texto) if texto.strip() else None)
     except urllib.error.HTTPError as e:

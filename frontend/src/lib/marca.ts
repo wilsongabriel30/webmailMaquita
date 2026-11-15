@@ -18,6 +18,8 @@ const RESERVA_ORG = 'la organización';
 let nombre = RESERVA;
 let organizacion = RESERVA_ORG;
 let peticion: Promise<string> | null = null;
+// ¿Hay app móvil publicada? null = el servidor no lo dice (versión anterior): se pregunta como antes.
+let appMovil: boolean | null = null;
 const oyentes = new Set<(n: string) => void>();
 
 /** El nombre que se conozca ahora mismo. Sirve fuera de React (título del documento, avisos). */
@@ -35,7 +37,8 @@ export function cargarMarca(): Promise<string> {
   if (!peticion) {
     peticion = fetch('/api/branding')
       .then((r) => (r.ok ? r.json() : {}))
-      .then((b: { app_name?: string; org_name?: string }) => {
+      .then((b: { app_name?: string; org_name?: string; app_movil?: boolean }) => {
+        if (typeof b.app_movil === 'boolean') appMovil = b.app_movil;
         // «Tu organización» es el valor de relleno del servidor cuando no hay nada configurado.
         if (b.org_name && b.org_name !== 'Tu organización') organizacion = b.org_name;
         if (b.app_name) {
@@ -47,6 +50,11 @@ export function cargarMarca(): Promise<string> {
       .catch(() => nombre);
   }
   return peticion;
+}
+
+/** Falso solo si el servidor dijo que no hay app móvil publicada (así no se pide su manifiesto en vano). */
+export function hayAppMovil(): Promise<boolean> {
+  return cargarMarca().then(() => appMovil !== false);
 }
 
 /** El nombre del producto para pintarlo. Se actualiza solo cuando llega la respuesta. */
