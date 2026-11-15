@@ -41,6 +41,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Filtro de adjuntos: un adjunto sin analizar ya no pasa en silencio**. Si el análisis de un adjunto agota su
+  tiempo o falla el motor, el correo se entrega igual, pero con la cabecera `X-Maquita-Scan: sin-analizar=N`, una
+  línea `ADJUNTO_SIN_ANALIZAR` en el registro y una anotación en el contador que vigila `vigilar-milter.sh`.
 - **Registro de tiempos de cada envío**: una línea `ENVIO_TRAMOS` por correo enviado con lo que tardó cada paso del
   servidor (límites, protección de datos, firma, antimalware, entrega y copia en Enviados). Solo mide.
 - **Configuración → Apariencia**: cada persona elige el color principal y cómo ve su correo; la elección sigue a la

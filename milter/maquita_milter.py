@@ -426,6 +426,11 @@ async def _inbound_safeattach(st, pool) -> list:
                     return (fn, ct, psize, reason)
                 except Exception as _e_scan:
                     tiempo_analisis.anotar_adjunto(fn, t_ini, "timeout" if isinstance(_e_scan, _aio.TimeoutError) else "error", psize)
+                    # 15/11/2026: un adjunto que no se pudo analizar ya no pasa en silencio como limpio:
+                    # cabecera X-Maquita-Scan: sin-analizar, línea en el registro y contador de la alerta.
+                    st["sin_analizar"] = st.get("sin_analizar", 0) + 1
+                    tiempo_analisis.anotar_sin_analizar(st.get("from", ""), fn, _e_scan)
+                    _anotar_fallo_analisis()
                     return (fn, ct, psize, "")
 
         if trabajos:
@@ -563,12 +568,14 @@ async def on_end_of_message(cmd) -> Continue:
             res = await _inbound_safelinks(st, pool, locals_)  # ENTRANTE
         # Duración de cada mensaje en el registro (05/11/2026): antes no se sabía cuánto retenía el DATA.
         tiempo_analisis.anotar_mensaje(sender, "saliente" if dom in locals_ else "entrante", t_msg, bool(st.get("parcial_tiempo")))
-        if st.get("scan_partial") or st.get("parcial_tiempo"):
+        if st.get("scan_partial") or st.get("parcial_tiempo") or st.get("sin_analizar"):
             manips = list(getattr(res, "manipulations", None) or [])
             if st.get("scan_partial"):
                 manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="partial"))
             if st.get("parcial_tiempo"):
                 manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="parcial-tiempo"))
+            if st.get("sin_analizar"):
+                manips.append(AppendHeader(headername="X-Maquita-Scan", headertext="sin-analizar=%d" % st["sin_analizar"]))
             return Continue(manipulations=manips)
         return res
     except Exception as exc:
