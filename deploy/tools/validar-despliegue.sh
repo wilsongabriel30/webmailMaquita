@@ -66,9 +66,17 @@ fi
 # código numérico (': -1', ': 0') los producen escáneres de internet que cortan el saludo TLS
 # y no dicen nada del servidor: se excluyen (Andes, 1.7.3: daban FALLO en toda producción con
 # el 465 expuesto). Solo cuentan 'malformed BASE64' / 'map lookup problem' y otros SSL_accept.
-if tail -400 /var/log/mail.log 2>/dev/null | grep -iE 'malformed BASE64|map lookup problem|SSL_accept error' \
-     | grep -vE 'lost connection|Connection reset by peer|SSL_accept error from [^:]*: -?[0-9]+\s*$' | grep -q .; then
+# 15/11/2026 (Andes): la exclusión del código numérico no admitía «:» en el origen (IPv6, o «[ip]:puerto»), y
+# cualquier SSL_accept de un escáner se anunciaba como «malformed BASE64 / lookup problem» sin serlo. Ahora
+# solo esas dos líneas son FALLO; un SSL_accept distinto de los habituales es un aviso y se muestra la línea.
+SNI_LOG="$(tail -400 /var/log/mail.log 2>/dev/null || true)"
+SNI_MAPA="$(grep -iE 'malformed BASE64|map lookup problem' <<<"$SNI_LOG" || true)"
+SNI_OTROS="$(grep -i 'SSL_accept error' <<<"$SNI_LOG" \
+     | grep -vE 'lost connection|Connection reset by peer|SSL_accept error from .*: -?[0-9]+[[:space:]]*$' || true)"
+if [ -n "$SNI_MAPA" ]; then
   bad "mail.log con errores de TLS/SNI (malformed BASE64 / lookup problem). Si usas tls_server_sni_maps: reconstruye vmail_sni con 'postmap -F' y REINICIA postfix (reload NO basta). [#14]"
+elif [ -n "$SNI_OTROS" ]; then
+  warn "mail.log con 'SSL_accept error' no habituales (no son del mapa SNI). Última: $(tail -1 <<<"$SNI_OTROS" | cut -c1-200)"
 else
   ok "mail.log sin errores de TLS/SNI (malformed BASE64/lookup)"
 fi

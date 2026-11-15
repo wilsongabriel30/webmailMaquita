@@ -8,10 +8,12 @@ import { useAsistenteStore } from './asistenteStore';
 import { AccionesCorreoActual } from './AccionesCorreoActual';
 import { ConversacionCorreo } from './ConversacionCorreo';
 import { IconoAsistente } from './IconoAsistente';
+import { useIADisponible } from './iaDisponible';
 
 export function PanelAsistente({ movil }: { movil: boolean }) {
   const abierto = useAsistenteStore((s) => s.abierto);
   const cerrar = useAsistenteStore((s) => s.cerrar);
+  const hayIA = useIADisponible();
 
   useEffect(() => {
     if (!abierto) return;
@@ -22,7 +24,8 @@ export function PanelAsistente({ movil }: { movil: boolean }) {
     return () => window.removeEventListener('keydown', alPulsar);
   }, [abierto, cerrar]);
 
-  if (!abierto) return null;
+  // El panel pudo quedar recordado como abierto de antes: sin IA configurada no se enseña.
+  if (!abierto || hayIA !== true) return null;
 
   const contenedor = movil
     ? 'fixed left-0 right-0 bottom-0 top-[40px] z-50 bg-white flex flex-col'
@@ -34,7 +37,7 @@ export function PanelAsistente({ movil }: { movil: boolean }) {
         <span className="text-[#0078d4]"><IconoAsistente className="w-5 h-5" /></span>
         <div className="flex-1 min-w-0">
           <p className="text-[14px] font-semibold text-[#323130]">Asistente</p>
-          <p className="text-[11px] text-[#605e5c] truncate">IA de Maquita: tus correos no salen de nuestros servidores</p>
+          <p className="text-[11px] text-[#605e5c] truncate">IA propia: tus correos no salen de nuestros servidores</p>
         </div>
         <button type="button" onClick={cerrar} title="Cerrar (Esc)" aria-label="Cerrar el asistente"
           className="w-7 h-7 rounded flex items-center justify-center text-[#605e5c] hover:bg-[#f3f2f1]">

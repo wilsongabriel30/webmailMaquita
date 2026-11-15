@@ -38,6 +38,6 @@ eventos y tareas de prueba.
 
 - `navegador/`: Chromium real con Playwright (`pip install playwright && playwright install chromium`).
   Si no está, el ejecutor las marca **OMITIDA** en vez de fallar.
-- `servidor/`: llamadas a la API y a la base del propio servidor (calendario ⇄ reuniones, tareas).
+- `servidor/`: llamadas a la API y a la base del propio servidor (calendario ⇄ reuniones, tareas, guardar ajustes).
 - `prueba-reinicio-sesion.sh`: reinicia el backend y comprueba que la sesión sobrevive sin 502
   (corta unos segundos: no correr en horario de trabajo).

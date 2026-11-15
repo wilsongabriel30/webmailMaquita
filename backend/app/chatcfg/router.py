@@ -46,12 +46,29 @@ async def _ensure(db):
     )
 
 
-async def _read(db) -> dict:
+async def _leer_con_origen(db) -> tuple[dict, set]:
+    """La configuración y qué claves están guardadas de verdad (lo demás son valores por omisión)."""
     await _ensure(db)
     rows = await db.fetch("SELECT key, value FROM chat_settings")
     data = dict(_DEFAULTS)
     data.update({r["key"]: r["value"] for r in rows})
-    return data
+    return data, {r["key"] for r in rows}
+
+
+async def _read(db) -> dict:
+    return (await _leer_con_origen(db))[0]
+
+
+def activo_por_omision(embed_url: str) -> bool:
+    """Si nadie decidió nada en el panel, el chat se da por activo solo donde existe.
+
+    Antes valía «activo» siempre: una instalación sin chat sondeaba /api/chat/conversations y recibía
+    404 en cada carga del correo (informe de Andes, 15/11/2026). Existe si vive en otro origen
+    (dirección completa) o si su instalador dejó CHAT_INTERNAL_URL en el .env del correo.
+    """
+    if (embed_url or "").strip().lower().startswith(("http://", "https://")):
+        return True
+    return bool((os.getenv("CHAT_INTERNAL_URL") or "").strip())
 
 
 def _parse_groups(raw):
@@ -74,10 +91,15 @@ def _parse_groups(raw):
     return out
 
 
-def _to_public(data: dict) -> dict:
+def _to_public(data: dict, guardadas: set | None = None) -> dict:
+    """`guardadas`: claves que el panel guardó; sin él (None) se conserva el comportamiento anterior."""
+    embed_url = data.get("embed_url") or _DEFAULTS["embed_url"]
+    activo = data.get("enabled", "1") not in ("0", "false", "False", "")
+    if guardadas is not None and "enabled" not in guardadas:
+        activo = activo_por_omision(embed_url)
     return {
-        "enabled": data.get("enabled", "1") not in ("0", "false", "False", ""),
-        "embed_url": data.get("embed_url") or _DEFAULTS["embed_url"],
+        "enabled": activo,
+        "embed_url": embed_url,
         "domain_isolation": data.get("domain_isolation", "0")
         not in ("0", "false", "False", ""),
         "domain_groups": _parse_groups(data.get("domain_groups", "[]")),
@@ -94,10 +116,10 @@ class ChatConfigIn(BaseModel):
 @router.get("/api/chat-config")
 async def get_chat_config_public(request: Request):
     try:
-        data = await _read(request.app.state.db_pool)
+        data, guardadas = await _leer_con_origen(request.app.state.db_pool)
     except Exception:
-        return _to_public({})
-    return _to_public(data)
+        return _to_public({}, set())
+    return _to_public(data, guardadas)
 
 
 @router.get("/api/chat-sso")
@@ -163,7 +185,7 @@ async def get_chat_sso_url(request: Request, username: str = Depends(get_current
 
 @router.get("/api/admin/chat-config")
 async def get_chat_config_admin(request: Request, admin: str = Depends(require_admin)):
-    return _to_public(await _read(request.app.state.db_pool))
+    return _to_public(*await _leer_con_origen(request.app.state.db_pool))
 
 
 @router.put("/api/admin/chat-config")

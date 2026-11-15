@@ -1,10 +1,13 @@
 /** Botón de la barra superior que abre y cierra el panel lateral del asistente. */
 import { useAsistenteStore } from './asistenteStore';
 import { IconoAsistente } from './IconoAsistente';
+import { useIADisponible } from './iaDisponible';
 
 export function BotonAsistente() {
   const abierto = useAsistenteStore((s) => s.abierto);
   const alternar = useAsistenteStore((s) => s.alternar);
+  // Sin IA configurada no hay asistente que abrir; mientras no se sabe, tampoco se pinta (evita el parpadeo).
+  if (useIADisponible() !== true) return null;
   return (
     <button type="button" onClick={alternar} aria-pressed={abierto}
       title={abierto ? 'Cerrar el asistente' : 'Asistente: resume, responde y pregúntale a tu correo'}

@@ -69,6 +69,10 @@ PUENTE=$(ip -4 addr show docker0 2>/dev/null | grep -oP 'inet \K[0-9.]+' | head 
 if [ -n "$PUENTE" ]; then
     sed "s/172\.17\.0\.1/${PUENTE}/" "$AQUI/nginx/radicale-zpush.conf" > /etc/nginx/sites-available/radicale-zpush
     ln -sf /etc/nginx/sites-available/radicale-zpush /etc/nginx/sites-enabled/radicale-zpush
+    # nginx escucha ahora en la IP de Docker: debe arrancar después de Docker o un reinicio del servidor lo deja caído.
+    install -d -m 755 /etc/systemd/system/nginx.service.d
+    install -m 644 "$AQUI/systemd/nginx-despues-de-docker.conf" /etc/systemd/system/nginx.service.d/despues-de-docker.conf
+    systemctl daemon-reload
     if nginx -t >/dev/null 2>&1; then systemctl reload nginx; echo "  Radicale para Z-Push: nginx en ${PUENTE}:5232 (auth_request al backend)"; else
         rm -f /etc/nginx/sites-enabled/radicale-zpush; echo -e "  ${RED}nginx -t falló con radicale-zpush; revisa (¿Radicale sigue escuchando en ${PUENTE}:5232? debe escuchar solo en 127.0.0.1)${NC}"; fi
 else

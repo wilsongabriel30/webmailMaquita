@@ -93,7 +93,12 @@ async function requestMedido<T>(path: string, options: RequestInit & { skipAuth?
   }
   medida.servidorMs = res.headers.get("X-Offline-Cache") === "true" ? null : tiempoServidor(res);
   // Respuesta servida por el service worker desde su caché (X-Offline-Cache) = el servidor NO fue alcanzado
-  if (res.status === 502 || res.status === 503 || res.status === 504 || res.headers.get("X-Offline-Cache") === "true") reportarFallo(); else reportarExito();
+  // 15/11/2026: /api/ai/* y /api/rag/* responden 502/503/504 cuando falla (o no existe) el servidor de IA, que es
+  // otro servicio: el correo sigue vivo y no debe salir la franja «El servidor de correo no responde» (Andes).
+  const esDeLaIA = path.startsWith("/ai/") || path.startsWith("/rag/") || path.startsWith("/api/ai/") || path.startsWith("/api/rag/");
+  const sinServidor = res.status === 502 || res.status === 503 || res.status === 504;
+  if (res.headers.get("X-Offline-Cache") === "true" || (sinServidor && !esDeLaIA)) reportarFallo();
+  else if (!sinServidor) reportarExito();
 
   // 502/503/504 en lecturas (GET): el backend se está reiniciando; se reintenta en silencio
   // 2 veces (1,5 s y 3 s) antes de dar error. Las escrituras no se repiten solas.

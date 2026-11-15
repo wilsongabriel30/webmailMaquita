@@ -133,6 +133,30 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Informe de Andes del 15/11/2026** (dos servidores actualizados a la rama principal):
+  - **Guardar ajustes daba 500 fuera de la instalación de origen**: faltaba la migración de
+    `user_preferences.acuse_lectura` (la orden solo estaba en la documentación). Añadida
+    `migrations/2026-11-15-preferencias-acuse-lectura.sql`, una prueba que exige migración para toda columna
+    que el código escribe en `user_preferences` y la prueba de humo `ajustes` (lee y vuelve a guardar).
+  - **nginx no arrancaba tras reiniciar el servidor con ActiveSync**: escucha en la IP del puente de Docker y
+    podía subir antes que Docker. El instalador de ActiveSync y el ajuste 83 hacen que arranque después y
+    reintente si falla.
+  - **«La base local del navegador no responde» en un navegador limpio**: la migración a caché cifrada creaba
+    la base vacía y retenía la conexión, y eso bloqueaba la creación de los almacenes. Ya no la crea ni la retiene.
+  - **Sin chat instalado ya no se pide `/api/chat/conversations`**: si el panel no decidió nada, el chat se da
+    por activo solo donde existe (otro origen, o `CHAT_INTERNAL_URL` en el `.env` del correo).
+  - **Los temporizadores del asistente respetan el «disable»**: el ajuste 56 los enciende una sola vez; después
+    manda lo que decida la organización.
+  - **Sin IA configurada no se enseña el asistente** (`GET /api/ai/disponible`, que solo mira la configuración), y
+    un 502/503/504 de `/api/ai/*` o `/api/rag/*` ya no enciende «El servidor de correo no responde».
+  - **Marca fija**: el panel del asistente decía «IA de Maquita»; ahora «IA propia».
+  - **Filtro por país sin filtro (ajuste 82)**: la lista abierta incluye IPv6; antes quien llegaba por IPv6
+    recibía 444. Se regenera con `geo-nginx-rebuild.sh`.
+  - **Ajuste 81**: tras recargar Dovecot prueba una clave inventada; si entrara, reinicia y, si persiste, restaura.
+  - **Validador, TLS/SNI**: un `SSL_accept error` de un escáner (IPv6 o con puerto) ya no se anuncia como
+    «malformed BASE64 / lookup problem»; esas dos líneas siguen siendo fallo y lo demás es aviso con la línea.
+  - **logrotate de sitios-waf**: `sitios-waf.log` estaba repetido con la regla de serie de nginx y logrotate
+    descartaba el bloque entero cada noche; ahora solo rota los registros por sitio.
 - **Redactor: la ventana del correo se duplicaba y parpadeaba**. Al ir a Calendario, Contactos o Configuración y
   volver, el correo en redacción se «recuperaba» otra vez (1, 2, 4, 7 ventanas), con varios guardados de borrador a
   la vez: de ahí los borradores repetidos y, si se enviaba más de una copia, los envíos repetidos. La recuperación
