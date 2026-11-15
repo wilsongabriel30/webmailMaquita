@@ -20,6 +20,7 @@ from app.domains.router import router as domains_router
 from app.drive.router import router as drive_router
 from app.mailboxes.router import router as mailboxes_router
 from app.mailboxes.bloqueo_acceso import router as bloqueo_acceso_router
+from app.mailboxes.dos_pasos import router as buzones_dos_pasos_router
 from app.segundo_factor.router import router as segundo_factor_router
 from app.aliases.router import router as aliases_router
 from app.queue.router import router as queue_router
@@ -61,6 +62,7 @@ from app.dispositivos.wifis_panel import router as dispositivos_wifis_router
 from app.flota.router_equipos import router as flota_equipos_router
 from app.flota.router_codigos import router as flota_codigos_router
 from app.flota.router_ordenes import router as flota_ordenes_router
+from app.flota.router_tunel import router as flota_tunel_router
 from app import config
 from app.ai_config.router import router as ai_config_router
 from app.office_config.router import router as office_config_router
@@ -80,6 +82,7 @@ from app.geo_access.router import router as geoaccess_router
 from app.solo_webmail.router import router as solo_webmail_router
 from app.alertas_seguridad.router import router as alertas_seguridad_router
 from app.alertas_seguridad.envios_masivos import router as envios_masivos_router
+from app.alertas_seguridad.mensajes import router as alertas_mensajes_router
 from app.outbound_anomaly.router import router as anomaly_router
 from app.outbound.router import router as outbound_router
 from app.sitios.dominios import router as sitios_dominios_router
@@ -224,6 +227,7 @@ app.include_router(dashboard_router)
 app.include_router(domains_router)
 app.include_router(mailboxes_router)
 app.include_router(bloqueo_acceso_router)
+app.include_router(buzones_dos_pasos_router)
 app.include_router(segundo_factor_router)
 app.include_router(drive_router)
 app.include_router(aliases_router)
@@ -290,9 +294,11 @@ app.include_router(dispositivos_router)
 app.include_router(flota_equipos_router)  # T-88 Flota Maquita
 app.include_router(flota_codigos_router)
 app.include_router(flota_ordenes_router)
+app.include_router(flota_tunel_router)  # T-120 túnel de soporte
 app.include_router(geoaccess_router)
 app.include_router(solo_webmail_router)
 app.include_router(envios_masivos_router)  # antes que el general: rutas más concretas
+app.include_router(alertas_mensajes_router)
 app.include_router(alertas_seguridad_router)
 app.include_router(anomaly_router)
 app.include_router(outbound_router)

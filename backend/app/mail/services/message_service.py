@@ -13,7 +13,7 @@ from app.mail.parsers import rebote
 from app.mail.parsers.html_sanitizer import sanitize_html
 from app.mail.parsers.mime_parser import parse_full_message, parse_headers
 from app.mail.rendering.policy import apply_render_policy
-from app.mail.services import acuse_lectura
+from app.mail.services import acuse_lectura, busqueda_niveles
 from app.mail.services.adjuntos_lista import adjuntos_por_uid
 
 
@@ -29,8 +29,14 @@ async def list_messages(
     direcciones_nombre: tuple | list = (),
     redis_adjuntos=None,
     ttl_cache: int = 300,
+    por_niveles: bool = False,
 ) -> dict:
-    """List messages with snippets, newest first."""
+    """List messages with snippets, newest first.
+
+    Con `por_niveles`, una búsqueda de varias palabras, valores o frases trae delante las
+    coincidencias exactas; la respuesta añade `total_exactos` y, en cada mensaje,
+    `coincidencia` («exacta» o «contenido»). Ver services/busqueda_niveles.py.
+    """
     uid_result = await list_message_uids(
         imap,
         folder,
@@ -42,19 +48,24 @@ async def list_messages(
         buscar_en_contenido=buscar_en_contenido,
         direcciones_nombre=direcciones_nombre,
         ttl_cache=ttl_cache,
+        por_niveles=por_niveles,
     )
+    exactos = uid_result.get("exactos")
 
     # If folder select failed, uid_result will have folder_error flag
     if uid_result.get("folder_error"):
         return None  # Signal to router that folder does not exist
 
     if not uid_result["uids"]:
-        return {
+        vacio = {
             "messages": [],
             "total": uid_result["total"],
             "page": page,
             "per_page": per_page,
         }
+        if exactos is not None:
+            vacio["total_exactos"] = exactos
+        return vacio
 
     raw_headers = await fetch_message_headers(imap, uid_result["uids"])
     # Adjuntos de cada correo (clip y nombres en la fila, como Outlook; 07/11/2026)
@@ -90,12 +101,18 @@ async def list_messages(
     uid_order = {u: i for i, u in enumerate(uid_result["uids"])}
     messages.sort(key=lambda m: uid_order.get(m["uid"], 999999))
 
-    return {
+    resultado = {
         "messages": messages,
         "total": uid_result["total"],
         "page": page,
         "per_page": per_page,
     }
+    if exactos is not None:
+        resultado["total_exactos"] = exactos
+        busqueda_niveles.anotar(
+            messages, uid_result["uids"], (page - 1) * per_page, exactos
+        )
+    return resultado
 
 
 async def get_message(

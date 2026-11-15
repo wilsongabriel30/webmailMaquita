@@ -33,6 +33,8 @@ import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
 import { AdelantoCarpetaActual } from './AdelantoCarpetaActual';
 import { AvisoBusquedaEnCarpeta } from './AvisoBusquedaEnCarpeta';
 import { AcotarBusqueda } from './AcotarBusqueda';
+import { RotuloCoincidencias } from './RotuloCoincidencias';   // resultados por niveles (13/11/2026)
+import { rotuloDeNiveles } from '../../lib/nivelesBusqueda';
 import { abrirMensajeEnPestana, abrirMensajeEnVentana } from '../../lib/abrirEnPestana';
 import { AVISO_ELIMINAR_CORREO } from '../../lib/deepLinkCorreo';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
@@ -867,6 +869,7 @@ export function MessageList() {
 
   const isConversationMode = viewMode === 'conversations';
   const threadGroups = isConversationMode ? groupByThread(filtered) : null;
+  const rotuloNiveles = isConversationMode ? null : rotuloDeNiveles(filtered, messages);
 
   const folderLabel = etiquetaFiltro ? `Etiqueta: ${etiquetaFiltro.name}` : getFolderDisplayName(currentFolder);
 
@@ -1427,7 +1430,10 @@ export function MessageList() {
         ) : isConversationMode && threadGroups ? (
           threadGroups.map((group, gIdx) => renderThreadGroup(group, gIdx))
         ) : (
-          filtered.map((msg, idx) => renderMessageRow(msg, idx))
+          filtered.map((msg, idx) => [
+            rotuloNiveles?.uid === msg.uid && <RotuloCoincidencias key="rotulo-niveles" sinExactas={rotuloNiveles.sinExactas} consulta={searchQuery} />,
+            renderMessageRow(msg, idx),
+          ])
         )}
         {/* Centinela de scroll infinito */}
         {!loadingMessages && filtered.length > 0 && messages.length < totalMessages && (

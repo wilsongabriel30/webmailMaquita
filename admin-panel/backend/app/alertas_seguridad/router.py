@@ -2,7 +2,8 @@
 
 Reúne los intentos de adivinar contraseñas (con el botón para cerrar IMAP y SMTP de la cuenta),
 los bloqueos por envío a muchas personas (envios_masivos.py), los inicios de sesión riesgosos
-pendientes y las anomalías abiertas. El panel consulta /resumen
+pendientes y las anomalías abiertas. En las alertas que parecen un celular de la propia persona con
+la contraseña vieja se ofrece escribirle (mensajes.py). El panel consulta /resumen
 al entrar para avisar de inmediato si hay algo pendiente.
 """
 
@@ -11,12 +12,11 @@ import re
 from fastapi import APIRouter, Depends, Request
 
 from app import organizacion
-from app.alertas_seguridad import envios_masivos
-from app.alertas_seguridad.ataques import agrupar, explicar
+from app.alertas_seguridad import envios_masivos, mensajes
+from app.alertas_seguridad.ataques import HORAS, agrupar, explicar
 from app.auth.dependencies import get_current_admin
 
 router = APIRouter(prefix="/api/alertas-seguridad", tags=["alertas-seguridad"])
-HORAS = 48
 ORDEN = {"alta": 0, "media": 1, "resuelta": 2}
 LISTA_NEGRA = "/etc/maquita-mail/blacklist-ips.txt"
 
@@ -130,6 +130,7 @@ def _pendientes(ataques: list[dict], otras: dict) -> int:
 async def alertas(r: Request, a=Depends(get_current_admin)):
     db = _db(r)
     ataques, otras = await _ataques(db), await _otras(db)
+    await mensajes.anotar(db, ataques)
     envios = await envios_masivos.pendientes(db)
     return {
         "horas": HORAS,

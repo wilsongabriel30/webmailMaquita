@@ -22,7 +22,7 @@ from app.mail.clients.imap_client import (
 from app.mail.clients.imap_pool import es_conexion_caida, get_pooled_imap
 from app.mail.nombre_carpeta import nombre_valido
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
-from app.mail.services import etiquetas_reubicar, reacciones
+from app.mail.services import etiquetas_reubicar, reacciones, tope_listado
 from app.mail.services.cache_uids import invalidar_uids
 from app.mail.services.message_service import get_message, list_messages
 from app.rag import eliminar as rag_eliminar
@@ -197,16 +197,21 @@ async def get_messages(
                 # quedan fuera para que la lista cambie en cuanto se lee o se marca un correo.
                 redis=redis_busqueda,
                 ttl_cache=SEGUNDOS_CACHE_BUSQUEDA,
+                # Las coincidencias exactas, delante (services/busqueda_niveles.py). Si una
+                # orden de los niveles agota su tope, la conexión se cierra y el reintento de
+                # abajo devuelve la lista de siempre.
+                por_niveles=True,
             )
 
+        # Con tope de tiempo y corte si el navegador ya no espera (services/tope_listado.py).
         try:
-            result = await _listar(imap)
+            result = await tope_listado.ejecutar(request, imap, _listar(imap))
         except Exception as exc:
             # La conexión del fondo se cerró en mitad del uso: una sola vuelta con una nueva.
             if not es_conexion_caida(exc):
                 raise
             imap = await conexion.reconectar()
-            result = await _listar(imap)
+            result = await tope_listado.ejecutar(request, imap, _listar(imap))
         if result is None:
             from fastapi import HTTPException
 

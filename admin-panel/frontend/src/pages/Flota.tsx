@@ -8,12 +8,13 @@ import { Inventario } from "./flota/Inventario";
 import { TablaOrdenes } from "./flota/TablaOrdenes";
 import { TablaRegistro } from "./flota/TablaRegistro";
 import { Asiento, Catalogo, EquipoFlota, Orden, Totales } from "./flota/tipos";
+import { AuditoriaTunel } from "./flota/AuditoriaTunel";
 
 // Flota Maquita (T-88): consola de los equipos Windows propios de la Fundación. La app la app de escritorio es
 // el agente: se enrola con un código de un uso, sondea sus órdenes firmadas cada 15 min y devuelve el
 // resultado. Solo superadmin/admin.
 
-type Pestana = "inventario" | "ordenes" | "codigos" | "registro";
+type Pestana = "inventario" | "ordenes" | "tunel" | "codigos" | "registro";
 
 export function Flota() {
   const [pestana, setPestana] = useState<Pestana>("inventario");
@@ -47,6 +48,7 @@ export function Flota() {
             { titulo: "Solo equipos propios", desc: "Un equipo entra a la flota únicamente con un código de alta de un solo uso creado aquí por Tecnología. Sin código, la app funciona igual pero el equipo no recibe órdenes. Los equipos personales no se enrolan." },
             { titulo: "Cómo llegan las órdenes", desc: "El equipo pregunta al servidor cada 15 minutos desde su tarea de sistema (no se abren puertos en los equipos). Cada orden va firmada con la clave de Flota del servidor; el equipo rechaza cualquier orden sin firma válida, de otro equipo o caducada." },
             { titulo: "Fases", desc: "Fase 1 (activa): comprobar conexión, inventario y forzar la actualización de Teams. Fase 3 (candado de USB, cámara y micrófono): bloqueada hasta el visto bueno de protección de datos y el aviso al personal; entonces exige escribir CONFIRMO en cada orden. Nunca se captura imagen ni sonido: solo se enciende o apaga el permiso del dispositivo." },
+            { titulo: "Túnel de soporte", desc: "Para atender un equipo que está fuera de la red (un hotel, datos del celular). Desde la ficha del equipo se le pide que abra, por unos minutos, una conexión de salida hacia el servidor de túneles; se cierra sola. Exige motivo y escribir CONFIRMO, y para entrar al equipo sigue haciendo falta la llave de soporte. La pestaña «Túnel de soporte» muestra quién abrió cada uno, cuándo y cuánto duró." },
             { titulo: "SSH de soporte", desc: "Las llaves van dentro del instalador. Aquí solo se muestra el estado que reporta la telemetría de cada equipo." },
             { titulo: "Registro", desc: "Toda acción (códigos, órdenes, entregas, resultados, retiros) queda en un registro que no se puede editar ni borrar, con quién la hizo, cuándo y desde dónde." },
           ]} />
@@ -60,14 +62,15 @@ export function Flota() {
           <div key={t} className="rounded-lg border p-3 bg-white border-ms-gray-30"><div className="text-2xl font-semibold">{n}</div><div className="text-xs text-ms-gray-60">{t}</div></div>))}
       </div>}
       <div className="flex gap-1 border-b border-ms-gray-30">
-        {([["inventario", "Inventario"], ["ordenes", "Órdenes"], ["codigos", "Códigos de alta"], ["registro", "Registro"]] as [Pestana, string][]).map(([k, t]) => (
+        {([["inventario", "Inventario"], ["ordenes", "Órdenes"], ["tunel", "Túnel de soporte"], ["codigos", "Códigos de alta"], ["registro", "Registro"]] as [Pestana, string][]).map(([k, t]) => (
           <button key={k} onClick={() => { setPestana(k); setAbierto(null); }}
             className={`px-4 py-2 text-sm -mb-px border-b-2 ${pestana === k ? "border-ms-blue text-ms-blue font-medium" : "border-transparent text-ms-gray-90 hover:text-ms-gray-130"}`}>{t}</button>))}
       </div>
       {pestana === "inventario" && (abierto
-        ? <FichaEquipo id={abierto} onCerrar={() => setAbierto(null)} onOrden={setEmitir} onCambio={cargar} />
+        ? <FichaEquipo id={abierto} firmaDisponible={!!catalogo?.firma_disponible} onCerrar={() => setAbierto(null)} onOrden={setEmitir} onCambio={cargar} />
         : <Inventario equipos={equipos} onAbrir={setAbierto} onOrden={setEmitir} />)}
       {pestana === "ordenes" && <TablaOrdenes ordenes={ordenes} conEquipo onCambio={cargar} />}
+      {pestana === "tunel" && <AuditoriaTunel />}
       {pestana === "codigos" && <CodigosAlta />}
       {pestana === "registro" && <TablaRegistro registro={registro} conEquipo />}
       {emitir && catalogo && <EmitirOrden catalogo={catalogo} equipos={equipos} seleccion={emitir}

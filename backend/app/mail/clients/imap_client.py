@@ -18,6 +18,8 @@ from app.mail.clients.imap_acciones import (
 )
 from app.mail.clients.imap_sort import uid_sort
 from app.mail.errors import CredencialIMAPInvalida
+from app.mail.search_advanced import parse_search_query
+from app.mail.services import busqueda_niveles
 from app.mail.services.busqueda_adjuntos import (
     extraer_patrones,
     filtrar_uids_por_adjunto,
@@ -219,8 +221,12 @@ async def list_message_uids(
     buscar_en_contenido: bool = False,
     direcciones_nombre: tuple | list = (),
     ttl_cache: int = 300,
+    por_niveles: bool = False,
 ) -> dict:
     """List message UIDs with pagination (newest first).
+
+    `por_niveles`: en las búsquedas de varias palabras, valores o frases, las coincidencias
+    exactas van delante y la respuesta dice cuántas son (services/busqueda_niveles.py).
 
     FQA-002: Redis caching for sorted UIDs (60s TTL) to avoid
     repeated IMAP SORT on large folders like Sent (7k+ messages).
@@ -242,11 +248,11 @@ async def list_message_uids(
     consulta_original = search_query
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
     if search_query:
-        criteria = _build_search_criteria(
+        criteria = parse_search_query(
             search_query,
-            buscar_en_contenido,
-            cuenta_indexada(username),
-            direcciones_nombre,
+            buscar_en_contenido=buscar_en_contenido,
+            con_indice=cuenta_indexada(username),
+            direcciones_nombre=direcciones_nombre,
         )
     else:
         criteria = ["ALL"]
@@ -258,15 +264,23 @@ async def list_message_uids(
         ]
 
     all_uids = []
+    niveles = busqueda_niveles.Niveles.preparar(
+        por_niveles,
+        search_query,
+        buscar_en_contenido,
+        cuenta_indexada(username),
+        direcciones_nombre,
+        clave=f"{username}|{folder}|{consulta_original}",
+    )
 
     # FQA-002: Try Redis cache for sorted UIDs (avoids 25s+ IMAP SORT on large folders)
     cache_key = ""
     if redis and username:
-        cache_key = f"uids:{username}:{folder}:{consulta_original}"
+        cache_key = f"{niveles.prefijo}uids:{username}:{folder}:{consulta_original}"
         try:
             cached = await redis.get(cache_key)
             if cached:
-                all_uids = json.loads(cached)
+                all_uids = niveles.de_cache(json.loads(cached))
         except Exception:
             pass
 
@@ -300,11 +314,13 @@ async def list_message_uids(
             if not completo:
                 cache_key = ""
 
+        all_uids = await niveles.ordenar(imap, all_uids)
+
         # FQA-002: Cache sorted UIDs in Redis for 60s
         if redis and username and cache_key and all_uids:
             try:
                 await redis.set(
-                    cache_key, json.dumps(all_uids), ex=ttl_cache
+                    cache_key, json.dumps(niveles.para_cache(all_uids)), ex=ttl_cache
                 )  # 5 min por omisión; las búsquedas piden menos
                 await registrar_clave(redis, username, folder, cache_key)
             except Exception:
@@ -315,22 +331,8 @@ async def list_message_uids(
     end_idx = start_idx + per_page
     page_uids = all_uids[start_idx:end_idx]
 
-    return {"uids": page_uids, "total": total, "page": page, "per_page": per_page}
-
-
-def _build_search_criteria(
-    query: str,
-    buscar_en_contenido: bool = False,
-    con_indice: bool = False,
-    direcciones_nombre: tuple | list = (),
-) -> list[str]:
-    from app.mail.search_advanced import parse_search_query
-
-    return parse_search_query(
-        query,
-        buscar_en_contenido=buscar_en_contenido,
-        con_indice=con_indice,
-        direcciones_nombre=direcciones_nombre,
+    return niveles.informar(
+        {"uids": page_uids, "total": total, "page": page, "per_page": per_page}
     )
 
 

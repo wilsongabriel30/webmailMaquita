@@ -16,6 +16,7 @@ const adminNav = [
   { path: "/admin/bloqueos", label: "Bloqueos Correo", icon: "M18.364 5.636a9 9 0 11-12.728 12.728 9 9 0 0112.728-12.728zM5.636 5.636l12.728 12.728" },
   { path: "/admin/chat", label: "Chat", icon: "M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" },
   { path: "/admin/drive-externos", label: "Drive externos", icon: "M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" },
+  { path: "/admin/sesiones", label: "Sesiones", icon: "M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
   { path: "/admin/air", label: "Incidentes (AIR)", icon: "M13 10V3L4 14h7v7l9-11h-7z" },
 ];
 
