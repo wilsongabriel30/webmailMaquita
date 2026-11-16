@@ -54,6 +54,13 @@ def crear_documento():
         return error('No tienes permiso para crear aquí. Pide edición de esta '
                      'carpeta a quien administra la unidad.', 403)
     ext = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else TIPO_EXT.get(tipo, '')
+    # «Crear» nunca pisa un archivo que ya existe (16/11/2026): crear otra encuesta con el mismo nombre
+    # sobrescribía la anterior y dejaba varios registros de encuesta con la misma ruta.
+    try:
+        if os.path.exists(nucleo.ruta_fisica(usuario, ruta, escritura=True)):
+            return error('Ya existe «%s» en esta carpeta. Ábralo para editarlo o use otro nombre.' % nombre, 409)
+    except RutaInvalida as excepcion:
+        return error(str(excepcion), excepcion.codigo)
 
     if ext == 'forma' or tipo == 'formulario':
         # Un .forma es la definición del formulario en JSON. Se siembra con

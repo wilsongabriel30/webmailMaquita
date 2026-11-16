@@ -169,6 +169,17 @@ def _abrir(escritura=False):
         usuario, ruta = _efectivo(usuario, ruta)
     definicion = leer_definicion(usuario, ruta)
     if definicion is None:
+        # Movido o renombrado con el editor abierto (p. ej. al pasarlo a su carpeta
+        # propia, 16/11/2026): se sigue al archivo, como el guardado de OnlyOffice.
+        import time
+        import renombres_abiertos
+        nueva = renombres_abiertos.seguir(
+            usuario, ruta, lambda r: os.path.exists(nucleo.ruta_fisica(usuario, r)),
+            desde=time.time() - 86400)
+        if nueva != ruta:
+            ruta = nueva
+            definicion = leer_definicion(usuario, ruta)
+    if definicion is None:
         return None, error('Formulario no encontrado', 404)
     return (usuario, ruta, definicion), None
 
