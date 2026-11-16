@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.23.1] - 2026-11-16
+
+Tres correcciones de interfaz en el panel y en el redactor.
+
 ### Corregido
 - Panel: la ayuda «¿Cómo funciona esta sección?» se cierra con Esc, con la × o pulsando fuera, y deja de tapar los campos.
 - Panel › Recuperación entre servidores: «Agregar» valida cada dominio al momento; lo que no es un dominio no entra en la lista y se señala en rojo.
