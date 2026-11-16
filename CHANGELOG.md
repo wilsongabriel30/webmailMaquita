@@ -7,6 +7,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.22.0] - 2026-11-16
+
+Recuperación entre servidores con decisión del servidor del destinatario sobre los correos ya leídos (opción y dominios
+de confianza administrables desde el panel, con registro de solicitudes), botón «Incluir adjuntos del original» al
+responder, y las correcciones de buscador, carpetas, pospuestos, nube y federación surgidas de las pruebas con otra
+instalación. Hay una migración nueva y el panel debe reconstruirse; **cambia el comportamiento por defecto**: un correo
+ya leído deja de retirarse a pedido de otro servidor, salvo opción o dominio de confianza.
+
 ### Corregido
 
 - **Buscador y carpetas del correo: segunda tanda de hallazgos de Andes (15/11/2026)**:
