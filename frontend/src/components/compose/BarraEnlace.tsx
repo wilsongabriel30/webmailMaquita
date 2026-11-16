@@ -6,7 +6,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { Editor } from '@tiptap/react';
-import { abrirEnlace as abrir, normalizarEnlace } from './enlaces';
+import { abrirEnlace as abrir } from './enlaces';
+import { pedirEnlace } from './pedirEnlace';
 
 const ESPERA_OCULTAR_MS = 300;
 
@@ -85,10 +86,9 @@ export function BarraEnlace({ editor }: { editor: Editor | null }) {
     const pos = editor.view.posAtDOM(visible.ancla, 0);
     return editor.chain().focus().setTextSelection(pos + 1).extendMarkRange('link');
   };
-  const cambiar = () => {
-    const nuevo = window.prompt('Dirección del enlace:', visible.href);
-    if (nuevo === null) return;
-    const url = normalizarEnlace(nuevo);
+  const cambiar = async () => {
+    const url = await pedirEnlace(visible.href, true);
+    if (url === null) return;
     const cadena = conEnlaceSeleccionado();
     if (!cadena) return;
     if (url) cadena.setLink({ href: url }).run(); else cadena.unsetLink().run();

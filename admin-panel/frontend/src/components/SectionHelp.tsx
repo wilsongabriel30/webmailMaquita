@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 /*
  * Tarjeta "¿Cómo funciona esta sección?" (mismo patrón que FARO): botón
@@ -15,12 +15,25 @@ export interface SectionHelpItem {
 
 export function SectionHelp({ titulo, items }: { titulo: string; items: (SectionHelpItem | string)[] }) {
   const [open, setOpen] = useState(false);
+  // Tras cerrarla con Esc, con la × o pulsando fuera, no vuelve a abrirse sola hasta que el puntero salga.
+  const [sinHover, setSinHover] = useState(false);
+  const caja = useRef<HTMLDivElement>(null);
+  const cerrar = () => { setOpen(false); setSinHover(true); };
+
+  useEffect(() => {
+    const alTeclear = (e: KeyboardEvent) => { if (e.key === "Escape") cerrar(); };
+    const alPulsar = (e: MouseEvent) => { if (caja.current && !caja.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("keydown", alTeclear);
+    document.addEventListener("mousedown", alPulsar);
+    return () => { document.removeEventListener("keydown", alTeclear); document.removeEventListener("mousedown", alPulsar); };
+  }, []);
 
   return (
-    <div className="relative inline-flex group" onMouseLeave={() => setOpen(false)}>
+    <div ref={caja} className="relative inline-flex group" onMouseLeave={() => { setOpen(false); setSinHover(false); }}>
       <button
         type="button"
-        onClick={() => setOpen(!open)}
+        onClick={() => { setOpen(!open); setSinHover(open); }}
+        aria-expanded={open}
         className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold text-white bg-ms-blue hover:bg-ms-blue-dark shadow-sm"
       >
         <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -29,13 +42,15 @@ export function SectionHelp({ titulo, items }: { titulo: string; items: (Section
         ¿Cómo funciona esta sección?
       </button>
       <div
-        className={`absolute right-0 top-full mt-1.5 w-[min(560px,90vw)] bg-white border border-ms-blue/20 rounded-xl shadow-xl p-4 z-50 transition-all duration-150 ${open ? "opacity-100 visible translate-y-0" : "opacity-0 invisible -translate-y-1"} group-hover:opacity-100 group-hover:visible group-hover:translate-y-0 max-h-[70vh] overflow-auto`}
+        className={`absolute right-0 top-full mt-1.5 w-[min(560px,90vw)] bg-white border border-ms-blue/20 rounded-xl shadow-xl p-4 z-50 transition-all duration-150 ${open ? "opacity-100 visible translate-y-0" : "opacity-0 invisible -translate-y-1"} ${sinHover ? "" : "group-hover:opacity-100 group-hover:visible group-hover:translate-y-0"} max-h-[70vh] overflow-auto`}
       >
         <div className="font-semibold text-sm text-ms-gray-130 border-b border-ms-gray-30 pb-2 mb-2.5 flex items-center gap-2">
           <svg className="w-4 h-4 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 20 20">
             <path d="M11 3a1 1 0 10-2 0v1a1 1 0 102 0V3zM15.657 5.757a1 1 0 00-1.414-1.414l-.707.707a1 1 0 001.414 1.414l.707-.707zM18 10a1 1 0 01-1 1h-1a1 1 0 110-2h1a1 1 0 011 1zM5.05 6.464A1 1 0 106.464 5.05l-.707-.707a1 1 0 00-1.414 1.414l.707.707zM5 10a1 1 0 01-1 1H3a1 1 0 110-2h1a1 1 0 011 1zM8 16v-1h4v1a2 2 0 11-4 0zM12 14c.015-.34.208-.646.477-.859a4 4 0 10-4.954 0c.27.213.462.519.476.859h4.002z" />
           </svg>
-          {titulo}
+          <span className="flex-1">{titulo}</span>
+          <button type="button" onClick={cerrar} title="Cerrar (Esc)" aria-label="Cerrar la ayuda"
+            className="text-ms-gray-90 hover:text-ms-gray-130 text-base leading-none px-1">×</button>
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-left">
           {items.map((item, i) =>

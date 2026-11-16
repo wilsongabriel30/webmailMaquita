@@ -4,6 +4,9 @@ import { useEffect, useState } from "react";
 import { api } from "../api/client";
 import { SectionHelp } from "../components/SectionHelp";
 
+// La misma regla que valida el servidor (admin-panel/backend/app/recuperacion_servidores/dominios.py).
+const ES_DOMINIO = /^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/;
+
 interface Solicitud {
   fecha: string; remitente: string; message_id: string; ip: string | null; dominio: string | null;
   destinatario: string | null; resultado: string | null; leido: boolean | null; retirado: boolean;
@@ -45,6 +48,7 @@ export function RecuperacionServidores() {
   const [guardando, setGuardando] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [nuevo, setNuevo] = useState("");
+  const [errorNuevo, setErrorNuevo] = useState("");
 
   const cargar = () =>
     api.get<Datos>("/recuperacion-servidores").then(setDatos).catch(() => {}).finally(() => setCargando(false));
@@ -54,9 +58,17 @@ export function RecuperacionServidores() {
     if (!datos) return;
     const partes = nuevo.split(/[\s,;]+/).map((d) => d.trim().toLowerCase().replace(/^@/, "")).filter(Boolean);
     const lista = [...datos.dominios_confianza];
-    for (const d of partes) if (!lista.includes(d)) lista.push(d);
+    const rechazados: string[] = [];
+    for (const d of partes.map((p) => p.replace(/\.$/, ""))) {
+      if (!ES_DOMINIO.test(d)) rechazados.push(d);
+      else if (!lista.includes(d)) lista.push(d);
+    }
     setDatos({ ...datos, dominios_confianza: lista });
-    setNuevo("");
+    // Lo que no es un dominio no entra en la lista: se queda en el campo para corregirlo.
+    setNuevo(rechazados.join(" "));
+    setErrorNuevo(rechazados.length
+      ? `No parece un dominio: ${rechazados.map((r) => `«${r}»`).join(", ")}. Escriba solo el dominio, por ejemplo socio.org.`
+      : "");
   };
 
   const guardar = async () => {
@@ -127,13 +139,14 @@ export function RecuperacionServidores() {
           ))}
         </div>
         <div className="flex gap-2 mt-3">
-          <input value={nuevo} onChange={(e) => setNuevo(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") agregar(); }}
+          <input value={nuevo} onChange={(e) => { setNuevo(e.target.value); setErrorNuevo(""); }} aria-invalid={!!errorNuevo} onKeyDown={(e) => { if (e.key === "Enter") agregar(); }}
             placeholder="agregar dominio (ej. socio.org); puede pegar varios separados por coma"
             title="Escriba solo el dominio, sin @ ni nombre de persona. Puede pegar varios separados por coma o espacio."
-            className="px-2 py-1 border border-ms-gray-30 rounded text-sm flex-1" />
+            className={`px-2 py-1 border rounded text-sm flex-1 ${errorNuevo ? "border-red-500" : "border-ms-gray-30"}`} />
           <button onClick={agregar} title="Agrega el dominio a la lista. El cambio se aplica al pulsar Guardar cambios."
             className="px-3 py-1 bg-ms-gray-20 rounded text-sm">Agregar</button>
         </div>
+        {errorNuevo && <p role="alert" className="mt-1 text-xs text-red-600">{errorNuevo}</p>}
         {datos.dominios_propios.length > 0 && (
           <p className="mt-3 text-xs text-ms-gray-110">Los dominios alojados en este servidor ({datos.dominios_propios.join(", ")}) no hace falta ponerlos: entre ellos la recuperación ya funciona.</p>
         )}
