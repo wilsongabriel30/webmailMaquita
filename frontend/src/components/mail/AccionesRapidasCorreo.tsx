@@ -9,6 +9,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useMenuTeclado } from '../../lib/menuTeclado';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { accionDeshacer, loteDeRespuesta, recordarParaDeshacer, type RespuestaMover } from '../../lib/deshacerMover';
 import { useMailStore } from '../../store/mailStore';
 import { confirmarBorradoDefinitivo } from '../../lib/confirmarBorrado';
@@ -132,9 +133,15 @@ export function AccionesRapidasCorreo({
   };
 
   const noDeseado = async () => {
+    // Informar también bloquea al remitente: se pregunta antes y se avisa después (informarCorreo.ts)
+    if (!enNoDeseado && !(await confirmarInforme('no-deseado'))) return;
     try {
-      await api.post(enNoDeseado ? '/mail/spam/not-spam' : '/mail/spam/report', { folder, uid });
-      showToast(enNoDeseado ? 'Movido a la Bandeja de entrada.' : 'Movido a Correo no deseado.');
+      if (enNoDeseado) {
+        await api.post('/mail/spam/not-spam', { folder, uid });
+        showToast('Movido a la Bandeja de entrada.');
+      } else {
+        showToast(await enviarInforme(folder, [uid], 'no-deseado'));
+      }
       refrescar(true);
     } catch { showToast('No se pudo mover'); }
   };
@@ -152,10 +159,9 @@ export function AccionesRapidasCorreo({
   };
 
   const phishing = async () => {
-    if (!window.confirm('¿Informar este correo como phishing (suplantación o estafa)?\n\nSe moverá a Correo no deseado. No abra sus enlaces ni sus adjuntos.')) return;
+    if (!(await confirmarInforme('suplantacion'))) return;
     try {
-      await api.post('/mail/spam/report', { folder, uid });
-      showToast('Informado como phishing y movido a Correo no deseado.');
+      showToast(await enviarInforme(folder, [uid], 'suplantacion'));
       refrescar(true);
     } catch { showToast('No se pudo informar'); }
   };

@@ -51,6 +51,8 @@ import { AvatarFoto } from '../common/AvatarFoto';
 import { PuntoLeido } from './PuntoLeido';   // clic en el puntito = leído / no leído (07/11/2026)
 import { AvisoOtrosSinLeer } from './AvisoOtrosSinLeer';   // «Otros: N sin leer» (07/11/2026)
 import { ChipsAdjuntosFila } from './ChipsAdjuntosFila';   // nombres de adjuntos en la fila (07/11/2026)
+import { seleccionTrasCtrlClic } from '../../lib/seleccionConClic';
+import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { usePublicarListaVisible } from './listaVisible';   // lista visible y resaltado por UID (05/11/2026)
 import { responderDesdeLista, reenviarDesdeLista } from './citarDesdeLista';
 import { ICONO_CORREO_ADJUNTO, correosDeSeleccion, reenviarComoAdjunto } from '../../lib/correosComoAdjunto';   // .eml dentro de otro correo (05/11/2026)   // menú contextual con cita (05/11/2026)
@@ -109,7 +111,7 @@ function flushQuickAction(key: string, folder: string, action: string, dest: str
     })
     .catch(() => {
       // Fallo del servidor: re-sincroniza para restaurar lo que se quito optimistamente
-      showToast('No se pudo completar la accion, reintenta');
+      showToast('No se pudo completar la acción. Inténtelo de nuevo.');
       window.dispatchEvent(new CustomEvent('refresh-messages'));
     });
 }
@@ -261,7 +263,7 @@ export function MessageList() {
   const celdaCabecera = (col: 'de' | 'asunto', texto: string, clase: string) => (
     <div
       draggable
-      title="Arrastra esta columna para cambiar el orden"
+      title="Arrastre esta columna para cambiar el orden"
       onDragStart={(e) => { e.dataTransfer.setData('text/columna', col); e.dataTransfer.effectAllowed = 'move'; setColumnaArrastrada(col); }}
       onDragEnd={() => setColumnaArrastrada(null)}
       onDragOver={(e) => { if (e.dataTransfer.types.includes('text/columna')) { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; } }}
@@ -539,13 +541,13 @@ export function MessageList() {
         const det = res.details?.[0];
         if (det?.is_spam) {
           if (autoMove && res.moved > 0) {
-            showToast(`Spam confirmado — movido a Spam (score: ${det.score})`);
+            showToast(`Correo no deseado confirmado: movido a Correo no deseado (puntuación: ${det.score})`);
             window.dispatchEvent(new CustomEvent("refresh-messages"));
           } else {
-            showToast(`⚠ Spam detectado (score: ${det.score}): ${(det.reasons || []).join(', ')}`);
+            showToast(`⚠ Parece correo no deseado (puntuación: ${det.score}): ${(det.reasons || []).join(', ')}`);
           }
         } else {
-          showToast(`Este mensaje parece legítimo (score: ${det?.score || 0})`);
+          showToast(`Este mensaje parece legítimo (puntuación: ${det?.score || 0})`);
         }
       } else {
         if (res.spam_found > 0) {
@@ -626,7 +628,10 @@ export function MessageList() {
   const handleRowClick = (uid: number, idx: number, e: React.MouseEvent) => {
     if (e.ctrlKey || e.metaKey) {
       e.preventDefault();
-      toggleSelection(uid);
+      // El correo abierto (o resaltado) cuenta como el primero de la selección: lib/seleccionConClic.ts
+      const st = useMailStore.getState();
+      const resaltado = st.selectedMessage?.uid ?? (soloSeleccionar ? st.activeUid : null);
+      useMailStore.setState({ selectedUids: seleccionTrasCtrlClic(st.selectedUids, uid, resaltado !== null && st.visibleUids.includes(resaltado) ? resaltado : null) });
       lastClickIdx.current = idx;
       setActiveIndex(idx);
       return;
@@ -662,19 +667,19 @@ export function MessageList() {
       return;
     }
     if (/reinici/i.test(texto) || /^HTTP 50[234]$/.test(texto)) {
-      showToast('El servidor se está reiniciando. Inténtalo de nuevo en unos segundos.');
+      showToast('El servidor se está reiniciando. Inténtelo de nuevo en unos segundos.');
       return;
     }
     // Solo cuando el cliente confirmó que el refresco fue rechazado (no por un fallo temporal).
     if (texto === 'Session expired') {
-      showToast('Tu sesión caducó. Cierra sesión y vuelve a entrar.');
+      showToast('Su sesión caducó. Cierre la sesión y vuelva a entrar.');
       return;
     }
     if (!navigator.onLine || /sin conexi[oó]n/i.test(texto)) {
       showToast('Sin conexión: este correo no está descargado. Se abrirá cuando vuelva el internet.');
       return;
     }
-    showToast('No se pudo abrir el correo. Inténtalo de nuevo.');
+    showToast('No se pudo abrir el correo. Inténtelo de nuevo.');
   };
 
   const handleSelect = async (uid: number) => {
@@ -888,10 +893,16 @@ export function MessageList() {
     if (st.selectedMessage?.uid === uid) st.setSelectedMessage(null);
   };
   const marcarNoDeseadoCtx = async (msg: MessageSummary, esNoDeseado: boolean) => {
+    // Informar también bloquea al remitente: se pregunta antes y se avisa después (informarCorreo.ts)
+    if (!esNoDeseado && !(await confirmarInforme('no-deseado'))) return;
     quitarDeLista(msg.uid);
     try {
-      await api.post(esNoDeseado ? '/mail/spam/not-spam' : '/mail/spam/report', { folder: currentFolder, uid: msg.uid });
-      showToast(esNoDeseado ? 'Movido a la Bandeja de entrada — no es spam' : 'Marcado como spam y movido a Correo no deseado — el filtro aprendió');
+      if (esNoDeseado) {
+        await api.post('/mail/spam/not-spam', { folder: currentFolder, uid: msg.uid });
+        showToast('Movido a la Bandeja de entrada — no es spam');
+      } else {
+        showToast(await enviarInforme(currentFolder, [msg.uid], 'no-deseado'));
+      }
     } catch { showToast('No se pudo completar la acción'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
@@ -906,7 +917,7 @@ export function MessageList() {
         quitarDeLista(msg.uid);
         await api.post('/mail/spam/not-spam', { folder: currentFolder, uid: msg.uid }).catch(() => { });
       }
-      showToast(`${correo} en confianza — sus correos iran siempre a la Bandeja`);
+      showToast(`${correo} en confianza — sus correos irán siempre a la Bandeja`);
     } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'No se pudo confiar en el remitente'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
@@ -915,12 +926,12 @@ export function MessageList() {
     const m = from.match(/<([^>]+)>/);
     const correo = (m ? m[1] : from).trim().toLowerCase();
     if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
-    if (!window.confirm(`Bloquear a ${correo}?\n\nSus proximos correos iran a Correo no deseado. Puedes deshacerlo en Configuración → Remitentes bloqueados.`)) return;
+    if (!window.confirm(`¿Bloquear a ${correo}?\n\nSus próximos correos irán a Correo no deseado. Puede deshacerlo en Configuración → Remitentes bloqueados.`)) return;
     quitarDeLista(msg.uid);
     try {
       await api.post('/mail/remitentes-bloqueados', { correo });
       await api.post('/mail/spam/report', { folder: currentFolder, uid: msg.uid }).catch(() => { /* bloqueo ya creado */ });
-      showToast(`${correo} bloqueado — sus correos iran a Correo no deseado`);
+      showToast(`${correo} bloqueado — sus correos irán a Correo no deseado`);
     } catch (e) { showToast(e instanceof Error && e.message ? e.message : 'No se pudo bloquear el remitente'); }
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
@@ -1413,7 +1424,7 @@ export function MessageList() {
             ) : filter === 'all' ? (
               <p className="text-[13px]">No hay mensajes</p>
             ) : null}
-            {!searchQuery && filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Usa el icono de bandera en un correo para marcarlo</p>}
+            {!searchQuery && filter === 'flagged' && <p className="text-[11px] mt-1 text-[#a19f9d]">Use el icono de bandera en un correo para marcarlo</p>}
           </div>
         ) : isConversationMode && threadGroups ? (
           threadGroups.map((group, gIdx) => renderThreadGroup(group, gIdx))
@@ -1428,7 +1439,7 @@ export function MessageList() {
         {!loadingMessages && filtered.length > 0 && messages.length < totalMessages && (
           <div ref={loadMoreRef} className="py-4 flex justify-center">
             {!navigator.onLine
-              ? <p className="text-[11px] text-[#a19f9d] text-center px-4">Sin conexión: estos son los correos descargados (últimos {Math.min(60, Math.max(7, parseInt(localStorage.getItem('offline.dias') || '30', 10) || 30))} días). Con internet verás el resto; en Configuración puedes descargar más días.</p>
+              ? <p className="text-[11px] text-[#a19f9d] text-center px-4">Sin conexión: estos son los correos descargados (últimos {Math.min(60, Math.max(7, parseInt(localStorage.getItem('offline.dias') || '30', 10) || 30))} días). Con internet verá el resto; en Configuración puede descargar más días.</p>
               : loadingMore && <div className="w-4 h-4 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />}
           </div>
         )}
