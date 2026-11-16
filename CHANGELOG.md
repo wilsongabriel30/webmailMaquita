@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- Panel › Recuperación entre servidores: la columna «Desde» de las solicitudes muestra la dirección IP sin la máscara («/32»).
+
 ## [1.23.1] - 2026-11-16
 
 Tres correcciones de interfaz en el panel y en el redactor.
