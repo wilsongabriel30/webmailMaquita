@@ -3,7 +3,6 @@
 import asyncio
 import logging
 from datetime import datetime, timezone
-from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
@@ -13,9 +12,9 @@ from app.core.session import get_imap_login_user, get_user_password
 from app.mail.clients.imap_client import (
     fetch_message_headers,
     get_imap_connection,
-    uid_bulk_action,
-    uid_move_message,
+    uid_move_message_detallado,
 )
+from app.mail.services import pospuestos
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/mail", tags=["mail-snooze"])
@@ -53,17 +52,6 @@ async def _ensure_snooze_folder(imap):
         pass
 
 
-def _parse_imap_uids(search_resp) -> list[int]:
-    """Extract UID list from IMAP search response."""
-    uids = []
-    for line in search_resp.lines:
-        s = line.decode() if isinstance(line, bytes) else line
-        s = s.strip()
-        if s and "completed" not in s.lower():
-            uids.extend(int(x) for x in s.split() if x.isdigit())
-    return uids
-
-
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
@@ -83,6 +71,8 @@ async def snooze_email(
     except ValueError:
         raise HTTPException(status_code=400, detail="Invalid snooze_until datetime")
 
+    if snooze_dt.tzinfo is None:
+        snooze_dt = snooze_dt.replace(tzinfo=timezone.utc)
     if snooze_dt <= datetime.now(timezone.utc):
         raise HTTPException(
             status_code=400, detail="snooze_until must be in the future"
@@ -90,6 +80,7 @@ async def snooze_email(
 
     subject = ""
     from_addr = ""
+    snoozed_uid = None
     try:
         login_user = await get_imap_login_user(request, username)
         imap = await get_imap_connection(login_user, password)
@@ -116,7 +107,12 @@ async def snooze_email(
                             :255
                         ]
 
-            moved = await uid_move_message(imap, body.folder, body.uid, SNOOZE_FOLDER)
+            # Se anota el UID que el correo recibe dentro de Pospuestos: es lo que permite devolver
+            # después ESE correo y no «el primero» de la carpeta.
+            moved, mapa = await uid_move_message_detallado(
+                imap, body.folder, body.uid, SNOOZE_FOLDER
+            )
+            snoozed_uid = (mapa or {}).get(body.uid)
             if not moved:
                 raise HTTPException(
                     status_code=500, detail="Failed to move email to Snoozed folder"
@@ -130,15 +126,17 @@ async def snooze_email(
         raise HTTPException(status_code=500, detail=f"IMAP error: {e}")
 
     row = await db.fetchrow(
-        """INSERT INTO snoozed_emails (owner, original_folder, original_uid, snooze_until, subject, from_addr)
-           VALUES ($1, $2, $3, $4, $5, $6)
+        """INSERT INTO snoozed_emails
+               (owner, original_folder, original_uid, snooze_until, subject, from_addr, snoozed_uid)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING id, created_at""",
         username,
         body.folder,
         body.uid,
-        snooze_dt.replace(tzinfo=None),
+        snooze_dt.astimezone(timezone.utc).replace(tzinfo=None),
         subject,
         from_addr,
+        snoozed_uid,
     )
 
     return {
@@ -156,6 +154,7 @@ async def list_snoozed(request: Request, username: str = Depends(get_current_use
     """List all snoozed (not yet restored) emails."""
     db = request.app.state.db_pool
     await ensure_tables(db)
+    await _devolver_los_mios(request, db, username)
 
     rows = await db.fetch(
         """SELECT id, original_folder, original_uid, snooze_until, subject, from_addr, created_at
@@ -190,7 +189,8 @@ async def cancel_snooze(
     password = await get_user_password(request, username)
 
     row = await db.fetchrow(
-        "SELECT id, original_folder FROM snoozed_emails WHERE id = $1 AND owner = $2 AND restored = FALSE",
+        """SELECT id, owner, original_folder, snoozed_uid, subject, from_addr
+             FROM snoozed_emails WHERE id = $1 AND owner = $2 AND restored = FALSE""",
         snooze_id,
         username,
     )
@@ -201,27 +201,52 @@ async def cancel_snooze(
         login_user = await get_imap_login_user(request, username)
         imap = await get_imap_connection(login_user, password)
         try:
-            await imap.select(SNOOZE_FOLDER)
-            search_resp = await imap.uid_search("ALL")
-            if search_resp.result == "OK":
-                snoozed_uids = _parse_imap_uids(search_resp)
-                if snoozed_uids:
-                    await uid_bulk_action(
-                        imap,
-                        SNOOZE_FOLDER,
-                        snoozed_uids[:1],
-                        "move",
-                        row["original_folder"],
-                    )
+            resultado = await pospuestos.devolver(imap, row)
         finally:
             await imap.logout()
     except Exception as e:
         logger.error("Cancel snooze IMAP error: %s", e)
+        raise HTTPException(
+            status_code=502, detail="No se pudo devolver el correo a su carpeta."
+        )
+    if resultado not in (pospuestos.DEVUELTO, pospuestos.YA_NO_ESTABA):
+        # Antes se marcaba como devuelto aunque no se hubiera movido nada.
+        raise HTTPException(
+            status_code=409,
+            detail="No se pudo identificar el correo en Pospuestos. Muévalo a mano desde esa carpeta.",
+        )
 
     await db.execute(
         "UPDATE snoozed_emails SET restored = TRUE WHERE id = $1", snooze_id
     )
     return {"ok": True, "restored_to": row["original_folder"]}
+
+
+async def _devolver_los_mios(request: Request, db, username: str) -> None:
+    """Devuelve lo vencido de quien consulta, con su propia sesión.
+
+    El restaurador en segundo plano necesita el usuario maestro; en una instalación que no lo tenga,
+    los pospuestos vuelven al menos cuando la persona abre el correo.
+    """
+    try:
+        if not await db.fetchval(
+            """SELECT 1 FROM snoozed_emails
+                WHERE owner = $1 AND restored = FALSE
+                  AND snooze_until <= (NOW() AT TIME ZONE 'UTC') LIMIT 1""",
+            username,
+        ):
+            return
+        password = await get_user_password(request, username)
+        login_user = await get_imap_login_user(request, username)
+        imap = await get_imap_connection(login_user, password)
+        try:
+            await pospuestos.restaurar_vencidos(db, owner=username, imap=imap)
+        finally:
+            await imap.logout()
+    except Exception as e:
+        logger.warning(
+            "Pospuestos de %s: no se pudieron devolver al listar: %s", username, e
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -255,65 +280,9 @@ async def check_snoozed(app):
 
 
 async def _restaurar_vencidos(db):
-    """Una vuelta del restaurador de pospuestos."""
-    rows = await db.fetch("""SELECT id, owner, original_folder
-           FROM snoozed_emails
-           WHERE snooze_until <= NOW() AND restored = FALSE""")
-    if not rows:
-        return
-
-    logger.info("Snooze checker: %d emails to restore", len(rows))
-
-    for r in rows:
-        try:
-            password = await _get_password_from_redis(r["owner"])
-            if not password:
-                logger.debug("Snooze: no password cached for %s, skipping", r["owner"])
-                continue
-
-            imap = await get_imap_connection(r["owner"], password)
-            try:
-                await imap.select(SNOOZE_FOLDER)
-                search_resp = await imap.uid_search("ALL")
-                if search_resp.result == "OK":
-                    snoozed_uids = _parse_imap_uids(search_resp)
-                    if snoozed_uids:
-                        await uid_bulk_action(
-                            imap,
-                            SNOOZE_FOLDER,
-                            snoozed_uids[:1],
-                            "move",
-                            r["original_folder"],
-                        )
-                        logger.info(
-                            "Restored snoozed email %d for %s",
-                            r["id"],
-                            r["owner"],
-                        )
-            finally:
-                await imap.logout()
-
-            await db.execute(
-                "UPDATE snoozed_emails SET restored = TRUE WHERE id = $1",
-                r["id"],
-            )
-        except Exception as e:
-            logger.error("Snooze restore error for id=%d: %s", r["id"], e)
-
-
-async def _get_password_from_redis(username: str) -> Optional[str]:
-    """Try to get cached password from Redis."""
-    try:
-        import redis.asyncio as aioredis
-
-        from app.config import get_settings
-
-        settings = get_settings()
-        r = aioredis.from_url(f"redis://{settings.redis_host}:{settings.redis_port}")
-        pwd = await r.get(f"user_password:{username}")
-        await r.aclose()
-        if pwd:
-            return pwd.decode() if isinstance(pwd, bytes) else pwd
-    except Exception:
-        pass
-    return None
+    """Una vuelta del restaurador de pospuestos (ver app/mail/services/pospuestos.py)."""
+    resumen = await pospuestos.restaurar_vencidos(db)
+    if resumen.get(pospuestos.DEVUELTO):
+        logger.info(
+            "Pospuestos devueltos a su carpeta: %d", resumen[pospuestos.DEVUELTO]
+        )
