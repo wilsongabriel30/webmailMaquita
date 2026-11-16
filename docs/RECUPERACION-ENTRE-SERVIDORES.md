@@ -48,7 +48,7 @@ Cualquier fallo responde `{"estado":"no_recuperado"}`, sin detalles, para no rev
 | `RECALL_ENTRE_SERVIDORES` | `true` | `false` apaga la función en los dos sentidos (los puntos de entrada responden 404). |
 | `RECALL_MAX_MINUTOS` | `60` | Plazo de recuperación de este servidor. |
 | `RECALL_FEDERADO_HOSTS_INTERNOS` | vacío | Nombres MX de servidores hermanos que se alcanzan por la red privada (separados por coma). |
-| `RECALL_FEDERADO_AUTHSERV` | vacío | Nombre con que este servidor firma `Authentication-Results`, si no coincide con el de la URL pública. |
+| `RECALL_FEDERADO_AUTHSERV` | vacío | Nombres (separados por coma) con que este servidor firma `Authentication-Results`. Vacío: el de la URL pública, el de la máquina y el `myhostname` de Postfix, que es el que usa rspamd. Si se indica, valen solo esos. |
 
 ## Requisitos
 
