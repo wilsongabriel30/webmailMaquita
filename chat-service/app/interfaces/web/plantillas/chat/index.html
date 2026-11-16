@@ -474,6 +474,8 @@
 <!-- T-94 (09/11/2026): panel «Información del grupo» (nombre, foto, miembros, administradores) -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/chat-grupo-panel.css') }}?v=20261109t94">
 <script src="{{ url_for('static', filename='js/chat-grupo-panel.js') }}?v=20261109t94"></script>
+<!-- T-116: registra el service worker del chat (el chat abre sin conexión) -->
+<script src="{{ url_for('static', filename='js/chat-offline.js') }}?v=20261113-t116"></script>
 <script>
   // Abre sola la conversacion pedida por la URL (/chat/conversation/<id> o ?conv=<id>).
   (function () {

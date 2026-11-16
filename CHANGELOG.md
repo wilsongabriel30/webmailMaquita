@@ -49,6 +49,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Chat: el service worker pasa al repositorio (T-116, 15/11/2026)**: el chat abre sin conexión (página y
+  estáticos guardados en el equipo, adjuntos ya vistos de hasta 10 MB). Solo existía en el servidor del chat de
+  Maquita. Entra ya corregido: al activarse limpia únicamente sus propias copias de versiones anteriores, y no
+  las del correo, con el que comparte el almacén de cachés del dominio. Piezas: `chat-sw.js`, `chat-offline.js`
+  (registro), la ruta `/chat/sw.js` (sin sesión, sin caché) y su carga en la plantilla del chat. La bandeja de
+  salida del chat sin conexión (fase 3) no entra todavía.
+
 - **Editor en línea: la pestaña «AI» se desactiva también por la lista de complementos (15/11/2026)**: en un
   servidor de documentos que no conoce `customization.ai.disabled` la pestaña seguía visible (reprueba de
   Andes). Ahora se envía además `plugins.disable`; si el servidor tampoco la admite, `almacen/README.md` explica
