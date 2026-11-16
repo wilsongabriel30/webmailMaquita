@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.23.2] - 2026-11-16
+
+Correcciones del redactor (enlaces y firma) y de la tabla de solicitudes del panel.
+
 ### Corregido
 - Redactor: lo que se escribe después de un texto vinculado ya no queda dentro del enlace.
 - Redactor: si se quita la firma por error, el aviso «Se quitó la firma · Deshacer» y Ctrl + Z la devuelven; Ctrl + Z con el foco fuera del texto deshace el último cambio del mensaje.
