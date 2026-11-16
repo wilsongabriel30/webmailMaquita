@@ -9,6 +9,25 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Buscador y carpetas del correo: segunda tanda de hallazgos de Andes (15/11/2026)**:
+  - *«Todas las carpetas» en un servidor sin buzón virtual*: daba «No se pudo cargar el correo» (404 «Folder
+    'Virtual.Todo' not found») y, como la elección se guarda, dejaba a la persona sin buscador. Ahora el servidor
+    dice si el buzón virtual existe (`todas_las_carpetas` en `GET /api/mail/search/capacidades`, comprobado por
+    IMAP y recordado en Redis) y, si no existe, la interfaz no ofrece «Todas las carpetas», busca en la carpeta
+    abierta aunque la preferencia guardada diga otra cosa y deja de lanzar consultas a `Virtual.Todo` (la que se
+    hacía al no haber resultados en la carpeta). Si aun así una petición a `Virtual.Todo` responde 404, la lista
+    vuelve sola a la carpeta. El ajuste nuevo `deploy/ajustes/84-dovecot-buzon-virtual.sh` crea el buzón virtual
+    donde falta (ver `UPGRADING.md`).
+  - *El buscador no encontraba palabras del texto*: solo se buscaba en el cuerpo en las cuentas anotadas como
+    indexadas, y una cuenta se anota de noche, al terminar su indexación inicial; la creada ese día buscaba solo
+    en remitente y asunto aunque Dovecot ya indexa cada correo al llegar. Ahora, con el motor de búsqueda
+    instalado, las carpetas de hasta 2 000 mensajes se buscan también en el texto sin esperar a la noche.
+  - *Eliminar una carpeta con subcarpetas*: la primera vez decía «Carpeta eliminada» y la carpeta seguía ahí
+    (IMAP no borra en cascada: el servidor responde OK y deja el nombre mientras tenga hijas); después, 400
+    «Failed to delete folder». Ahora se borran primero las subcarpetas, de la más profunda a la raíz, con sus
+    suscripciones, y se comprueba que no queda nada; si queda, la interfaz muestra el motivo en vez de anunciar
+    el borrado. También termina de eliminar las carpetas que el fallo anterior dejó a medias.
+
 - **Hallazgos de la prueba completa de la interfaz hecha por Andes (15/11/2026)**:
   - *Lista de correos*: el asunto ya no desaparece cuando el correo tiene varias categorías; se muestran dos y el
     resto se resume en «+N».

@@ -7,6 +7,7 @@
  * recorre todo el correo; al borrar la búsqueda vuelve a la carpeta en la que estaba.
  */
 import { useMailStore } from '../store/mailStore';
+import { alCambiarBuzonVirtual, hayBuzonVirtual, useBuzonVirtual } from './buzonVirtual';
 
 export const CARPETA_TODO = 'Virtual.Todo';
 
@@ -18,6 +19,22 @@ export const CARPETA_TODO = 'Virtual.Todo';
  * a mostrar el botón, el enlace del aviso y el salto automático cuando la carpeta no tiene resultados.
  */
 export const TODO_EL_CORREO_DISPONIBLE = true;
+
+/**
+ * ¿Se puede buscar en todas las carpetas AQUÍ? Hace falta el interruptor de arriba y que el
+ * servidor tenga el buzón virtual (lib/buzonVirtual.ts; 15/11/2026). Si no, todo lo de este
+ * archivo busca en la carpeta abierta, diga lo que diga la preferencia guardada (que no se toca:
+ * vuelve a valer el día que el servidor tenga el buzón).
+ */
+export function hayTodoElCorreo(): boolean {
+  return TODO_EL_CORREO_DISPONIBLE && hayBuzonVirtual();
+}
+
+/** Lo mismo, para componentes (se actualiza cuando el servidor responde). */
+export function useTodoElCorreo(): boolean {
+  const hay = useBuzonVirtual();
+  return TODO_EL_CORREO_DISPONIBLE && hay;
+}
 const CLAVE_PREFERENCIA = 'maquita_buscar_en_todo';
 /** Valor guardado cuando la persona elige buscar solo en la carpeta abierta. */
 const SOLO_CARPETA = 'carpeta';
@@ -74,7 +91,7 @@ export function aplicarBusqueda(q: string) {
   if (texto && st.filter !== 'all') st.setFilter('all');
   if (!texto) origenAmpliacion = null;
   clearTimeout(relojTodo);
-  if (texto && TODO_EL_CORREO_DISPONIBLE && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
+  if (texto && hayTodoElCorreo() && st.buscarEnTodo && st.currentFolder !== CARPETA_TODO) {
     // Con «todas las carpetas», la primera letra tecleada ya cambiaba de buzón y lanzaba la
     // búsqueda de esa sola letra sobre todo el correo («S», «a», «k»: 20 s cada una y 360 000
     // resultados; 13/11/2026). Ahora se espera a que haya al menos 3 letras (o un operador) y a
@@ -83,7 +100,7 @@ export function aplicarBusqueda(q: string) {
     if (esCorta(texto)) return;
     relojTodo = setTimeout(() => {
       const ahora = useMailStore.getState();
-      if (ahora.searchQuery !== q || !ahora.buscarEnTodo || ahora.currentFolder === CARPETA_TODO) return;
+      if (ahora.searchQuery !== q || !ahora.buscarEnTodo || ahora.currentFolder === CARPETA_TODO || !hayTodoElCorreo()) return;
       carpetaPrevia = ahora.currentFolder;
       // Carpeta y búsqueda en un solo cambio: si no, la lista cargaba primero el buzón entero
       // y luego la búsqueda, y ambas respuestas se mezclaban.
@@ -109,7 +126,7 @@ export function ampliadaDesde(): string | null {
  */
 export function ampliarPorFaltaDeResultados(q: string) {
   const st = useMailStore.getState();
-  if (!TODO_EL_CORREO_DISPONIBLE) return;
+  if (!hayTodoElCorreo()) return;
   if (!q.trim() || st.currentFolder === CARPETA_TODO || st.searchQuery !== q || q === noAmpliar) return;
   carpetaPrevia = st.currentFolder;
   origenAmpliacion = st.currentFolder;
@@ -128,7 +145,7 @@ export function volverALaCarpeta() {
 /** Cambia el ámbito y, si hay una búsqueda escrita, la repite en el ámbito nuevo. */
 export function cambiarAmbito(enTodo: boolean) {
   const st = useMailStore.getState();
-  if (enTodo && !TODO_EL_CORREO_DISPONIBLE) return;
+  if (enTodo && !hayTodoElCorreo()) return;
   origenAmpliacion = null;
   guardarPreferenciaTodo(enTodo);
   st.setBuscarEnTodo(enTodo);
@@ -140,3 +157,14 @@ export function cambiarAmbito(enTodo: boolean) {
     st.setCarpetaYBusqueda(carpetaPrevia || 'INBOX', q);
   }
 }
+
+// El servidor dice que no hay buzón virtual (o una petición a él dio 404) estando en «todas las
+// carpetas»: se vuelve a la carpeta de antes con la misma búsqueda, en vez de dejar la lista en error.
+alCambiarBuzonVirtual(() => {
+  if (hayBuzonVirtual()) return;
+  clearTimeout(relojTodo);
+  const st = useMailStore.getState();
+  if (st.currentFolder !== CARPETA_TODO) return;
+  origenAmpliacion = null;
+  st.setCarpetaYBusqueda(carpetaPrevia || 'INBOX', st.searchQuery);
+});

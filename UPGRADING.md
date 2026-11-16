@@ -126,6 +126,29 @@ reinicia aparte (`maquita-chat`). No hay migraciones ni variables nuevas.
   con el texto más reciente y los adjuntos. La copia va en `sessionStorage` de la pestaña, por
   persona y cuenta. La actualización automática espera a que no haya correos abiertos. Solo frontend.
 
+- **Buscar en «Todas las carpetas»: buzón virtual de Dovecot** *(ajuste automático, 84)*: el webmail busca en
+  todas las carpetas con una sola búsqueda sobre el buzón virtual `Virtual.Todo`. Las instalaciones anteriores no
+  lo tienen; desde esta versión el webmail lo detecta y, si falta, solo ofrece «Esta carpeta» (antes daba
+  «No se pudo cargar el correo»). Para tenerlo: `sudo bash deploy/ajustes/aplicar-ajustes.sh --aplicar`
+  (`84-dovecot-buzon-virtual.sh`: crea la definición, instala el espacio de nombres en
+  `/etc/dovecot/maquita.d/62-buzon-virtual.conf`, valida, recarga y prueba con una cuenta; si algo falla, deja
+  todo como estaba). El webmail tarda hasta 5 minutos en ofrecer «Todas las carpetas». A mano, en Dovecot 2.4:
+
+  ```bash
+  install -d -o root -g vmail -m 755 /etc/dovecot/virtual/Todo
+  printf '*\n-Virtual.*\n  all\n' > /etc/dovecot/virtual/Todo/dovecot-virtual
+  install -o root -g vmail -m 644 /dev/null /etc/dovecot/virtual/dovecot-acl-list
+  install -m 644 dovecot-config/96-virtual.conf /etc/dovecot/maquita.d/62-buzon-virtual.conf
+  doveconf -n >/dev/null && doveadm reload
+  doveadm mailbox status -u <una cuenta> messages Virtual.Todo   # debe responder con un número
+  ```
+
+  El ajuste es solo para Dovecot 2.4; en la 2.3 la sintaxis del espacio de nombres es otra
+  (`location = virtual:…`) y hay que escribirlo a mano. Si los buzones no están en
+  `/var/vmail/<dominio>/<usuario>`, cambie `mail_index_path` en ese archivo. Para quitarlo: borre
+  `62-buzon-virtual.conf` y recargue Dovecot. En buzones muy grandes, buscar en todas las carpetas depende de
+  que el índice de texto esté al día (`busqueda-indexar-noche estado`).
+
 - **Dovecot, buzón virtual (`Virtual.Todo`)** *(ajuste automático)*: si `mail.log` muestra
   `open(/etc/dovecot/virtual/.temp…) failed: Read-only file system` (dos por cada entrega), falta la
   lista de permisos vacía del buzón virtual. Créala y recarga:
