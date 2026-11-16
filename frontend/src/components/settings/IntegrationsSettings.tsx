@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
 
@@ -30,7 +30,7 @@ export function IntegrationsSettings() {
       return;
     }
     try {
-      const r = await api.post<any>('/keys', { name: newKeyName, permissions: keySend ? ['read', 'send'] : ['read'] });
+      const r = await api.post<{ key?: string }>('/keys', { name: newKeyName, permissions: keySend ? ['read', 'send'] : ['read'] });
       setCreatedKey(r?.key || ''); setNewKeyName(''); loadKeys();
     } catch { /* fail-open */ }
   };
@@ -51,7 +51,7 @@ export function IntegrationsSettings() {
   const testHook = async (id: number) => { try { await api.post(`/webhooks/${id}/test`, {}); alert('Webhook de prueba enviado.'); } catch { alert('Error al probar.'); } };
   const delHook = async (id: number) => { if (!confirm('¿Eliminar el webhook?')) return; await api.del(`/webhooks/${id}`); loadHooks(); };
 
-  const importContacts = async (e: any) => {
+  const importContacts = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
     setImportMsg('Importando…');
     const fd = new FormData(); fd.append('file', f);

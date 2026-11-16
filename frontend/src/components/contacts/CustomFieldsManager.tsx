@@ -30,11 +30,7 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen) loadFields();
-  }, [isOpen]);
-
-  const loadFields = async () => {
+  async function loadFields() {
     setLoading(true);
     try {
       const data = await api.get<CustomField[]>('/contacts/custom-fields');
@@ -42,6 +38,11 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
     } catch { /* ignore */ }
     setLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al abrir (patrón previo)
+    if (isOpen) loadFields();
+  }, [isOpen]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -55,8 +56,8 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
       setFields(prev => [...prev, created]);
       setNewName('');
       setNewType('text');
-    } catch (e: any) {
-      setError(e?.message || 'Error al crear campo');
+    } catch (e) {
+      setError((e instanceof Error && e.message) || 'Error al crear campo');
     }
     setSaving(false);
   };

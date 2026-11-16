@@ -44,16 +44,17 @@ export function RelationshipsPanel({ contactId, onNavigateToContact }: Props) {
   const [searchResults, setSearchResults] = useState<ContactOption[]>([]);
   const [searching, setSearching] = useState(false);
 
-  useEffect(() => {
-    loadRelationships();
-  }, [contactId]);
-
-  const loadRelationships = async () => {
+  async function loadRelationships() {
     try {
       const data = await api.get<Relationship[]>(`/contacts/${contactId}/relationships`);
       setRelationships(data);
     } catch { /* ignore */ }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al abrir (patrón previo)
+    loadRelationships();
+  }, [contactId]);
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);

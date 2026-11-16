@@ -40,7 +40,7 @@ def test_la_navegacion_delega_en_el_modulo():
     navegacion = _leer(os.path.join(JS, "explorador-navegacion.js"))
     assert "esVistaCompartidosConmigo(ruta)" in navegacion and "cargarCompartidosConmigo(ruta, silencioso)" in navegacion
     # la delegación va antes de elegir la API de la lista propia
-    assert navegacion.index("cargarCompartidosConmigo(") < navegacion.index("/archivos?ruta=")
+    assert navegacion.index("cargarCompartidosConmigo(") < navegacion.index("${API_BASE}/archivos?ruta=")
 
 
 def test_el_modulo_pide_la_ruta_del_servicio_y_reconoce_la_vista():

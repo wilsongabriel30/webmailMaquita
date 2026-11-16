@@ -765,7 +765,8 @@ app.include_router(
 )  # «Teléfono extraviado»: última ubicación, ubicar ahora, hacer sonar
 app.include_router(ai_router)
 app.include_router(ia_disponibilidad_router)  # ¿hay IA configurada? (15/11/2026)
-app.include_router(ia_revision_router)  # botón «Editor»: revisar el borrador (15/11/2026)
+# Botón «Editor» de Redactar: revisar el borrador (15/11/2026)
+app.include_router(ia_revision_router)
 app.include_router(retention_router)
 app.include_router(gal_router)
 app.include_router(rooms_router)
