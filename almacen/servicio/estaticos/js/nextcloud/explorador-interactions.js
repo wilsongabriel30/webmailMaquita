@@ -388,6 +388,8 @@ function mostrarMasAcciones() {
 }
 
 function abrirItem(elemento) {
+    // En la Papelera lo eliminado no se abre: primero se restaura (explorador-papelera.js).
+    if (typeof abrirItemEnPapelera === 'function' && abrirItemEnPapelera(elemento)) return;
     // Acceso directo: abrir/navegar a su DESTINO, no al marcador.
     if (elemento.dataset.acceso === 'true' && elemento.dataset.destino) {
         const dest = elemento.dataset.destino;
@@ -405,6 +407,9 @@ function abrirItem(elemento) {
 
 async function abrirArchivo(ruta) {
     const ext = ruta.split('.').pop().toLowerCase();
+
+    // Texto y diagramas en el Almacén: los atiende explorador-abrir.js.
+    if (typeof abrirArchivoPropio === 'function' && abrirArchivoPropio(ruta, ext)) return;
 
     // Documentos Office - abrir editor en nueva pestaña
     if (EXTENSIONES_OFFICE.includes(ext)) {
@@ -2018,7 +2023,7 @@ async function restaurarSeleccionado() {
     document.getElementById("contextMenu").classList.remove("show");
     
     if (elementosSeleccionados.length === 0) {
-        mostrarNotificacion("Selecciona un elemento para restaurar", "warning");
+        mostrarNotificacion("Seleccione un elemento para restaurar", "warning");
         return;
     }
     
@@ -2071,8 +2076,8 @@ async function restaurarSeleccionado() {
         mostrarNotificacion(errores + " archivo(s) no se pudieron restaurar", "error");
     }
     
-    elementosSeleccionados = [];
-    cargarArchivos(rutaActual);
+    limpiarSeleccion();
+    cargarArchivos(rutaActual, true);   // forzar: la lista de la papelera queda 30 s en caché
 }
 
 // === PAPELERA: Vaciar papelera completa ===
@@ -2096,7 +2101,8 @@ async function vaciarPapelera() {
         });
         if (resp.ok) {
             mostrarNotificacion("Papelera vaciada", "success");
-            cargarArchivos(rutaActual);
+            limpiarSeleccion();
+            cargarArchivos(rutaActual, true);   // forzar: si no, la caché sigue mostrando lo borrado
         } else {
             mostrarNotificacion("Error al vaciar la papelera", "error");
         }

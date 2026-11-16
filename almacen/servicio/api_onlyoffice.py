@@ -72,6 +72,7 @@ def _logo_marca(absoluto=False):
     u = urlsplit(URL_PUBLICA)
     return f'{u.scheme}://{u.netloc}{ruta}'
 import conversion_edicion
+import editor_presentacion
 import capacidad_enlace
 from seguridad_rutas import (RutaInvalida, normalizar_ruta_virtual,
                              ruta_fisica, unidad_de_ruta)
@@ -395,6 +396,7 @@ def onlyoffice_config():
             'callbackUrl': url_callback,
             'coEditing': {'mode': 'fast', 'change': False},
             'lang': 'es',
+            'region': editor_presentacion.region(),
             'mode': 'edit' if puede_editar else 'view',
             'user': {'id': str(usuario), 'name': _nombre_usuario(usuario)},
             'customization': {
@@ -405,6 +407,7 @@ def onlyoffice_config():
                 'feedback': False,
                 'forcesave': True,
                 'help': False,
+                **editor_presentacion.personalizacion(),
                 **({'logo': {'image': _logo_marca(absoluto=True), 'imageEmbedded': _logo_marca(absoluto=True),
                              'url': URL_PUBLICA}} if _logo_marca() else {}),
                 'zoom': 100,
@@ -628,6 +631,7 @@ def onlyoffice_config_public():
             'callbackUrl': f'{URL_PUBLICA}/api/almacen/onlyoffice/callback?t={token_callback}',
             'coEditing': {'mode': 'fast', 'change': False},
             'lang': 'es',
+            'region': editor_presentacion.region(),
             'mode': 'edit' if puede_editar else 'view',
             'user': {'id': f'invitado-{comp["id"]}', 'name': f'{invitado} (invitado)'},
             'customization': {
@@ -638,6 +642,7 @@ def onlyoffice_config_public():
                 'feedback': False,
                 'forcesave': True,
                 'help': False,
+                **editor_presentacion.personalizacion(),
                 'zoom': 100,
             },
         },

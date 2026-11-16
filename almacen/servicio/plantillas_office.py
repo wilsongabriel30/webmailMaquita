@@ -8,9 +8,15 @@ admite python-docx ni similares. Por eso se arman aquí, con `zipfile`, los paqu
 OOXML mínimos y válidos que abren Word, Excel, PowerPoint y OnlyOffice.
 
 `documento_vacio('docx' | 'xlsx' | 'pptx')` → bytes del archivo.
+
+El documento y la presentación declaran su idioma (`editor_presentacion.idioma_documento()`):
+sin él, el editor en línea los rotula «English – United States» y revisa la ortografía en
+inglés aunque la interfaz esté en español. La hoja de cálculo no lleva idioma.
 """
 import io
 import zipfile
+
+import editor_presentacion
 
 _XML = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'
 _NS_REL = 'http://schemas.openxmlformats.org/package/2006/relationships'
@@ -47,11 +53,18 @@ def _docx():
                  '<w:body><w:p/><w:sectPr><w:pgSz w:w="11906" w:h="16838"/>'
                  '<w:pgMar w:top="1417" w:right="1701" w:bottom="1417" w:left="1701" '
                  'w:header="708" w:footer="708" w:gutter="0"/></w:sectPr></w:body></w:document>')
+    idioma = editor_presentacion.idioma_documento()
+    estilos = (_XML + '<w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+               '<w:docDefaults><w:rPrDefault><w:rPr><w:lang w:val="%s" w:eastAsia="%s"/></w:rPr></w:rPrDefault>'
+               '</w:docDefaults></w:styles>' % (idioma, idioma))
     return _paquete([
         ('[Content_Types].xml', _tipos('', [
-            ('/word/document.xml', _TIPO + 'wordprocessingml.document.main+xml')])),
+            ('/word/document.xml', _TIPO + 'wordprocessingml.document.main+xml'),
+            ('/word/styles.xml', _TIPO + 'wordprocessingml.styles+xml')])),
         ('_rels/.rels', _relaciones([('rId1', 'officeDocument', 'word/document.xml')])),
         ('word/document.xml', documento),
+        ('word/_rels/document.xml.rels', _relaciones([('rId1', 'styles', 'styles.xml')])),
+        ('word/styles.xml', estilos),
     ])
 
 
@@ -107,7 +120,8 @@ def _pptx():
                     '<p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>'
                     '<p:sldIdLst><p:sldId id="256" r:id="rId2"/></p:sldIdLst>'
                     '<p:sldSz cx="12192000" cy="6858000"/><p:notesSz cx="6858000" cy="9144000"/>'
-                    '</p:presentation>' % ns)
+                    '<p:defaultTextStyle><a:defPPr><a:defRPr lang="%s"/></a:defPPr></p:defaultTextStyle>'
+                    '</p:presentation>' % (ns, editor_presentacion.idioma_documento()))
     maestra = (_XML + '<p:sldMaster %s>%s'
                '<p:clrMap bg1="lt1" tx1="dk1" bg2="lt2" tx2="dk2" accent1="accent1" accent2="accent2" '
                'accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" hlink="hlink" '
