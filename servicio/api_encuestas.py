@@ -154,9 +154,10 @@ def _abrir(escritura=False):
     # En «Compartido conmigo» el permiso se mira sobre el ARCHIVO: lo habitual
     # es que se comparta el formulario suelto, no su carpeta (28/09/2026).
     compartido = ruta.startswith('/compartido/')
-    if not _permiso_unidad(usuario,
-                           ruta if compartido else (ruta.rsplit('/', 1)[0] or '/'),
-                           escritura=escritura):
+    # En una unidad vale el permiso de la carpeta O el dado sobre el propio formulario (16/11/2026: Karen dio a
+    # Martin «editor» solo del .forma de la IIEM y, siendo lector de la unidad, el guardado respondía 403).
+    if not (_permiso_unidad(usuario, ruta if compartido else (ruta.rsplit('/', 1)[0] or '/'), escritura=escritura)
+            or (not compartido and _permiso_unidad(usuario, ruta, escritura=escritura))):
         return None, error(
             'No tienes permiso sobre este formulario. Pide acceso a quien '
             'te lo compartió.' if compartido else
