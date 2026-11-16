@@ -53,7 +53,9 @@ function textoComprobacion(r: EstadoRecuperacion): string {
 function textoResultado(r: EstadoRecuperacion): string {
   switch (r.status) {
     case 'recalled': return r.detail || (r.was_read ? 'Recuperado (ya lo había leído)' : 'Recuperado');
-    case 'external_request_sent': return 'Externo: se le envió el aviso de «enviado por error» (copia para usted)';
+    case 'external_request_sent': return r.was_read
+      ? 'Ya lo había leído y su servidor no retira correos leídos: se le envió el aviso de «enviado por error» (copia para usted)'
+      : 'Externo: se le envió el aviso de «enviado por error» (copia para usted)';
     case 'external': return 'Externo: no se pudo enviar el aviso de envío por error';
     case 'not_found': return 'No encontrado';
     case 'fuera_de_plazo': return r.detail || 'Fuera de plazo';

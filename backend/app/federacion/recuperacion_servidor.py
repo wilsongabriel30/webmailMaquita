@@ -5,8 +5,10 @@ pistas sobre qué buzones o correos existen):
   1. el destinatario es un buzón de un dominio de este servidor;
   2. el correo está en su buzón y este servidor lo autenticó como del dominio del remitente;
   3. el servidor de ese dominio confirma que emitió la solicitud (devolución de llamada);
-  4. sigue dentro del plazo de recuperación de ESTE servidor.
-Todo intento confirmado queda en la auditoría.
+  4. sigue dentro del plazo de recuperación de ESTE servidor;
+  5. si el destinatario ya lo leyó, la política de ESTE servidor lo permite (recuperacion_politica.py).
+Todo intento confirmado queda en la auditoría de este servidor (quién, cuándo, qué Message-ID,
+desde qué dominio e IP), se retire o no, aunque al destinatario no se le muestre nada.
 """
 
 from __future__ import annotations
@@ -14,6 +16,7 @@ from __future__ import annotations
 import asyncio
 
 from app.federacion import recuperacion_mensaje as mensaje
+from app.federacion import recuperacion_politica as politica
 from app.federacion import recuperacion_protocolo as protocolo
 from app.federacion import red
 from app.mail.routers import recall
@@ -66,6 +69,9 @@ async def atender(request, s: protocolo.Solicitud, ip: str | None) -> dict:
     carpetas = list(info.get("folders") or [])
     if plazo_recuperacion.vencido(info.get("received")):
         estado = protocolo.ESTADO_FUERA_DE_PLAZO
+    elif leido and not politica.permite_retirar_leido(dominio):
+        # Ya leído: se queda en el buzón; el servidor que pidió le enviará el aviso de «enviado por error».
+        estado = protocolo.ESTADO_LEIDO_NO_RETIRADO
     elif await asyncio.to_thread(
         recall._doveadm_expunge, destinatario, message_id, carpetas or None
     ):
@@ -89,6 +95,11 @@ async def atender(request, s: protocolo.Solicitud, ip: str | None) -> dict:
             }
         ],
         ip=ip,
+        extra={
+            "pedido_por_otro_servidor": True,
+            "dominio_solicitante": dominio,
+            "retirado": estado == protocolo.ESTADO_RECUPERADO,
+        },
     )
     if estado == "error":
         return NO

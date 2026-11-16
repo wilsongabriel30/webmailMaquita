@@ -11,6 +11,7 @@ ESTADOS = (
     protocolo.ESTADO_RECUPERADO,
     protocolo.ESTADO_FUERA_DE_PLAZO,
     protocolo.ESTADO_NO_RECUPERADO,
+    protocolo.ESTADO_LEIDO_NO_RETIRADO,
 )
 
 
