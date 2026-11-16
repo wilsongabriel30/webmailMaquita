@@ -13,6 +13,7 @@ import socket
 import subprocess
 from email.message import Message
 from email.utils import parseaddr
+from functools import lru_cache
 from urllib.parse import urlparse
 
 from app.config import get_settings
@@ -56,8 +57,35 @@ def dominio_from(msg: Message) -> str:
     return direccion.rsplit("@", 1)[-1].strip().lower() if "@" in direccion else ""
 
 
+@lru_cache(maxsize=1)
+def nombre_de_postfix() -> str:
+    """`myhostname` de Postfix: el nombre con que rspamd firma `Authentication-Results`.
+
+    rspamd toma ese nombre del propio Postfix (macro «j» del milter). Puede no coincidir ni con la
+    dirección pública del correo web ni con el nombre de la máquina: p. ej. correo web en
+    `mail.ejemplo.org` y `myhostname = mail2.ejemplo.org` (informe de Andes, 16/11/2026). Sin él, toda
+    recuperación pedida por otro servidor se rechazaba como «no autenticada».
+    """
+    try:
+        r = subprocess.run(
+            ["postconf", "-h", "myhostname"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    nombre = r.stdout.strip().lower() if r.returncode == 0 else ""
+    return nombre if re.fullmatch(r"[a-z0-9]([a-z0-9.-]*[a-z0-9])?", nombre) else ""
+
+
 def identidades_del_servidor() -> set[str]:
-    """Nombres con los que este servidor firma su `Authentication-Results`."""
+    """Nombres con los que este servidor firma su `Authentication-Results`.
+
+    Con `RECALL_FEDERADO_AUTHSERV` valen solo los indicados. Sin él: el de la dirección pública, el
+    de la máquina y el `myhostname` de Postfix.
+    """
     s = get_settings()
     crudo = getattr(s, "recall_federado_authserv", "") or ""
     nombres = {n.strip().lower() for n in crudo.split(",") if n.strip()}
@@ -65,6 +93,7 @@ def identidades_del_servidor() -> set[str]:
         nombres = {
             (urlparse(s.public_base_url).hostname or "").lower(),
             socket.getfqdn().lower(),
+            nombre_de_postfix(),
         }
     return {n for n in nombres if n}
 
