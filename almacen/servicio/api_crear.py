@@ -8,7 +8,7 @@ con `nucleo.subir()` (cuota, deduplicación, permisos de unidad).
 Faltaba en el Almacén del webmail (solo existía en el motor del sistema central,
 `drive-maquita/servicio/api_crear.py`): la petición caía en el comodín
 `/api/almacen/<path>`, que solo admitía GET, y Flask respondía 405 Method Not Allowed
-a «Nuevo → Documento (Word)» y al resto del menú.
+a «Nuevo → Documento» y al resto del menú.
 
 - Office (docx/xlsx/pptx): paquete en blanco de `plantillas_office`.
 - Diagrama (drawio): lienzo vacío.

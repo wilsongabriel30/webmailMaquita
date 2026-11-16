@@ -170,7 +170,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Eliminar este contacto del directorio?')) return;
+    if (!confirm('¿Eliminar este contacto del directorio?')) return;
     try {
       await api.del(`/contacts/directory/${id}`);
       setContacts(prev => prev.filter(c => c.id !== id));
@@ -293,7 +293,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
             <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#a19f9d]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <input ref={searchInputRef} type="text" placeholder="Buscar por nombre, email, cargo..."
+            <input ref={searchInputRef} type="text" placeholder="Buscar por nombre, correo, cargo..."
               value={search} onChange={e => handleSearchChange(e.target.value)}
               className="w-full pl-9 pr-3 py-2 border border-[#c8c6c4] rounded-md text-[13px] focus:border-[#0078d4] focus:ring-1 focus:ring-[#0078d4] outline-none transition-colors" />
           </div>
@@ -357,8 +357,8 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                   {[
                     { key: 'first_name', label: 'Nombre' },
                     { key: 'last_name', label: 'Apellido' },
-                    { key: 'email', label: 'Email *' },
-                    { key: 'phone', label: 'Telefono' },
+                    { key: 'email', label: 'Correo electrónico *' },
+                    { key: 'phone', label: 'Teléfono' },
                     { key: 'job_title', label: 'Cargo' },
                     { key: 'department', label: 'Departamento' },
                     { key: 'company', label: 'Empresa' },
@@ -406,7 +406,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
                 <p className="text-[14px]">No se encontraron contactos</p>
-                <p className="text-[12px] mt-1">Intenta ajustar los filtros de busqueda</p>
+                <p className="text-[12px] mt-1">Intente ajustar los filtros de búsqueda</p>
               </div>
             )}
 
@@ -550,7 +550,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                   <div className="flex items-center gap-3 group">
                     <span className="text-[16px] shrink-0 w-6 text-center">&#9993;</span>
                     <div className="flex-1 min-w-0">
-                      <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Email</div>
+                      <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Correo electrónico</div>
                       <div className="text-[13px] text-[#323130] truncate">{selected.email}</div>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -570,7 +570,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     <div className="flex items-center gap-3 group">
                       <span className="text-[16px] shrink-0 w-6 text-center">&#128222;</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Telefono</div>
+                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Teléfono</div>
                         <div className="text-[13px] text-[#323130]">{selected.phone}</div>
                       </div>
                       <button onClick={() => handleCopyField(selected.phone, 'phone')}
@@ -600,7 +600,7 @@ export function DirectoryPanel({ isOpen, onClose, pickerMode, onPickContact, pic
                     <div className="flex items-center gap-3">
                       <span className="text-[16px] shrink-0 w-6 text-center">&#128205;</span>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Ubicacion</div>
+                        <div className="text-[11px] text-[#a19f9d] uppercase font-medium">Ubicación</div>
                         <div className="text-[13px] text-[#323130]">{selected.location}</div>
                       </div>
                     </div>

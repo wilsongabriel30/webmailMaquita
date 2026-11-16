@@ -1,4 +1,5 @@
 const BASE = "/api";
+import { ErrorApi } from "./errorApi";
 import { reportarFallo, reportarExito } from "../lib/conexion";   // T-35: estado real de conexión
 import { inicioPeticion, finPeticion, tiempoServidor, type Medida } from "../lib/conexionLenta";
 
@@ -164,7 +165,7 @@ async function leerRespuesta<T>(res: Response, path: string, method: string): Pr
     const detail = Array.isArray(body.detail)
       ? body.detail.map((e: { msg?: string }) => e.msg || JSON.stringify(e)).join('; ')
       : (typeof body.detail === 'string' ? body.detail : JSON.stringify(body.detail));
-    throw new Error(detail || `HTTP ${res.status}`);
+    throw new ErrorApi(detail || `HTTP ${res.status}`, res.status);
   }
   if (res.status === 204) return undefined as T;
   const text = await res.text();

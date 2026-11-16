@@ -79,7 +79,7 @@ def _evento_correo_crear(yo, fila, asunto, inicio, duracion, participantes, mens
         cuerpo = {
             'calendar_id': por_defecto[0]['id'], 'summary': asunto,
             'description': (mensaje + '\n\n' if mensaje else '') + 'Videollamada: ' + url_sala(fila['nombre_sala']) +
-                           f"\nEntrar con tu usuario: {organizacion.url_correo()}/api/chat/reuniones/{fila['id']}/acceso?redirigir=1",
+                           f"\nEntrar con su usuario: {organizacion.url_correo()}/api/chat/reuniones/{fila['id']}/acceso?redirigir=1",
             'location': url_sala(fila['nombre_sala']), 'dtstart': inicio.isoformat(), 'dtend': (inicio + timedelta(hours=duracion)).isoformat(),
             'all_day': False, 'timezone': 'America/Guayaquil', 'reminders': [{'minutes': 10}], 'attendees': list(participantes),
         }

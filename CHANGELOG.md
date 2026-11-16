@@ -7,6 +7,30 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+
+- **Hallazgos de la prueba completa de la interfaz hecha por Andes (15/11/2026)**:
+  - *Lista de correos*: el asunto ya no desaparece cuando el correo tiene varias categorías; se muestran dos y el
+    resto se resume en «+N».
+  - *Redactar → «Editor»*: llamaba a una ruta que solo existe donde hay una pasarela externa (404). Ahora usa
+    `POST /api/ai/review`, del propio servidor, con la misma configuración de IA que el resto.
+  - *Sin IA configurada*: los botones de IA de Redactar ya no se muestran y, si la acción llega por otra vía, todos
+    dan el mismo aviso.
+  - *Tope de peticiones (429)*: la lista dice «Demasiadas acciones seguidas…» en lugar de «Revise la conexión»; el
+    cliente de la API expone ahora el código de estado (`ErrorApi`).
+  - *Sensibilidad y remitente*: elegidos justo antes de pulsar «Enviar», no llegaban al envío (el correo
+    «Confidencial» salía sin su franja).
+  - *Error en consola al enviar* (`reading 'commands'`): la firma que llegaba tarde tocaba un editor ya cerrado.
+  - *Calendario sin chat instalado*: el evento ya no ofrece «Videollamada» ni llama a `/api/chat/reuniones`, y la
+    burbuja del chat deja de sondear tras el primer 404.
+  - *Nube → «Compartido conmigo»*: mostraba la unidad propia. Ahora lista lo compartido con la persona, y lo
+    compartido desde el diálogo se puede descargar por su enlace (la descarga pública exigía el tipo «enlace»).
+  - *Nube → «Mi perfil»*: la ruta `/api/almacen/mi-perfil` del contrato no estaba implementada (404).
+  - *Nube → espacio usado*: mostraba siempre «0 B de Sin límite»; leía mal la respuesta de la cuota.
+  - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
+  - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
+    dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+
 ### Cambiado
 
 - **Enviar tarda menos en el servidor**. Las imágenes externas de la firma se descargaban de Internet en cada envío,

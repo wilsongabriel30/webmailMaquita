@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../../api/client';
+import { AVISO_SIN_IA, useIADisponible } from '../asistente-lateral/iaDisponible';
 import { IndicadorGenerando } from '../ai/IndicadorGenerando';
 import { AvisoResultadoIA, type ResultadoIA } from '../ai/AvisoResultadoIA';
 
@@ -15,6 +16,7 @@ interface Status { enabled: boolean; indexed: number; sync?: Sync | null }
 interface Source { subject: string; sender: string; sim: number; }
 
 export function RagAssistant() {
+  const sinIA = useIADisponible() === false;   // instalación sin IA: el mismo aviso que en el resto del correo
   const [status, setStatus] = useState<Status | null>(null);
   const [q, setQ] = useState('');
   const [busy, setBusy] = useState<'sync' | 'ask' | ''>('');
@@ -75,11 +77,11 @@ export function RagAssistant() {
     setBusy('');
   };
 
-  if (status && !status.enabled) {
+  if (sinIA || (status && !status.enabled)) {
     return (
       <div className="p-8 max-w-2xl mx-auto text-center" style={{ color: '#605e5c' }}>
         <h1 className="text-lg font-semibold mb-2" style={{ color: '#323130' }}>Pregúntale a tu correo</h1>
-        <p className="text-sm">El asistente de correo con IA aún no está habilitado para tu dominio.</p>
+        <p className="text-sm">{sinIA ? AVISO_SIN_IA : 'El asistente de correo con IA aún no está habilitado para su dominio.'}</p>
       </div>
     );
   }

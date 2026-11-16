@@ -55,7 +55,7 @@ def descripcion(reunion_id: int, sala: str, mensaje: str) -> str:
     texto = strip_html(mensaje or "").strip()
     return (
         (texto + "\n\n" if texto else "")
-        + f"Videollamada: {url_sala(sala)}\nEntrar con tu usuario: {acceso}\nREUNION-ID: {reunion_id}"
+        + f"Videollamada: {url_sala(sala)}\nEntrar con su usuario: {acceso}\nREUNION-ID: {reunion_id}"
     )
 
 

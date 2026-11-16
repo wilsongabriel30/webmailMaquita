@@ -1520,15 +1520,14 @@ async function cargarCuota() {
         const response = await fetch(`${API_BASE}/cuota`);
         const data = await response.json();
 
-        if (data.success && data.cuota) {
-            const porcentaje = data.cuota.porcentaje_usado || 0;
-            const usado = data.cuota.usado_humano || '0 B';
-            const total = data.cuota.total_humano || 'Sin límite';
+        const cuota = normalizarCuota(data);   // explorador-cuota.js
+        if (cuota) {
+            const porcentaje = cuota.porcentaje_usado;
 
             // Archivos del Drive: su propia barra (la cuota del Almacén)
             const driveBar = document.getElementById('storageBarDrive');
             if (driveBar) driveBar.style.width = Math.min(Math.max(porcentaje, 0.5), 100) + '%';
-            document.getElementById('storageText').textContent = `Archivos: ${usado} de ${total} usado`;
+            document.getElementById('storageText').textContent = textoEspacioUsado('Archivos', cuota.usado_humano, cuota.total_humano);
             cargarEspacioCorreo();
         } else {
             document.getElementById('storageText').textContent = 'No disponible';
@@ -1553,7 +1552,7 @@ async function cargarEspacioCorreo() {
         const usadoMb = Number(s.storage_used_mb || 0), limiteMb = Number(s.storage_limit_mb || 0);
         const fmt = (mb) => mb >= 1024 ? (mb / 1024).toFixed(2) + ' GB' : Math.round(mb) + ' MB';
         if (barra) barra.style.width = limiteMb > 0 ? Math.min(Math.max(usadoMb / limiteMb * 100, 0.5), 100) + '%' : '0.5%';
-        texto.textContent = limiteMb > 0 ? `Correo: ${fmt(usadoMb)} de ${fmt(limiteMb)} usado` : `Correo: ${fmt(usadoMb)} usado (sin límite)`;
+        texto.textContent = textoEspacioUsado('Correo', fmt(usadoMb), limiteMb > 0 ? fmt(limiteMb) : '');
     } catch (e) {
         texto.textContent = 'Correo: no disponible';
     }
@@ -1622,11 +1621,12 @@ async function mostrarDetallesAlmacenamiento() {
         const response = await fetch(`${API_BASE}/cuota`);
         const data = await response.json();
 
-        if (data.success && data.cuota) {
-            const porcentaje = data.cuota.porcentaje_usado || 0;
-            const usado = data.cuota.usado_humano || '0 B';
-            const total = data.cuota.total_humano || 'Sin límite';
-            const libre = data.cuota.libre_humano || total;
+        const cuota = normalizarCuota(data);   // explorador-cuota.js
+        if (cuota) {
+            const porcentaje = cuota.porcentaje_usado;
+            const usado = cuota.usado_humano;
+            const total = cuota.total_humano || 'Sin límite';
+            const libre = cuota.libre_humano;
 
             Swal.fire({
                 title: '<i class="fas fa-cloud me-2"></i>Almacenamiento',

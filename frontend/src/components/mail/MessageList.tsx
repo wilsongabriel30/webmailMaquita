@@ -29,6 +29,9 @@ import { carpetaDeUid } from '../../lib/carpetaReal';
 import { copiasRepetidas } from '../../lib/copiasEnTodo';
 import { AvisoCopiasOcultas } from './AvisoCopiasOcultas';
 import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
+import { EtiquetasFila } from './EtiquetasFila';
+import { AvisoErrorCarga, type MotivoErrorCarga } from './AvisoErrorCarga';
+import { esLimiteDePeticiones } from '../../api/errorApi';
 import { CabeceraEtiqueta } from '../labels/CabeceraEtiqueta';
 import { SinResultados } from './SinResultados';
 import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
@@ -305,7 +308,7 @@ export function MessageList() {
   const [activeTab, setActiveTab] = useState<'focused' | 'other'>('focused');
   // La carga falló y no hay nada que mostrar: se dice, en vez de «No hay mensajes» (que hacía
   // creer a la persona que había perdido su correo).
-  const [errorCarga, setErrorCarga] = useState(false);
+  const [errorCarga, setErrorCarga] = useState<MotivoErrorCarga | false>(false);
   const [avatarMap, setAvatarMap] = useState<Record<string, { name: string; initials: string; photo_url?: string }>>({});
   const [expandedThreads, setExpandedThreads] = useState<Set<string>>(new Set());
   const [spamScanning, setSpamScanning] = useState(false);
@@ -377,11 +380,11 @@ export function MessageList() {
           setErrorCarga(false);
           setMessages(fusionarTanda(useMailStore.getState().messages, r.messages, tandaE), r.total, r.page);
         })
-        .catch(() => {
+        .catch((err) => {
           if (!sigueVigente()) return;
           const st = useMailStore.getState();
           st.setMessages(st.messages, st.totalMessages, st.currentPage);
-          if (st.messages.length === 0) setErrorCarga(true);
+          if (st.messages.length === 0) setErrorCarga(esLimiteDePeticiones(err) ? 'limite' : 'conexion');
         });
       return;
     }
@@ -438,7 +441,7 @@ export function MessageList() {
     }).catch(async (err) => {
       console.error(err);
       if (!vigente()) return;
-      if (/429|Too Many/i.test(String(err?.message || err)) && useMailStore.getState().loadingMore) {
+      if ((esLimiteDePeticiones(err) || /429|Too Many/i.test(String(err?.message || err))) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
         // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
         setTimeout(() => fetch_(), 5000);
@@ -456,7 +459,7 @@ export function MessageList() {
         } catch { /* se ignora: no es crítico */ }
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
-      if (useMailStore.getState().messages.length === 0) setErrorCarga(true);
+      if (useMailStore.getState().messages.length === 0) setErrorCarga(esLimiteDePeticiones(err) ? 'limite' : 'conexion');
     });
   }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter, etiquetaFiltro]);
 
@@ -1076,13 +1079,7 @@ export function MessageList() {
               <span className={`text-[13px] truncate ${!msg.seen ? (asuntoPrimero ? 'font-semibold text-[#0078d4]' : 'font-semibold text-[#323130]') : 'text-[#605e5c]'}`}>
                 {asuntoPrimero ? (msg.subject || '(Sin asunto)') : nombreQuien}
               </span>
-              {asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
-                <span key={lbl.id} title={lbl.name}
-                  className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
-                  style={{ backgroundColor: lbl.color }}>
-                  {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
-                </span>
-              ))}
+              {asuntoPrimero && <EtiquetasFila etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []} />}
               {/* Thread count badge */}
               {threadCount && threadCount > 1 && (
                 <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-[#0078d4] text-white text-[10px] font-semibold shrink-0">
@@ -1115,13 +1112,7 @@ export function MessageList() {
             <p className={`text-[13px] truncate leading-[18px] ${!msg.seen ? (asuntoPrimero ? 'font-medium text-[#323130]' : 'font-semibold text-[#0078d4]') : 'text-[#605e5c]'}`}>
               {asuntoPrimero ? nombreQuien : (msg.subject || '(Sin asunto)')}
             </p>
-            {!asuntoPrimero && (msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []).map((lbl) => (
-              <span key={lbl.id} title={lbl.name}
-                className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
-                style={{ backgroundColor: lbl.color }}>
-                {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
-              </span>
-            ))}
+            {!asuntoPrimero && <EtiquetasFila etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []} />}
             {/* Hora de recibido junto al asunto, como Hotmail (06/11/2026) */}
             {!asuntoPrimero && <span className={`ml-auto pl-2 text-[11px] shrink-0 group-hover:hidden ${!msg.seen ? 'text-[#0078d4] font-semibold' : 'text-[#605e5c]'}`}>{fecha}</span>}
           </div>
@@ -1406,14 +1397,7 @@ export function MessageList() {
             <p className="text-[12px] text-[#a19f9d] mt-2">Cargando...</p>
           </div>
         ) : filtered.length === 0 && errorCarga ? (
-          <div className="flex flex-col items-center justify-center h-40 px-4 text-center text-[#323130]" role="alert">
-            <p className="text-[14px] font-semibold">No se pudo cargar el correo</p>
-            <p className="text-[13px] text-[#605e5c] mt-1">Sus correos siguen guardados en el servidor. Revise la conexión e inténtelo de nuevo.</p>
-            <button onClick={() => { setErrorCarga(false); fetch_(); }}
-              className="mt-3 px-4 py-2 text-[14px] font-semibold text-white bg-[#0078d4] hover:bg-[#106ebe] rounded">
-              Reintentar
-            </button>
-          </div>
+          <AvisoErrorCarga motivo={errorCarga} alReintentar={() => { setErrorCarga(false); fetch_(); }} />
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-40 text-[#605e5c]">
             <svg className="w-10 h-10 mb-2 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">

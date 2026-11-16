@@ -132,7 +132,7 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
                     {file ? file.name : 'Arrastra un archivo CSV aquí o haz clic para seleccionar'}
                   </p>
                   <p style={{ fontSize: 12, color: '#a19f9d' }}>
-                    Compatible con Outlook, Gmail y archivos CSV estándar
+                    Compatible con archivos CSV estándar y otros programas de correo
                   </p>
                   <input ref={fileRef} type="file" accept=".csv" style={{ display: 'none' }}
                     onChange={e => { if (e.target.files?.[0]) setFile(e.target.files[0]); }} />
@@ -208,7 +208,7 @@ export function ImportExportModal({ mode, onClose, onImportDone }: Props) {
                     <input type="radio" checked={exportFormat === fmt}
                       onChange={() => setExportFormat(fmt)}
                       style={{ accentColor: '#0078d4' }} />
-                    {fmt === 'csv' ? 'CSV (compatible con Excel)' : 'vCard (.vcf)'}
+                    {fmt === 'csv' ? 'CSV (hoja de cálculo)' : 'vCard (.vcf)'}
                   </label>
                 ))}
               </div>

@@ -1,5 +1,6 @@
 import { MarcaReacciones } from './MarcaReacciones';
 import { PuntoLeido } from './PuntoLeido';
+import { EtiquetasFila } from './EtiquetasFila';
 import { memo } from 'react';
 import type { MessageSummary } from '../../types';
 import { AvatarFoto } from '../common/AvatarFoto';
@@ -85,13 +86,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
       <span className={`text-[13px] truncate min-w-[50%] ${noLeido ? 'font-semibold text-[#0078d4]' : 'text-[#323130]'}`}>
         {msg.subject || '(Sin asunto)'}
       </span>
-      {p.etiquetas.map((lbl) => (
-        <span key={lbl.id} title={lbl.name}
-          className="shrink-0 inline-flex items-center px-1.5 h-[15px] rounded-[3px] text-[10px] font-medium text-white capitalize leading-none"
-          style={{ backgroundColor: lbl.color }}>
-          {String(lbl.name).replace(/^Categor[ií]a\s+/i, '') || lbl.name}
-        </span>
-      ))}
+      <EtiquetasFila etiquetas={p.etiquetas} />
       {msg.snippet ? (
         <span className="text-[12px] text-[#605e5c] truncate min-w-0 flex-1">{msg.snippet}</span>
       ) : null}

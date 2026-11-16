@@ -11,6 +11,7 @@ import type { Editor } from '@tiptap/react';
 import { showToast } from '../../common/Toast';
 import { IndicadorGenerando } from '../../ai/IndicadorGenerando';
 import { EVENTO_REDACCION_IA, MODOS, type ModoRedaccion } from './modos';
+import { avisarSiNoHayIA } from '../sinIA';
 import { aplicarPropuesta, limpiarHtml, tomarAlcance, type Alcance } from './alcance';
 import { pedirRedaccion } from './pedirRedaccion';
 
@@ -51,7 +52,9 @@ export function VistaPreviaRedaccion({ editor, asunto, activo }: { editor: Edito
     if (editor && !editor.isDestroyed) editor.setEditable(true);
   }, [editor]);
 
-  const abrir = useCallback((m: ModoRedaccion) => {
+  const abrir = useCallback(async (m: ModoRedaccion) => {
+    // Sin IA en la instalación no se abre una vista previa que solo puede fallar: el mismo aviso de todos los botones.
+    if (await avisarSiNoHayIA()) return;
     if (!editor || editor.isDestroyed) return;
     const a = tomarAlcance(editor);
     if (typeof a === 'string') { showToast(a); return; }
@@ -64,8 +67,8 @@ export function VistaPreviaRedaccion({ editor, asunto, activo }: { editor: Edito
 
   useEffect(() => {
     if (!activo) return;
-    const conModo = (e: Event) => abrir((e as CustomEvent<{ modo?: ModoRedaccion }>).detail?.modo || 'ortografia');
-    const mejorar = () => abrir('redaccion');
+    const conModo = (e: Event) => { void abrir((e as CustomEvent<{ modo?: ModoRedaccion }>).detail?.modo || 'ortografia'); };
+    const mejorar = () => { void abrir('redaccion'); };
     window.addEventListener(EVENTO_REDACCION_IA, conModo);
     window.addEventListener('compose-improve-writing', mejorar);
     return () => {

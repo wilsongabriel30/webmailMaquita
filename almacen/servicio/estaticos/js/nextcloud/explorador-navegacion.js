@@ -20,6 +20,7 @@ async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
     // evitando el parpadeo de "desaparecen/reaparecen".
     if (!silencioso) mostrarLoader(true);
     console.log('[Nube Maquita] Cargando archivos de:', ruta, 'Vista:', vistaActual);
+    if (typeof ocultarAvisoCompartidosConmigo === 'function') ocultarAvisoCompartidosConmigo();
 
     // Si se fuerza recarga, invalidar caché de esta ruta
     if (forzarRecarga) {
@@ -29,6 +30,15 @@ async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
     // Si es la página principal, mostrar el dashboard
     if (vistaActual === 'principal') {
         mostrarPaginaPrincipal();
+        return;
+    }
+
+    // «Compartido conmigo» en el Almacén del webmail: el servidor abre la sección con
+    // vista = 'compartidos' y ruta '/', y la lista sale de GET /compartidos-conmigo
+    // (explorador-compartidos-conmigo.js). Sin esto se pedía la lista propia (/archivos?ruta=/).
+    if (MODO_ALMACEN && typeof esVistaCompartidosConmigo === 'function' && esVistaCompartidosConmigo(ruta)) {
+        await cargarCompartidosConmigo(ruta, silencioso);
+        if (!silencioso) mostrarLoader(false);
         return;
     }
 
@@ -178,16 +188,16 @@ function navegarA(ruta) {
 
 
 function navegarASpam() {
-    // Mostrar mensaje informativo sobre Spam
+    // Mostrar mensaje informativo sobre la sección de no deseados
     Swal.fire({
         icon: 'info',
-        title: 'Carpeta Spam',
+        title: 'Correo no deseado',
         html: `
             <div style="text-align: left;">
-                <p>La carpeta de Spam contiene archivos sospechosos que han sido marcados automáticamente o manualmente.</p>
+                <p>Esta sección contiene archivos sospechosos que han sido marcados automática o manualmente.</p>
                 <p style="margin-top: 12px; color: var(--gd-text-secondary);">
                     <span class="material-icons" style="vertical-align: middle; font-size: 18px;">info</span>
-                    Los archivos en Spam se eliminan automáticamente después de 30 días.
+                    Los archivos de esta sección se eliminan automáticamente después de 30 días.
                 </p>
             </div>
         `,

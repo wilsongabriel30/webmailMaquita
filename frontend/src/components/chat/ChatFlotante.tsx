@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { anotarChatNoInstalado, consultarChatInstalado, urlChatIncrustado } from "./chatInstalado";
 
 /* Chat institucional flotante — disponible en TODAS las vistas del correo.
    - Se activa/desactiva y parametriza desde: Administracion -> Chat
@@ -26,18 +27,19 @@ export function ChatFlotante() {
 
   // 1) Config del panel de control (activado + URL).
   useEffect(() => {
-    fetch("/api/chat-config", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (d && typeof d.enabled === "boolean") {
-          setEnabled(d.enabled);
-          if (d.embed_url) setEmbedUrl(d.embed_url);
-        } else setEnabled(false);
-      })
-      // Ante error, el chat NO se da por habilitado. Antes se asumia que si, y
-      // justo en las instalaciones sin chat eso arrancaba un sondeo infinito
-      // con 404 (reportado por una replica externa).
-      .catch(() => setEnabled(false));
+    // La respuesta se memoriza en chatInstalado.ts (una consulta por sesion, compartida con el
+    // calendario). Si no se pudo saber, el chat NO se da por habilitado. Antes se asumia que si, y
+    // justo en las instalaciones sin chat eso arrancaba un sondeo infinito con 404 (reportado por
+    // una replica externa).
+    let vivo = true;
+    consultarChatInstalado().then((hay) => {
+      if (!vivo) return;
+      if (hay) setEmbedUrl(urlChatIncrustado());
+      setEnabled(hay === true);
+    });
+    return () => {
+      vivo = false;
+    };
   }, []);
 
   // 1b) Entrada al chat. Desde que el chat vive en su propio origen, su cookie ya
@@ -75,11 +77,11 @@ export function ChatFlotante() {
     }
     let vivo = true;
     // Un 404 en esta ruta significa que el chat no esta instalado: no se arregla
-    // solo, a diferencia de un 503 temporal. Tras tres seguidos se deja de
-    // sondear hasta recargar la pagina. Sin esto, una instalacion sin chat
+    // solo, a diferencia de un 503 temporal. Al primero se deja de sondear hasta
+    // recargar la pagina y se anota en chatInstalado.ts, para que el calendario
+    // tampoco ofrezca la videollamada. Sin esto, una instalacion sin chat
     // generaba una peticion fallida por minuto y por persona, mas una en cada
     // cambio de foco, y una consola llena de errores.
-    let noInstalado = 0;
     // 401 seguidos: la cuenta no tiene identidad en el chat (no esta en su directorio).
     // Insistir solo llena la consola de errores; se para igual que con un 404.
     let sinCuenta = 0;
@@ -104,12 +106,12 @@ export function ChatFlotante() {
         }
         sinCuenta = 0;
         if (r.status === 404) {
-          noInstalado += 1;
+          anotarChatNoInstalado();
           setDisponible(false);
-          if (noInstalado >= 3) detener();
+          setEnabled(false);
+          detener();
           return;
         }
-        noInstalado = 0;
         setDisponible(r.ok);
       } catch {
         if (vivo) setDisponible(false);
@@ -133,7 +135,13 @@ export function ChatFlotante() {
     // su sesion. Reportado por una replica externa con el chat en maquina propia.
     if (origenChat) return;
     fetch("/api/chat/conversations", { credentials: "include" })
-      .then((r) => (r.ok ? r.json() : null))
+      .then((r) => {
+        if (r.status === 404) {
+          anotarChatNoInstalado();
+          setEnabled(false);
+        }
+        return r.ok ? r.json() : null;
+      })
       .then((d) => {
         if (!d) return;
         const lista = d.conversaciones || d.conversations || [];

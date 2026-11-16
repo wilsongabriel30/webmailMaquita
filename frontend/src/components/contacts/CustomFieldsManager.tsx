@@ -16,10 +16,10 @@ interface Props {
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Texto' },
-  { value: 'number', label: 'Numero' },
+  { value: 'number', label: 'Número' },
   { value: 'date', label: 'Fecha' },
   { value: 'url', label: 'URL' },
-  { value: 'email', label: 'Email' },
+  { value: 'email', label: 'Correo electrónico' },
 ];
 
 export function CustomFieldsManager({ isOpen, onClose }: Props) {
@@ -62,7 +62,7 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Eliminar este campo y todos sus valores?')) return;
+    if (!confirm('¿Eliminar este campo y todos sus valores?')) return;
     try {
       await api.del(`/contacts/custom-fields/${id}`);
       setFields(prev => prev.filter(f => f.id !== id));
@@ -106,7 +106,7 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
           {loading ? (
             <div style={styles.center}>Cargando...</div>
           ) : fields.length === 0 ? (
-            <div style={styles.center}>No hay campos personalizados. Crea uno arriba.</div>
+            <div style={styles.center}>No hay campos personalizados. Cree uno arriba.</div>
           ) : (
             <table style={styles.table}>
               <thead>

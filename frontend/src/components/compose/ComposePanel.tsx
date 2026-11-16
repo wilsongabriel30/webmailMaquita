@@ -22,7 +22,9 @@ import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, insertarImagenesEnTexto, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
-import { BotonAutocompletarIA, FranjaSugerenciaIA } from './SugerenciaIA';
+import { BotonAutocompletarIA, BotonSugerirAsuntoIA, FranjaSugerenciaIA } from './SugerenciaIA';
+import { revisarBorradorConIA } from './revisionEditor';
+import { AVISO_IA_SIN_RESPUESTA, avisarSiNoHayIA } from './sinIA';
 import { VistaPreviaRedaccion } from './asistente-redaccion';
 import { esReescritura, textoAParrafos } from '../../lib/autocompletar';
 import { insertarContinuacion } from './insertarSugerencia';
@@ -378,8 +380,11 @@ export function ComposePanel({ win }: Props) {
         content = win.data.prefill_body || '<p></p>';
 
       }
-      editor?.commands.setContent(content);
-      cuerpoRef.current = editor?.getHTML() || '';
+      // La firma se pide al servidor y puede llegar cuando la ventana ya se cerró (p. ej. se envió antes):
+      // el editor está destruido y tocar `commands` lanzaba «Cannot read properties of null» (15/11/2026).
+      if (!editor || editor.isDestroyed) return;
+      editor.commands.setContent(content);
+      cuerpoRef.current = editor.getHTML();
       // Allow smart-compose after init is done
       setTimeout(() => { initializingRef.current = false; }, 500);
     };
@@ -776,7 +781,9 @@ export function ComposePanel({ win }: Props) {
     // Pase lo que pase (enviado, en cola o fallido), la fila provisional de «Enviados» se retira.
     const timerId = setTimeout(() => { void alVencer().finally(() => retirarEnvioReciente(idReciente)); }, SEGUNDOS_PARA_ARREPENTIRSE * 1000);
     pendingSendMap.set(winId, { timerId, toastId });
-  }, [to, cc, bcc, subject, editor, win, trackingState, importance, closeCompose, attachments, encrypt]);
+  // «sensitivity» y «fromEmail» deben estar aquí: sin ellos, la etiqueta o el remitente elegidos justo antes de
+  // pulsar «Enviar» no llegaban al envío (el correo «Confidencial» salía sin su franja; hallazgo de Andes, 15/11/2026).
+  }, [to, cc, bcc, subject, editor, win, trackingState, importance, closeCompose, attachments, encrypt, sensitivity, fromEmail]);
 
   // 2026-09-16: un doble clic en Enviar (o Ctrl+Enter repetido) disparaba dos
   // envios, porque el boton solo se bloqueaba despues de la comprobacion DLP.
@@ -963,39 +970,11 @@ export function ComposePanel({ win }: Props) {
 
   // ====== Callbacks conectados a backends ======
 
-  // Helper para llamar a la API IA (proxy nginx /api/ia/  VM 170)
-  const iaFetch = useCallback(async <T,>(endpoint: string, body: object): Promise<T> => {
-    const res = await fetch(`/api/ia/${endpoint}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new Error(`IA error: ${res.status}`);
-    return res.json();
-  }, []);
-
   //  «Mejorar redacción» y «Corregir ortografía»: asistente-redaccion/ (vista previa antes de aplicar,
   //  sobre la selección o todo el mensaje). Antes reemplazaba el texto sin mostrar la propuesta.
 
-  //  VM 170: Revisión IA del texto - FUNCIONAL
-  const handleReviewEditor = useCallback(async () => {
-    const text = editor?.getText() || '';
-    if (!text.trim()) { showToast('No hay texto para revisar'); return; }
-    showToast('Revisando con IA...');
-    try {
-      const data = await iaFetch<{ score: number; feedback: string; suggestions: string[]; corrected_text: string | null }>('review', {
-        text: editor?.getHTML() || text,
-        subject,
-      });
-      const msg = `Puntuación: ${data.score}/10\n\n${data.feedback}\n\nSugerencias:\n${data.suggestions.map(s => ' ' + s).join('\n')}`;
-      if (data.corrected_text && confirm(`${msg}\n\n¿Aplicar la versión corregida?`)) {
-        editor?.commands.setContent(data.corrected_text.replace(/\n/g, '<br>'));
-        showToast('Correcciones aplicadas');
-      } else {
-        alert(msg);
-      }
-    } catch { showToast('Error al conectar con IA'); }
-  }, [editor, subject, iaFetch]);
+  //  Botón «Editor»: revisión del borrador con la IA de la instalación (revisionEditor.ts).
+  const handleReviewEditor = useCallback(() => revisarBorradorConIA(editor, subject), [editor, subject]);
 
   //  VM 170: Análisis de accesibilidad - FUNCIONAL
   const handleCheckAccessibility = useCallback(async () => {
@@ -1014,12 +993,13 @@ export function ComposePanel({ win }: Props) {
   const handleSuggestSubject = useCallback(async () => {
     const text = editor?.getText() || '';
     if (!text.trim() || text.trim().length < 10) {
-      showToast('Escribe algo en el cuerpo para sugerir asunto');
+      showToast('Escriba algo en el cuerpo para sugerir un asunto');
       return;
     }
     if (suggestingSubject) return;
+    if (await avisarSiNoHayIA()) return;
     setSuggestingSubject(true);
-    showToast('Generando sugerencias de asunto...');
+    showToast('Generando sugerencias de asunto…');
     try {
       const data = await api.post<{ suggestions: string[] }>('/ai/suggest-subject', { body: text });
       if (data.suggestions?.length) {
@@ -1027,7 +1007,7 @@ export function ComposePanel({ win }: Props) {
           ? data.suggestions[0]
           : await new Promise<string | null>((resolve) => {
               const msg = data.suggestions.map((s, i) => `${i + 1}. ${s}`).join('\n');
-              const pick = prompt(`Sugerencias de asunto:\n\n${msg}\n\nEscribe el numero (1-${data.suggestions.length}):`);
+              const pick = prompt(`Sugerencias de asunto:\n\n${msg}\n\nEscriba el número (1-${data.suggestions.length}):`);
               if (pick) {
                 const idx = parseInt(pick) - 1;
                 resolve(idx >= 0 && idx < data.suggestions.length ? data.suggestions[idx] : null);
@@ -1040,7 +1020,7 @@ export function ComposePanel({ win }: Props) {
       } else {
         showToast('No se pudieron generar sugerencias');
       }
-    } catch { showToast('Error al conectar con IA'); }
+    } catch { showToast(AVISO_IA_SIN_RESPUESTA); }
     setSuggestingSubject(false);
   }, [editor, api, suggestingSubject]);
 
@@ -1067,14 +1047,15 @@ export function ComposePanel({ win }: Props) {
     // no mientras hay otra petición en curso, así que no satura la IA.
     if (context.trim().length < 4) { showToast('Escriba al menos unas letras para empezar'); return; }
     if (composingSuggestion) return;
+    if (await avisarSiNoHayIA()) return;
     setComposingSuggestion(true);
     setComposeSuggestion('');
     try {
       const data = await api.post<{ suggestion: string; continua_palabra?: boolean }>('/ai/smart-compose',
         { context, subject, to, idioma: aTexto(ortografia.idioma) });
       if (data.suggestion) { setComposeSuggestion(data.suggestion); setContinuaPalabra(!!data.continua_palabra); }
-      else showToast('La IA no devolvio una sugerencia');
-    } catch { showToast('No se pudo generar (IA ocupada, reintenta)'); }
+      else showToast('La IA no devolvió una sugerencia');
+    } catch { showToast(AVISO_IA_SIN_RESPUESTA); }
     finally { setComposingSuggestion(false); }
   }, [editor, subject, to, ortografia.idioma, composingSuggestion]);
 
@@ -1342,12 +1323,7 @@ export function ComposePanel({ win }: Props) {
             <option value="Restringida">Restringida</option>
           </select>
           <BotonAutocompletarIA onClick={requestSmartCompose} ocupado={composingSuggestion} />
-          <button onClick={handleSuggestSubject} disabled={suggestingSubject}
-            title="Sugerir asunto con IA"
-            className="mr-2 px-2 py-1 text-[11px] text-[#0078d4] hover:bg-[#f3f2f1] rounded flex items-center gap-1 disabled:opacity-50 whitespace-nowrap">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#0078d4" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
-            Asunto
-          </button>
+          <BotonSugerirAsuntoIA onClick={handleSuggestSubject} ocupado={suggestingSubject} />
           </div>
         </div>
       </div>

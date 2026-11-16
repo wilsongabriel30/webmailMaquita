@@ -28,7 +28,7 @@ interface Props {
 const RELATION_TYPES = [
   { value: 'assistant', label: 'Asistente' },
   { value: 'manager', label: 'Gerente' },
-  { value: 'spouse', label: 'Conyuge' },
+  { value: 'spouse', label: 'Cónyuge' },
   { value: 'referral', label: 'Referido' },
   { value: 'partner', label: 'Socio' },
   { value: 'provider', label: 'Proveedor' },
@@ -168,7 +168,7 @@ export function RelationshipsPanel({ contactId, onNavigateToContact }: Props) {
             </div>
           ) : (
             <button onClick={() => setShowForm(true)} style={styles.addBtn}>
-              + Agregar relacion
+              + Agregar relación
             </button>
           )}
         </div>

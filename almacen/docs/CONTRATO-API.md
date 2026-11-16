@@ -28,7 +28,7 @@ La suite `pruebas_contrato/` verifica los marcados con ✅ (núcleo v1).
 | 11 | POST | `/carpetas` ✅ | crear_carpeta | Body: {"ruta": "/", "nombre": "Nueva Carpeta"} |
 | 12 | POST | `/carpetas/estilo` | cambiar_estilo_carpeta | Body: {"folder_id": "12345", "color": "#ea4335", "icono": "star"} |
 | 13 | POST | `/compartir` | compartir | Body: {"ruta": "/archivo", "tipo": 0, "destinatario": "usuario", "permisos": 1} |
-| 14 | GET, POST | `/mi-perfil` | mi_perfil_nube |  |
+| 14 | GET, POST | `/mi-perfil` | mi_perfil_nube | Nombre con el que los demás ven a la persona. GET → {nombre_nomina (predeterminado), nombre_visible, email, foto_url, editable}. POST Body: {"nombre_visible": "..."} (vacío = predeterminado); 403 si el nombre lo administra el directorio central. En el Almacén del webmail desde el 15/11/2026 (`api_perfil.py`). |
 | 15 | GET | `/compartidos` ✅ | listar_compartidos | Lista recursos compartidos |
 | 16 | DELETE | `/compartidos/<share_id>` ✅ | eliminar_compartido | Elimina un share |
 | 17 | GET | `/shares` | obtener_shares_archivo | Obtiene todos los shares de un archivo/carpeta específico. Usado por el modal de compartir para mostrar usuari |
