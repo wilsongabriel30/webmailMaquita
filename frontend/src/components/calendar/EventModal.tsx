@@ -6,6 +6,7 @@ import { toDateInputValue, toTimeInputValue, formatTime } from "./utils/dateHelp
 import { parseISO, addMinutes, format } from "date-fns";
 import { useCalendarApi } from "./hooks/useCalendarApi";
 import { useVideollamadaConInvitados } from "./hooks/useVideollamadaConInvitados";
+import { useVideollamadaDisponible } from "../chat/chatInstalado";
 import { api } from "../../api/client";
 import { es } from "date-fns/locale";
 
@@ -153,6 +154,8 @@ export function EventModal({
   const [showDatePickers, setShowDatePickers] = useState(false);
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [virtualMeeting, setVirtualMeeting] = useState(!event && !!initialVirtualMeeting);
+  // Sin servicio de chat no hay videollamadas: el interruptor no se ofrece ni se envía encendido.
+  const hayVideollamada = useVideollamadaDisponible();
   const encenderVideollamada = useCallback(() => setVirtualMeeting(true), []);
   const videollamadaDecidida = useVideollamadaConInvitados(!event, attendees.length + optionalAttendees.length, location, !!rrule, encenderVideollamada);
   const [isExpanded, setIsExpanded] = useState(false);
@@ -334,7 +337,7 @@ export function EventModal({
       attendees,
       optional_attendees: optionalAttendees,
       _attachments: attachments.map((a) => a.file),
-      _virtualMeeting: virtualMeeting,
+      _virtualMeeting: virtualMeeting && hayVideollamada,
     });
   }
 
@@ -844,6 +847,7 @@ export function EventModal({
                 <div className="olkm-separator" />
 
                 {/* Virtual meeting toggle */}
+                {hayVideollamada && (<>
                 <div className="olkm-field">
                   <div className="olkm-field-icon">
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor">
@@ -871,6 +875,7 @@ export function EventModal({
                   </div>
                 </div>
                 <div className="olkm-separator" />
+                </>)}
 
                 {/* Calendar selector */}
                 <div className="olkm-field">

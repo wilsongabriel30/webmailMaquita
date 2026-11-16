@@ -3,7 +3,7 @@
 Puente calendario del correo → Maquita Meet (T-30). Módulo aparte del router/servicio del calendario.
 - Evento creado con `meet: true` (la app o cualquier cliente de la API): crea la reunión en el servicio de reuniones
   (misma cuenta = moderador, asistentes = participantes → aviso T-03 + recordatorio), deja en el evento el enlace,
-  «Entrar con tu usuario» y la marca X-MAQUITA-REUNION:<id>, y vincula la reunión con el evento.
+  «Entrar con su usuario» y la marca X-MAQUITA-REUNION:<id>, y vincula la reunión con el evento.
 - Evento editado o movido (arrastrar) con marca → actualiza la reunión (hora, asistentes, asunto).
   Evento borrado con marca → cancela la reunión.
 El webmail (React) solo crea la reunión al guardar un evento nuevo; editar, mover y borrar los sincroniza
@@ -96,7 +96,7 @@ async def tras_crear(db, user, ev, data, request):
                 return ev
             descripcion = (
                 (ev.description + "\n\n" if ev.description else "")
-                + f"Videollamada: {reunion['url_sala']}\nEntrar con tu usuario: {reunion['url_acceso']}?redirigir=1\nREUNION-ID: {reunion['id']}"
+                + f"Videollamada: {reunion['url_sala']}\nEntrar con su usuario: {reunion['url_acceso']}?redirigir=1\nREUNION-ID: {reunion['id']}"
             )
             from app.calendar.service import calendar_service
 

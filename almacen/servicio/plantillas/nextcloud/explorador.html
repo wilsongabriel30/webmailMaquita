@@ -227,15 +227,15 @@
                 <!-- Documentos (clic directo, estilo Google Drive) -->
                 <div class="gd-new-menu-item" onclick="crearDocumento('documento')">
                     <span class="material-icons" style="color: #2b579a;">description</span>
-                    <span class="item-label">Documento (Word)</span>
+                    <span class="item-label">Documento</span>
                 </div>
                 <div class="gd-new-menu-item" onclick="crearDocumento('hoja')">
                     <span class="material-icons" style="color: #0f9d58;">grid_on</span>
-                    <span class="item-label">Hoja de cálculo (Excel)</span>
+                    <span class="item-label">Hoja de cálculo</span>
                 </div>
                 <div class="gd-new-menu-item" onclick="crearDocumento('presentacion')">
                     <span class="material-icons" style="color: #d93025;">slideshow</span>
-                    <span class="item-label">Presentación (PowerPoint)</span>
+                    <span class="item-label">Presentación</span>
                 </div>
                 <div class="gd-new-menu-item" onclick="crearDocumento('texto')">
                     <span class="material-icons" style="color: #5f6368;">article</span>
@@ -308,7 +308,7 @@
         <nav class="gd-nav">
             <a href="#" class="gd-nav-item" id="navSpam" onclick="event.preventDefault(); navegarASpam();">
                 <span class="material-icons">report</span>
-                <span>Spam</span>
+                <span>Correo no deseado</span>
             </a>
 {% if nube_subperms.get('papelera') %}
             <a href="{{ '/archivos-almacen/papelera' if almacen_modo else url_for('nextcloud_web.papelera') }}" class="gd-nav-item" id="navPapelera">
@@ -344,7 +344,7 @@
                 </div>
                 <div class="gd-storage-legend-item">
                     <span class="legend-dot email"></span>
-                    <a href="/webmail">Email</a>
+                    <a href="/webmail">Correo electrónico</a>
                 </div>
             </div>
             <div class="gd-storage-actions">
@@ -1201,12 +1201,14 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-escape.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-config.js') }}?v=20260703d"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-core.js') }}?v=20261016"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20261016"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-cuota.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20261115"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-arbol.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-render.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos.js') }}?v=20260906"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20260610k"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20261016"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos-conmigo.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20261115"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20261028"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20261028"></script>

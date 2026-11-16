@@ -137,10 +137,11 @@ def crear_app_webmail() -> Flask:
     from api_almacenamiento import bp_almacenamiento
     from api_alias import bp_alias
     from api_crear import bp_crear
+    from api_perfil import bp_perfil
 
     for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones,
                bp_onlyoffice, bp_unidades, bp_actividad, bp_almacenamiento,
-               bp_alias, bp_crear):
+               bp_alias, bp_crear, bp_perfil):
         app.register_blueprint(bp, url_prefix='/api/almacen')
     app.register_blueprint(bp_onlyoffice_web)   # /archivos-almacen/editar
     from acceso_externo import bp_acceso_externo

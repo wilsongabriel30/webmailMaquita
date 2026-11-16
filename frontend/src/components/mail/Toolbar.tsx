@@ -1182,7 +1182,7 @@ export function Toolbar() {
                       </Dropdown>
                     </div>
                     <ToolbarButton icon={ICONS.zoom} label={`Zoom ${escalaActual()}%`}
-                      onClick={() => { const v = siguienteEscala(escalaActual()); aplicarEscala(v); showToast(`Escala de la interfaz: ${v}% (se recuerda en este navegador)`); }} />
+                      onClick={() => { const v = siguienteEscala(escalaActual()); aplicarEscala(v); showToast(`Escala de la interfaz: ${v}% (se guarda en su cuenta)`); }} />
                     <ToolbarButton icon={ICONS.sync} label="Sincronizar"
                       onClick={() => window.dispatchEvent(new CustomEvent('refresh-messages'))} />
                   </Group>

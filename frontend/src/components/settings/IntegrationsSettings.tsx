@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState, type ChangeEvent } from 'react';
 import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
 
 interface ApiKey { id: number; name: string; prefix: string; permissions: string[]; expires_at: string | null; }
 interface Webhook { id: number; url: string; events: string[]; }
@@ -14,22 +15,33 @@ export function IntegrationsSettings() {
   const [hookEvents, setHookEvents] = useState('mail.received');
   const [hookErr, setHookErr] = useState('');
   const [importMsg, setImportMsg] = useState('');
+  const campoClave = useRef<HTMLInputElement>(null);
+  const campoUrl = useRef<HTMLInputElement>(null);
 
   const loadKeys = () => api.get<ApiKey[]>('/keys').then(setKeys).catch(() => {});
   const loadHooks = () => api.get<Webhook[]>('/webhooks').then(setHooks).catch(() => {});
   useEffect(() => { loadKeys(); loadHooks(); }, []);
 
   const createKey = async () => {
-    if (!newKeyName.trim()) return;
+    // Campo vacío: antes el botón no hacía nada ni avisaba.
+    if (!newKeyName.trim()) {
+      showToast('Escriba un nombre para la clave antes de crearla.');
+      campoClave.current?.focus();
+      return;
+    }
     try {
-      const r = await api.post<any>('/keys', { name: newKeyName, permissions: keySend ? ['read', 'send'] : ['read'] });
+      const r = await api.post<{ key?: string }>('/keys', { name: newKeyName, permissions: keySend ? ['read', 'send'] : ['read'] });
       setCreatedKey(r?.key || ''); setNewKeyName(''); loadKeys();
     } catch { /* fail-open */ }
   };
   const delKey = async (id: number) => { if (!confirm('¿Eliminar la clave?')) return; await api.del(`/keys/${id}`); loadKeys(); };
 
   const createHook = async () => {
-    if (!hookUrl.trim()) return;
+    if (!hookUrl.trim()) {
+      showToast('Escriba la dirección (URL) que recibirá los avisos antes de crear el webhook.');
+      campoUrl.current?.focus();
+      return;
+    }
     setHookErr('');
     try {
       await api.post('/webhooks', { url: hookUrl, events: hookEvents.split(',').map((e) => e.trim()).filter(Boolean) });
@@ -39,7 +51,7 @@ export function IntegrationsSettings() {
   const testHook = async (id: number) => { try { await api.post(`/webhooks/${id}/test`, {}); alert('Webhook de prueba enviado.'); } catch { alert('Error al probar.'); } };
   const delHook = async (id: number) => { if (!confirm('¿Eliminar el webhook?')) return; await api.del(`/webhooks/${id}`); loadHooks(); };
 
-  const importContacts = async (e: any) => {
+  const importContacts = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
     setImportMsg('Importando…');
     const fd = new FormData(); fd.append('file', f);
@@ -74,7 +86,7 @@ export function IntegrationsSettings() {
           {!keys.length && <div className="text-xs" style={{ color: '#a19f9d' }}>Sin claves.</div>}
         </div>
         <div className="flex gap-2 items-center flex-wrap">
-          <input value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="Nombre de la clave" className="px-3 py-2 rounded text-sm" style={inpStyle} />
+          <input ref={campoClave} value={newKeyName} onChange={(e) => setNewKeyName(e.target.value)} placeholder="Nombre de la clave" className="px-3 py-2 rounded text-sm" style={inpStyle} />
           <label className="text-xs flex gap-1 items-center" style={{ color: '#605e5c' }}><input type="checkbox" checked={keySend} onChange={(e) => setKeySend(e.target.checked)} /> permitir envío</label>
           <button onClick={createKey} className="text-white text-sm px-3 py-2 rounded" style={{ backgroundColor: '#0078d4' }}>Crear clave</button>
         </div>
@@ -97,7 +109,7 @@ export function IntegrationsSettings() {
         </div>
         {hookErr && <div className="text-xs" style={{ color: '#a4262c' }}>{hookErr}</div>}
         <div className="flex gap-2 items-center flex-wrap">
-          <input value={hookUrl} onChange={(e) => setHookUrl(e.target.value)} placeholder="https://tu-app/webhook" className="px-3 py-2 rounded text-sm flex-1" style={inpStyle} />
+          <input ref={campoUrl} value={hookUrl} onChange={(e) => setHookUrl(e.target.value)} placeholder="https://tu-app/webhook" className="px-3 py-2 rounded text-sm flex-1" style={inpStyle} />
           <input value={hookEvents} onChange={(e) => setHookEvents(e.target.value)} placeholder="eventos (coma)" className="px-3 py-2 rounded text-sm" style={inpStyle} />
           <button onClick={createHook} className="text-white text-sm px-3 py-2 rounded" style={{ backgroundColor: '#0078d4' }}>Crear</button>
         </div>

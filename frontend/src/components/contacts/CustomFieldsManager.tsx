@@ -16,10 +16,10 @@ interface Props {
 
 const FIELD_TYPES = [
   { value: 'text', label: 'Texto' },
-  { value: 'number', label: 'Numero' },
+  { value: 'number', label: 'Número' },
   { value: 'date', label: 'Fecha' },
   { value: 'url', label: 'URL' },
-  { value: 'email', label: 'Email' },
+  { value: 'email', label: 'Correo electrónico' },
 ];
 
 export function CustomFieldsManager({ isOpen, onClose }: Props) {
@@ -30,11 +30,7 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    if (isOpen) loadFields();
-  }, [isOpen]);
-
-  const loadFields = async () => {
+  async function loadFields() {
     setLoading(true);
     try {
       const data = await api.get<CustomField[]>('/contacts/custom-fields');
@@ -42,6 +38,11 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
     } catch { /* ignore */ }
     setLoading(false);
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al abrir (patrón previo)
+    if (isOpen) loadFields();
+  }, [isOpen]);
 
   const handleAdd = async () => {
     if (!newName.trim()) return;
@@ -55,14 +56,14 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
       setFields(prev => [...prev, created]);
       setNewName('');
       setNewType('text');
-    } catch (e: any) {
-      setError(e?.message || 'Error al crear campo');
+    } catch (e) {
+      setError((e instanceof Error && e.message) || 'Error al crear campo');
     }
     setSaving(false);
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('Eliminar este campo y todos sus valores?')) return;
+    if (!confirm('¿Eliminar este campo y todos sus valores?')) return;
     try {
       await api.del(`/contacts/custom-fields/${id}`);
       setFields(prev => prev.filter(f => f.id !== id));
@@ -106,7 +107,7 @@ export function CustomFieldsManager({ isOpen, onClose }: Props) {
           {loading ? (
             <div style={styles.center}>Cargando...</div>
           ) : fields.length === 0 ? (
-            <div style={styles.center}>No hay campos personalizados. Crea uno arriba.</div>
+            <div style={styles.center}>No hay campos personalizados. Cree uno arriba.</div>
           ) : (
             <table style={styles.table}>
               <thead>

@@ -28,7 +28,7 @@ interface Props {
 const RELATION_TYPES = [
   { value: 'assistant', label: 'Asistente' },
   { value: 'manager', label: 'Gerente' },
-  { value: 'spouse', label: 'Conyuge' },
+  { value: 'spouse', label: 'Cónyuge' },
   { value: 'referral', label: 'Referido' },
   { value: 'partner', label: 'Socio' },
   { value: 'provider', label: 'Proveedor' },
@@ -44,16 +44,17 @@ export function RelationshipsPanel({ contactId, onNavigateToContact }: Props) {
   const [searchResults, setSearchResults] = useState<ContactOption[]>([]);
   const [searching, setSearching] = useState(false);
 
-  useEffect(() => {
-    loadRelationships();
-  }, [contactId]);
-
-  const loadRelationships = async () => {
+  async function loadRelationships() {
     try {
       const data = await api.get<Relationship[]>(`/contacts/${contactId}/relationships`);
       setRelationships(data);
     } catch { /* ignore */ }
   };
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de la lista al abrir (patrón previo)
+    loadRelationships();
+  }, [contactId]);
 
   const handleSearch = async (q: string) => {
     setSearchQuery(q);
@@ -168,7 +169,7 @@ export function RelationshipsPanel({ contactId, onNavigateToContact }: Props) {
             </div>
           ) : (
             <button onClick={() => setShowForm(true)} style={styles.addBtn}>
-              + Agregar relacion
+              + Agregar relación
             </button>
           )}
         </div>

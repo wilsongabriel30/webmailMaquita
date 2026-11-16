@@ -5,6 +5,7 @@ import { api } from "../../api/client";
 import type { CalendarEvent, EventFormData } from "./types/calendar";
 import type { useCalendarApi } from "./hooks/useCalendarApi";
 import { avisarFalloGeneralInvitaciones, avisarResultadoInvitaciones } from "./avisoInvitaciones";
+import { anotarReunionesNoDisponibles, esErrorNoEncontrado, videollamadaDisponible } from "../chat/chatInstalado";
 
 type ApiCalendario = ReturnType<typeof useCalendarApi>;
 
@@ -20,8 +21,9 @@ export async function guardarEvento(
 
   // Videollamada Maquita Meet (T-30): la reunión es UN registro del servicio de reuniones (mismo id en Raíces, en el
   // calendario y en la app). Se crea aquí y el evento lleva el enlace + la marca X-MAQUITA-REUNION:<id>.
+  // Sin servicio de chat no hay reuniones: no se llama (antes quedaba un 404 en la consola en cada evento).
   let reunionNueva: number | null = null;
-  if (_virtualMeeting && !/(REUNION-ID|X-MAQUITA-REUNION):/.test(payload.description || "") && !/https?:\/\//.test(payload.location || "")) {
+  if (_virtualMeeting && !/(REUNION-ID|X-MAQUITA-REUNION):/.test(payload.description || "") && !/https?:\/\//.test(payload.location || "") && await videollamadaDisponible()) {
     try {
       const horas = Math.max(1, Math.ceil((new Date(payload.dtend).getTime() - new Date(payload.dtstart).getTime()) / 3600000));
       const m = await api.post<{ success: boolean; reunion: { id: number; url_sala: string; url_acceso: string } }>("/chat/reuniones", {
@@ -35,10 +37,12 @@ export async function guardarEvento(
         reunionNueva = m.reunion.id;
         if (!payload.location) payload.location = m.reunion.url_sala;
         payload.description = (payload.description ? payload.description + "\n\n" : "") +
-          `Videollamada: ${m.reunion.url_sala}\nEntrar con tu usuario: ${m.reunion.url_acceso}?redirigir=1\nREUNION-ID: ${m.reunion.id}`;
+          `Videollamada: ${m.reunion.url_sala}\nEntrar con su usuario: ${m.reunion.url_acceso}?redirigir=1\nREUNION-ID: ${m.reunion.id}`;
       }
-    } catch {
-      console.error("[Calendar] No se pudo crear la videollamada de la reunión");
+    } catch (e) {
+      // 404 = esta instalación no tiene reuniones: se anota y no se vuelve a pedir ni a ofrecer.
+      if (esErrorNoEncontrado(e)) anotarReunionesNoDisponibles();
+      else console.error("[Calendar] No se pudo crear la videollamada de la reunión");
     }
   }
   // Editar, mover o borrar un evento ya vinculado lo sincroniza el servidor del correo (puente_meet), una sola

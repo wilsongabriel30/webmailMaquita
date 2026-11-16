@@ -6,6 +6,7 @@ import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
 import { GrupoParrafo } from './GrupoParrafo';
 import { GrupoAsistenteIA } from './asistente-redaccion';
+import { useIADisponible } from '../asistente-lateral/iaDisponible';
 import { LargeBtn, MedBtn } from './BotonesCinta';
 import { MenuInsertar } from './MenuInsertar';
 import { EVENTO_ADJUNTAR_CORREO } from '../../lib/correosComoAdjunto';
@@ -454,6 +455,7 @@ function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onIns
 
   const [tblAncla, setTblAncla] = useState<HTMLElement | null>(null);
   const { onReviewEditor, onCheckAccessibility, onImproveWriting } = rest;
+  const hayIA = useIADisponible() === true;   // sin IA configurada, los botones de IA no se pintan
   const [showColor, setShowColor] = useState(false);
   const [emojiAncla, setEmojiAncla] = useState<HTMLElement | null>(null);
   const emojiAnchorRef = useRef<HTMLDivElement>(null);
@@ -512,11 +514,13 @@ function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onIns
       </RGroup>
       <GSep />
 
-      {/* Asistente de IA → VM 170: corregir ortografía o mejorar la redacción, con vista previa */}
-      <RGroup label="Asistente de IA">
-        <GrupoAsistenteIA alMejorar={onImproveWriting} />
-      </RGroup>
-      <GSep />
+      {/* Asistente de IA: corregir ortografía o mejorar la redacción, con vista previa. Sin IA configurada no se pinta. */}
+      {hayIA && <>
+        <RGroup label="Asistente de IA">
+          <GrupoAsistenteIA alMejorar={onImproveWriting} />
+        </RGroup>
+        <GSep />
+      </>}
 
       {/* Insertar group */}
       <RGroup label="Insertar">
@@ -590,7 +594,7 @@ function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onIns
       {/* Opciones → VM 170 revisión IA */}
       <RGroup label="Opciones">
         <div className="flex items-center gap-[2px]">
-          <LargeBtn icon={<EditorIcon />} label="Editor" onClick={() => onReviewEditor?.()} />
+          {hayIA && <LargeBtn icon={<EditorIcon />} label="Editor" onClick={() => onReviewEditor?.()} />}
           <LargeBtn icon={<AccessIcon />} label={"Comprobar\naccesibilidad"} onClick={() => onCheckAccessibility?.()} />
         </div>
       </RGroup>
@@ -745,6 +749,7 @@ function OptionsTab({ editor, onShowCc, onShowBcc, showCc, showBcc, onImportance
   onScheduleSend?: () => void; onReviewEditor?: () => void; onCheckAccessibility?: () => void;
   onTrackingChange?: (tracking: { delivery: boolean; read: boolean; noReactions: boolean }) => void;
 }) {
+  const hayIA = useIADisponible() === true;   // sin IA configurada, el botón «Editor» no se pinta
   const [reqDelivery, setReqDelivery] = useState(false);
   const [reqRead, setReqRead] = useState(false);
   const [noReactions, setNoReactions] = useState(false);
@@ -758,7 +763,7 @@ function OptionsTab({ editor, onShowCc, onShowBcc, showCc, showBcc, onImportance
       {/* Revisión → VM 170 (ia-maquita) revisión IA */}
       <RGroup label="Revisión">
         <div className="flex items-center gap-[2px]">
-          <LargeBtn icon={<EditorIcon />} label="Editor" onClick={() => onReviewEditor?.()} />
+          {hayIA && <LargeBtn icon={<EditorIcon />} label="Editor" onClick={() => onReviewEditor?.()} />}
           <LargeBtn icon={<AccessIcon />} label={"Comprobar\naccesibilidad"} onClick={() => onCheckAccessibility?.()} />
         </div>
       </RGroup>

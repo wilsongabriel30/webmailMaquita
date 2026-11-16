@@ -24,6 +24,14 @@ function preguntar(): Promise<boolean> {
   return peticion;
 }
 
+/** El aviso único de cualquier función de IA cuando la instalación no tiene IA configurada. */
+export const AVISO_SIN_IA = 'El asistente de IA no está configurado en esta instalación. Consulte con su administrador.';
+
+/** Para manejadores (fuera de un componente): la misma consulta de la sesión, sin repetir la petición. */
+export function hayIA(): Promise<boolean> {
+  return preguntar();
+}
+
 /** null mientras no se sabe; después, si hay IA. */
 export function useIADisponible(): boolean | null {
   const [valor, setValor] = useState<boolean | null>(conocido);

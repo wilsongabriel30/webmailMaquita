@@ -159,8 +159,8 @@ def descargar_publico(token):
     from almacen_bd import conexion, ejecutar
     filas = consultar("""
         SELECT token, propietario_id, ruta, expira_en, clave_hash, permite_descarga
-        FROM compartidos WHERE token = %s AND tipo = 3
-    """, (token,))
+        FROM compartidos WHERE token = %s
+    """, (token,))   # el token ES la credencial: también lo llevan los compartidos con una persona (tipo 0/4)
     if not filas:
         abort(404)
     comp = filas[0]

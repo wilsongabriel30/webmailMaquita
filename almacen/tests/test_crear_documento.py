@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""«Nuevo → Documento (Word)»: POST /api/almacen/archivos/crear.
+"""«Nuevo → Documento»: POST /api/almacen/archivos/crear.
 
 Respondía 405 Method Not Allowed: la ruta no existía en el Almacén del webmail y la
 petición caía en el comodín `/api/almacen/<path>`, registrado solo para GET.
