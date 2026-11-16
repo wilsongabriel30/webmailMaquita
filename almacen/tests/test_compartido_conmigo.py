@@ -82,3 +82,29 @@ def test_respeta_solo_lectura_y_token_desconocido(cliente):
     assert cliente.get("/api/almacen/publico/otroTokenQueNoExiste99").status_code == 404
     cliente.filas[0]["permite_descarga"] = False
     assert cliente.get("/api/almacen/publico/" + TOKEN).status_code == 403
+
+
+def _sin_comentarios(texto):
+    return "\n".join(l for l in texto.splitlines() if not l.lstrip().startswith(("//", "*", "/*")))
+
+
+def test_la_plantilla_carga_el_menu_despues_del_modulo():
+    html = _leer(PLANTILLA)
+    assert html.index("explorador-compartidos-conmigo.js") < html.index("explorador-compartidos-conmigo-menu.js")
+
+
+def test_se_puede_descargar_desde_la_lista_y_desde_las_tarjetas():
+    modulo = _sin_comentarios(_leer(os.path.join(JS, "explorador-compartidos-conmigo.js")))
+    # descarga directa por la ruta del enlace; con clave se va a la página que la pide
+    assert "API_BASE + '/publico/'" in modulo and "d.conClave === 'true'" in modulo
+    tarjeta = modulo.split("function _tarjetaCompartidoConmigo")[1].split("\nfunction ")[0]
+    assert "descargarCompartidoConmigo(" in tarjeta and "abrirMenuCompartidoConmigo(" in tarjeta
+    fila = modulo.split("function _filaCompartidoConmigo")[1].split("\nfunction ")[0]
+    assert "abrirMenuCompartidoConmigo(" in fila
+
+
+def test_el_menu_ofrece_abrir_y_descargar_y_respeta_el_permiso():
+    menu = _sin_comentarios(_leer(os.path.join(JS, "explorador-compartidos-conmigo-menu.js")))
+    assert 'data-accion="abrir"' in menu and 'data-accion="descargar"' in menu
+    assert "el.dataset.descarga === 'true'" in menu
+    assert "addEventListener('contextmenu'" in menu and ".gd-comp-conmigo" in menu

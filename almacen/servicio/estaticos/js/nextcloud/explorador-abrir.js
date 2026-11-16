@@ -73,7 +73,7 @@ async function avisarDiagramaSinEditor(ruta) {
     const resultado = await Swal.fire({
         icon: 'info',
         title: 'Diagrama',
-        text: 'Este Drive no tiene editor de diagramas. Puede descargar «' + _nombreDeRuta(ruta)
+        text: 'Esta nube no tiene editor de diagramas. Puede descargar «' + _nombreDeRuta(ruta)
             + '» y abrirlo con un programa de diagramas compatible con draw.io.',
         showCancelButton: true,
         confirmButtonText: 'Descargar',

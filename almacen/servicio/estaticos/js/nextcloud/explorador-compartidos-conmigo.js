@@ -54,13 +54,30 @@ function abrirCompartidoConmigo(el) {
     window.open(_urlCompartidoConmigo(d.token, d.enLinea === 'true', d.conClave === 'true'), 'oo-' + d.token);
 }
 
+/** Descarga directa; si el enlace tiene clave, se abre su página, que la pide antes de entregar el archivo. */
 function descargarCompartidoConmigo(el) {
-    if (el.dataset.token) window.open('/almacen-s/' + encodeURIComponent(el.dataset.token), '_blank');
+    const d = el.dataset;
+    if (!d.token) return;
+    if (d.descarga !== 'true') {
+        mostrarNotificacion('Quien compartió este archivo no permitió descargarlo.', 'warning');
+        return;
+    }
+    if (d.conClave === 'true') {
+        window.open('/almacen-s/' + encodeURIComponent(d.token), '_blank');
+        return;
+    }
+    const enlace = document.createElement('a');
+    enlace.href = API_BASE + '/publico/' + encodeURIComponent(d.token);
+    enlace.download = d.nombre || '';
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
 }
 
 function _datosCompartidoConmigo(c) {
     return 'data-token="' + escHtml(c.token || '') + '" data-en-linea="' + (c.abre_en_linea ? 'true' : 'false')
-        + '" data-con-clave="' + (c.requiere_clave ? 'true' : 'false') + '" data-nombre="' + escHtml(c.nombre) + '"';
+        + '" data-con-clave="' + (c.requiere_clave ? 'true' : 'false')
+        + '" data-descarga="' + (c.permite_descarga ? 'true' : 'false') + '" data-nombre="' + escHtml(c.nombre) + '"';
 }
 
 function _filaCompartidoConmigo(c) {
@@ -82,7 +99,9 @@ function _filaCompartidoConmigo(c) {
         + '<td><div class="gd-list-owner" title="' + escHtml(de) + '"><div class="owner-avatar">' + escHtml(inicial) + '</div><span>' + escHtml(de) + '</span></div></td>'
         + '<td>' + escHtml(formatearFecha(c.creado_en)) + '</td>'
         + '<td>' + _tamanoCompartidoConmigo(c.tamano_bytes) + '</td>'
-        + '<td class="gd-list-actions"><div class="gd-list-actions-btns">' + botones + '</div></td>'
+        + '<td class="gd-list-actions"><div class="gd-list-actions-btns">' + botones
+        + '<button class="gd-icon-btn" onclick="event.stopPropagation(); abrirMenuCompartidoConmigo(event, this.closest(\'tr\'))" title="Más acciones"><span class="material-icons">more_vert</span></button>'
+        + '</div></td>'
         + '</tr>';
 }
 
@@ -93,7 +112,12 @@ function _tarjetaCompartidoConmigo(c) {
         + '<div class="gd-card-header"><div class="type-icon ' + par[1] + '"><span class="material-icons">' + par[0] + '</span></div>'
         + '<span class="file-name" title="' + escHtml(c.nombre) + '">' + escHtml(c.nombre) + '</span></div>'
         + '<div class="gd-card-preview"><span class="material-icons">' + par[0] + '</span></div>'
-        + '<div class="gd-card-footer"><div class="gd-card-meta">' + escHtml(pie) + '</div></div>'
+        + '<div class="gd-card-footer"><div class="gd-card-meta">' + escHtml(pie) + '</div>'
+        + (c.permite_descarga
+            ? '<button class="gd-icon-btn" onclick="event.stopPropagation(); descargarCompartidoConmigo(this.closest(\'.gd-card\'))" title="Descargar"><span class="material-icons">download</span></button>'
+            : '')
+        + '<button class="gd-icon-btn" onclick="event.stopPropagation(); abrirMenuCompartidoConmigo(event, this.closest(\'.gd-card\'))" title="Más acciones"><span class="material-icons">more_vert</span></button>'
+        + '</div>'
         + '</div>';
 }
 
