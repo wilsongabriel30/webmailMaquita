@@ -194,6 +194,7 @@ export function useKeyboardShortcuts() {
               html_body: quoteHtml,
               in_reply_to: msg.message_id || '',
               references: msg.references || '',
+              respuesta_de: { folder: msg.folder || folder, uid: msg.uid, adjuntos: msg.attachments },
             });
           }
           break;
@@ -212,6 +213,7 @@ export function useKeyboardShortcuts() {
               html_body: quoteHtml,
               in_reply_to: msg.message_id || '',
               references: msg.references || '',
+              respuesta_de: { folder: msg.folder || folder, uid: msg.uid, adjuntos: msg.attachments },
             });
           }
           break;

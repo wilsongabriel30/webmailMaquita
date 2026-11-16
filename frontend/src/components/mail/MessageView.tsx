@@ -831,8 +831,9 @@ const MessageView: React.FC = () => {
       in_reply_to: msg.message_id || '',
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
+      respuesta_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
-  }, [msg, openCompose]);
+  }, [msg, openCompose, currentFolder]);
 
   const handleReplyAll = useCallback(() => {
     if (!msg || !openCompose) return;
@@ -851,6 +852,7 @@ const MessageView: React.FC = () => {
       in_reply_to: msg.message_id || '',
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
+      respuesta_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
   }, [msg, openCompose, currentFolder]);
 
@@ -966,6 +968,7 @@ const MessageView: React.FC = () => {
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
       prefill_body: `<p>${text.replace(/\n/g, '<br>')}</p>`,
+      respuesta_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
     setSmartReplies([]);
   }, [msg, openCompose, currentFolder]);

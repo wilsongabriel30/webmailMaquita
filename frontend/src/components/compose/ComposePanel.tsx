@@ -63,6 +63,7 @@ import { RecipientField } from './RecipientField';
 import { Attachments } from './Attachments';
 import { BotonDescartarRedaccion } from './BotonDescartarRedaccion';
 import { ZonaSoltarArchivos, type ZonaSoltar } from './ZonaSoltarArchivos';
+import { IncluirAdjuntosOriginal } from './IncluirAdjuntosOriginal';   // al responder, botón para traer los adjuntos del original (16/11/2026)
 import { DirectoryPanel } from '../contacts/DirectoryPanel';
 import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
 import { anotarEnvioReciente, retirarEnvioReciente } from '../../lib/enviosRecientes';   // envío sin aviso de «enviando» (13/11/2026)
@@ -1330,6 +1331,8 @@ export function ComposePanel({ win }: Props) {
       </div>
 
       {/* Adjuntos debajo del asunto y antes del texto, como Outlook (07/11/2026; antes iban al pie) */}
+      <IncluirAdjuntosOriginal origen={win.data?.respuesta_de} presentes={attachments}
+        onCargados={cargados => setAttachments(prev => [...prev, ...cargados])} />
       <Attachments files={attachments} onRemove={removeAttachment} />
 
       {/* Error */}
