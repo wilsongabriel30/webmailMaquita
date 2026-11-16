@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { suscribirAvisos, type ToastData } from './Toast';
+import { DialogoConfirmar } from './DialogoConfirmar';
 
 /** Tiempo que un aviso no fijo permanece en pantalla. */
 const DURACION_AVISO_MS = 10000;
@@ -41,10 +42,11 @@ export function ToastContainer() {
     return () => { dejar(); temporizadores.forEach(clearTimeout); };
   }, []);
 
-  if (!toasts.length) return null;
-
-  return (
-    <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2">
+  // Las confirmaciones de la aplicación (lib/confirmar.ts) se dibujan aquí, junto a los avisos. Siempre
+  // en el mismo sitio del árbol: que aparezca un aviso no debe cerrar una pregunta abierta.
+  return (<>
+    <DialogoConfirmar />
+    {toasts.length > 0 && <div className="fixed bottom-4 left-1/2 -translate-x-1/2 z-[9999] flex flex-col gap-2">
       {toasts.map(t => (
         <div key={t.id} className="bg-[#323130] text-white px-4 py-2.5 rounded-md shadow-lg flex items-center gap-3 text-[14px] min-w-[300px] max-w-[calc(100vw-2rem)] animate-in slide-in-from-bottom duration-200">
           <span className="flex-1" role="status">{t.message}</span>
@@ -61,6 +63,6 @@ export function ToastContainer() {
           </button>
         </div>
       ))}
-    </div>
-  );
+    </div>}
+  </>);
 }

@@ -30,6 +30,7 @@ import { useMailStore } from '../../store/mailStore';
 import { AccionesRapidasCorreo } from './AccionesRapidasCorreo';
 import { imprimirCorreo } from '../../lib/imprimirCorreo';
 import { showToast } from '../common/Toast';
+import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { PanelRecuperarCorreo } from './PanelRecuperarCorreo';
 import { BotonCerrarCorreo, FlechasCorreo } from './NavegacionCorreo';
 import { AttachmentPreview } from './AttachmentPreview';
@@ -702,21 +703,25 @@ const MessageView: React.FC = () => {
 
   /* ---- Actions ---- */
 
-  // Marca el correo como spam usando el endpoint que ya existe
-  // (/spam/report): lo mueve a Junk y alimenta la deteccion automatica.
+  // Marca el correo como no deseado con el mismo informe que el resto de la interfaz
+  // (/mail/spam/report): lo mueve a Correo no deseado, enseña al filtro y bloquea al remitente.
+  // Antes llamaba a «/spam/report», una ruta que no existe: el botón no hacía nada.
   const [markingSpam, setMarkingSpam] = useState(false);
   const [spamMarcado, setSpamMarcado] = useState(false);
   const handleMarkSpam = useCallback(async () => {
     if (!msg) return;
+    // Informar también bloquea al remitente: se pregunta antes y se avisa después (informarCorreo.ts)
+    if (!(await confirmarInforme('no-deseado'))) return;
     setMarkingSpam(true);
     try {
-      await api.post('/spam/report', { folder: currentFolder, uid: msg.uid });
-      // El backend ya lo movio a Junk y alimento la deteccion automatica.
-      // La lista se refresca sola al navegar; no se fuerza cierre aqui porque
-      // MessageView no recibe props (es un React.FC sin argumentos).
+      showToast(await enviarInforme(currentFolder, [msg.uid], 'no-deseado'));
       setSpamMarcado(true);
+      // El correo ya no está en esta carpeta: se cierra y se actualiza la lista.
+      useMailStore.getState().setSelectedMessage(null);
+      window.dispatchEvent(new CustomEvent('refresh-messages'));
     } catch (err) {
-      console.error('Error al marcar como spam:', err);
+      console.error('Error al marcar como no deseado:', err);
+      showToast('No se pudo marcar como no deseado. Inténtelo de nuevo.');
     } finally {
       setMarkingSpam(false);
     }

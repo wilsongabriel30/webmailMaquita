@@ -20,6 +20,8 @@ let organizacion = RESERVA_ORG;
 let peticion: Promise<string> | null = null;
 // ¿Hay app móvil publicada? null = el servidor no lo dice (versión anterior): se pregunta como antes.
 let appMovil: boolean | null = null;
+// A quién escribir sobre el servicio: lo define cada organización (ver correoDeContacto).
+let contacto = '';
 const oyentes = new Set<(n: string) => void>();
 
 /** El nombre que se conozca ahora mismo. Sirve fuera de React (título del documento, avisos). */
@@ -32,13 +34,33 @@ export function nombreOrg(): string {
   return organizacion;
 }
 
+/** La primera dirección válida de las candidatas, o '' si no hay ninguna. */
+export function elegirContacto(...candidatas: (string | undefined | null)[]): string {
+  for (const c of candidatas) {
+    const v = (c || '').trim();
+    if (/^[^\s@<>,;]+@[^\s@<>,;]+\.[^\s@<>,;]+$/.test(v)) return v;
+  }
+  return '';
+}
+
+/**
+ * Dirección a la que van los «Comentarios» de la cinta Ayuda. No hay una fija en el programa: es la
+ * de quien administra el dominio por el que se entra (`contacto_admin`: el correo de contacto de la
+ * empresa o su administrador de dominio) y, si no hay, el correo de la organización (`org_email`,
+ * panel de administración → Marca). Vacía si la instalación no tiene ninguna: el botón no se muestra.
+ */
+export function correoDeContacto(): string {
+  return contacto;
+}
+
 /** Pide la marca al servidor una sola vez, aunque la llamen varios componentes a la vez. */
 export function cargarMarca(): Promise<string> {
   if (!peticion) {
     peticion = fetch('/api/branding')
       .then((r) => (r.ok ? r.json() : {}))
-      .then((b: { app_name?: string; org_name?: string; app_movil?: boolean }) => {
+      .then((b: { app_name?: string; org_name?: string; app_movil?: boolean; contacto_admin?: string; org_email?: string }) => {
         if (typeof b.app_movil === 'boolean') appMovil = b.app_movil;
+        contacto = elegirContacto(b.contacto_admin, b.org_email);
         // «Tu organización» es el valor de relleno del servidor cuando no hay nada configurado.
         if (b.org_name && b.org_name !== 'Tu organización') organizacion = b.org_name;
         if (b.app_name) {
@@ -64,6 +86,17 @@ export function useNombreApp(): string {
     oyentes.add(setValor);
     cargarMarca().then(setValor);
     return () => { oyentes.delete(setValor); };
+  }, []);
+  return valor;
+}
+
+/** La dirección de contacto para pintarla (o esconder lo que dependa de ella). Llega con la marca. */
+export function useCorreoContacto(): string {
+  const [valor, setValor] = useState(contacto);
+  useEffect(() => {
+    let vivo = true;
+    cargarMarca().then(() => { if (vivo) setValor(contacto); });
+    return () => { vivo = false; };
   }, []);
   return valor;
 }

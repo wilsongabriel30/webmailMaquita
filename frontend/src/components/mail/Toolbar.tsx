@@ -13,6 +13,7 @@ import { Ribbon } from '../compose/Ribbon';
 import { useImportanciaRedaccion } from './useImportanciaRedaccion';
 import { getFolderDisplayName } from '../../folders';
 import { confirmarBorradoDefinitivo, confirmarVaciado, esCarpetaVaciable } from '../../lib/confirmarBorrado';
+import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { getCachedLabels, useLabels } from '../../hooks/useLabels';
 import { agruparUidsPorCarpeta, CARPETA_VIRTUAL, AVISO_SIN_ETIQUETAS_EN_TODO } from '../../lib/carpetaReal';
 import { asignarEtiquetaA } from '../labels/asignarEtiquetas';
@@ -23,7 +24,8 @@ import { sanitizeHtml } from '../../lib/sanitize';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
 import { useResponsive } from '../../hooks/useResponsive';
-import { nombreApp } from '../../lib/marca';
+import { nombreApp, useCorreoContacto } from '../../lib/marca';
+import { lineaDeVersion } from '../../lib/versionInstalada';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
 import { ArbolMoverCarpetas } from './ArbolMoverCarpetas';
 import { abrirModalRegla } from '../../lib/reglas/abrirModalRegla';
@@ -345,6 +347,7 @@ function MobileToolbar({ onCompose, onDelete, onReply, onReplyAll, onForward, on
 //  Main Toolbar Component
 export function Toolbar() {
   const navigate = useNavigate();
+  const correoContacto = useCorreoContacto();   // destinatario de «Comentarios» (cinta Ayuda)
   const { labels, loading: labelsLoading, supported: labelsSupported, fetchLabels, createLabel } = useLabels();
   const selectedMessage = useMailStore(s => s.selectedMessage);
   const selectedUids = useMailStore(s => s.selectedUids);
@@ -465,7 +468,7 @@ export function Toolbar() {
   const noSel = uids.length === 0;
 
   const moveToFolder = async (folder: string, toast?: string) => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     await accionEnLote(currentFolder, uids, 'move', folder, toast || `Movido a ${getFolderDisplayName(folder)}`, 'Error al mover');
   };
 
@@ -475,7 +478,7 @@ export function Toolbar() {
   }, [closeAllDropdowns, navigate]);
 
   const toggleRead = async () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     const seen = msg?.seen ? false : true;
     try {
       for (const [carpeta, lote] of agruparUidsPorCarpeta(uids, currentFolder)) {
@@ -487,7 +490,7 @@ export function Toolbar() {
   };
 
   const toggleFlag = async () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     const flagged = msg?.flagged ? false : true;
     try {
       for (const [carpeta, lote] of agruparUidsPorCarpeta(uids, currentFolder)) {
@@ -499,14 +502,14 @@ export function Toolbar() {
   };
 
   const handlePin = () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     const pinned = togglePins(currentFolder, uids);
     showToast(pinned ? 'Mensaje fijado al inicio de la lista' : 'Mensaje desfijado');
     window.dispatchEvent(new CustomEvent('refresh-messages'));
   };
 
   const handleSnoozeClick = () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     closeAllDropdowns();
     setSnoozeOpen(true);
   };
@@ -531,7 +534,7 @@ export function Toolbar() {
   };
 
   const doReply = () => {
-    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    if (!msg) { showToast('Seleccione un mensaje'); return; }
     openCompose('reply', {
       to: [msg.from], subject: `Re: ${msg.subject}`,
       html_body: buildQuote(), text_body: '', in_reply_to: msg.message_id || '', references: msg.references || '',
@@ -540,7 +543,7 @@ export function Toolbar() {
   };
 
   const doReplyAll = () => {
-    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    if (!msg) { showToast('Seleccione un mensaje'); return; }
     const destinatarios = destinatariosResponderATodos({ ...msg, folder: msg.folder || currentFolder });
     openCompose('replyAll', {
       to: destinatarios.to, cc: destinatarios.cc, subject: `Re: ${msg.subject}`,
@@ -551,13 +554,13 @@ export function Toolbar() {
 
   // Los correos seleccionados (uno o varios) salen como .eml dentro de un correo nuevo.
   const doForwardAsAttachment = () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     reenviarComoAdjunto(correosDeSeleccion(msg, uids, currentFolder));
     closeAllDropdowns();
   };
 
   const doForward = () => {
-    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    if (!msg) { showToast('Seleccione un mensaje'); return; }
     openCompose('forward', {
       to: [], subject: `RV: ${msg.subject}`,
       html_body: buildQuote(), text_body: '',
@@ -568,7 +571,7 @@ export function Toolbar() {
   };
 
   const doPrint = () => {
-    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    if (!msg) { showToast('Seleccione un mensaje'); return; }
     const w = window.open('', '_blank');
     if (!w) return;
     const date = escapeHtml(msg.date ? new Date(msg.date).toLocaleString('es-EC') : '');
@@ -601,10 +604,10 @@ export function Toolbar() {
   };
 
   const doDelete = async () => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     if (confirmDeletePref) {
       const _n = uids.length;
-      const _msg = _n > 1 ? `Eliminar ${_n} mensajes seleccionados?` : 'Eliminar el mensaje seleccionado?';
+      const _msg = _n > 1 ? `¿Eliminar los ${_n} mensajes seleccionados?` : '¿Eliminar el mensaje seleccionado?';
       if (!window.confirm(_msg)) return;
     }
     if (currentFolder === 'Trash') {
@@ -631,7 +634,7 @@ export function Toolbar() {
   };
 
   const doClassify = async (category: string) => {
-    if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+    if (!uids.length) { showToast('Seleccione un mensaje'); return; }
     if (!labelsSupported) {
       showToast('Etiquetas no están disponibles en este servidor');
       closeAllDropdowns();
@@ -682,7 +685,7 @@ export function Toolbar() {
   };
 
   const exportSelectedMessage = async () => {
-    if (!msg) { showToast('Selecciona un mensaje'); return; }
+    if (!msg) { showToast('Seleccione un mensaje'); return; }
     try {
       const res = await fetch(`/api/mail/message/${encodeURIComponent(currentFolder)}/${msg.uid}/eml`, {
         credentials: 'include',
@@ -719,7 +722,7 @@ export function Toolbar() {
   };
 
   const showDiagnostics = () => {
-    const info = `${nombreApp()} v1.0\nNavegador: ${navigator.userAgent}\nResolución: ${window.innerWidth}x${window.innerHeight}\nFecha: ${new Date().toLocaleString('es-EC')}`;
+    const info = `${lineaDeVersion(nombreApp())}\nNavegador: ${navigator.userAgent}\nResolución: ${window.innerWidth}x${window.innerHeight}\nFecha: ${new Date().toLocaleString('es-EC')}`;
     showToast(info);
   };
 
@@ -946,9 +949,9 @@ export function Toolbar() {
                     {(currentFolder === 'Junk' || currentFolder === 'Spam') && (
                       <ToolbarButton icon={ICONS.report} label="No es spam" disabled={noSel}
                         onClick={() => {
-                          if (!uids.length) { showToast('Selecciona un mensaje'); return; }
+                          if (!uids.length) { showToast('Seleccione un mensaje'); return; }
                           api.post('/mail/spam/not-spam', { folder: currentFolder, uids }).then(() => {
-                            showToast('Movido a la bandeja de entrada — el filtro aprendio que no es spam');
+                            showToast('Movido a la Bandeja de entrada — el filtro aprendió que no es spam');
                             useMailStore.getState().clearSelection();
                             useMailStore.getState().setSelectedMessage(null);
                             window.dispatchEvent(new CustomEvent('refresh-messages'));
@@ -956,14 +959,16 @@ export function Toolbar() {
                         }} />
                     )}
                     <ToolbarButton icon={ICONS.report} label="Informar" disabled={noSel}
-                      onClick={() => {
-                        if (!uids.length) { showToast('Selecciona un mensaje'); return; }
-                        api.post('/mail/spam/report', { folder: currentFolder, uids }).then(() => {
-                          showToast('Reportado como phishing — gracias, esto mejora la detección');
+                      onClick={async () => {
+                        if (!uids.length) { showToast('Seleccione un mensaje'); return; }
+                        // Informar también bloquea al remitente: se pregunta antes y se avisa después (informarCorreo.ts)
+                        if (!(await confirmarInforme('suplantacion', uids.length))) return;
+                        try {
+                          showToast(await enviarInforme(currentFolder, uids, 'suplantacion'));
                           useMailStore.getState().clearSelection();
                           useMailStore.getState().setSelectedMessage(null);
                           window.dispatchEvent(new CustomEvent('refresh-messages'));
-                        }).catch(() => showToast('No se pudo reportar'));
+                        } catch { showToast('No se pudo informar el correo. Inténtelo de nuevo.'); }
                       }} />
                   </Group>
                   <Sep />
@@ -1097,13 +1102,13 @@ export function Toolbar() {
                               const url = 'https://translate.google.com/?sl=auto&tl=es&text=' + encodeURIComponent(text.slice(0, 2000));
                               window.open(url, '_blank', 'noopener,noreferrer');
                             } else {
-                              showToast('Selecciona un mensaje para traducir');
+                              showToast('Seleccione un mensaje para traducir');
                             }
                             setAddinsOpen(false);
                           }} />
                         <DropdownItem label="Corrector ortográfico" icon="&#x1F4DD;"
                           onClick={() => {
-                            showToast('El corrector ortográfico del navegador está activo. Haz clic derecho en texto subrayado para ver sugerencias.');
+                            showToast('El corrector ortográfico del navegador está activo. Haga clic derecho en el texto subrayado para ver sugerencias.');
                             setAddinsOpen(false);
                           }} />
                         <DropdownItem label="Plantillas de correo" icon="&#x1F4CB;"
@@ -1125,7 +1130,7 @@ export function Toolbar() {
                   {/* Group: Buscar */}
                   <Group label="Buscar">
                     <ToolbarButton icon={ICONS.groups} label="Descubrir grupos"
-                      onClick={() => showToast('Grupos: Usa listas de distribución para comunicarte con equipos. Pide al Departamento de Tecnología que cree el grupo.')} />
+                      onClick={() => showToast('Grupos: use listas de distribución para comunicarse con equipos. Pida al Departamento de Tecnología que cree el grupo.')} />
                   </Group>
                   <Sep />
 
@@ -1244,7 +1249,7 @@ export function Toolbar() {
                         onClick={() => { closeAllDropdowns(); setDensityOpen(!densityOpen); }} />
                       <Dropdown open={densityOpen} onClose={() => setDensityOpen(false)}>
                         {([
-                          { label: 'Una línea (como Outlook)', value: 'linea' },
+                          { label: 'Una línea', value: 'linea' },
                           { label: 'Compacta', value: 'compact' },
                           { label: 'Media', value: 'medium' },
                           { label: 'Completa', value: 'full' },
@@ -1277,7 +1282,7 @@ export function Toolbar() {
                   <Group label="Lector inmersivo">
                     <ToolbarButton icon={ICONS.immersive} label="Lector inmersivo"
                       onClick={() => {
-                        if (!msg) { showToast('Selecciona un mensaje primero'); return; }
+                        if (!msg) { showToast('Seleccione un mensaje primero'); return; }
                         const body = msg.html_body || msg.text_body || '';
                         if (!body) { showToast('El mensaje no tiene contenido'); return; }
                         const safeBody = msg.html_body ? sanitizeHtml(msg.html_body) : '<pre style="white-space:pre-wrap">' + escapeHtml(msg.text_body || '') + '</pre>';
@@ -1313,8 +1318,11 @@ export function Toolbar() {
                     <ToolbarButton icon={ICONS.help} label="Ayuda" onClick={showShortcuts} />
                     <ToolbarButton icon={ICONS.recommend} label="Recomendaciones"
                       onClick={() => showToast('Consejo: N nuevo correo · R responder · Shift+R responder a todos · F reenviar · Ctrl+Enter enviar · Supr eliminar')} />
-                    <ToolbarButton icon={ICONS.feedback} label="Comentarios"
-                      onClick={() => { showToast('Abriendo formulario de comentarios...'); setTimeout(() => openCompose('new', { to: [], subject: `Comentario sobre ${nombreApp()}`, text_body: '', html_body: '' }), 300); }} />
+                    {/* Solo si la instalación tiene a quién escribir (lib/marca.ts → correoDeContacto): antes abría un correo sin destinatario */}
+                    {correoContacto && (
+                      <ToolbarButton icon={ICONS.feedback} label="Comentarios"
+                        onClick={() => openCompose('new', { to: [correoContacto], subject: `Comentario sobre ${nombreApp()}`, text_body: '', html_body: '' })} />
+                    )}
                   </Group>
                   <Sep />
 
@@ -1328,7 +1336,7 @@ export function Toolbar() {
                   {/* Group: Móvil */}
                   <Group label="Móvil">
                     <ToolbarButton icon={ICONS.mobile} label="App para Android"
-                      onClick={() => { void abrirAppMovil(navigate).then(r => { if (r === 'dentro') showToast('Ya estás usando la aplicación'); }); }} />
+                      onClick={() => { void abrirAppMovil(navigate).then(r => { if (r === 'dentro') showToast('Ya está usando la aplicación'); }); }} />
                   </Group>
                 </>
               )}

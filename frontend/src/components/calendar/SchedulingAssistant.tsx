@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api } from '../../api/client';
+import { paraCampoFecha } from '../../lib/fechaCampoLocal';
 
 interface FreeSlot {
   start: string;
@@ -26,7 +27,7 @@ interface Props {
 
 export function SchedulingAssistant({ onSelectSlot, onClose }: Props) {
   const [attendees, setAttendees] = useState('');
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(paraCampoFecha(new Date()));
   const [duration, setDuration] = useState(30);
   const [result, setResult] = useState<SchedulingResult | null>(null);
   const [loading, setLoading] = useState(false);
@@ -40,7 +41,7 @@ export function SchedulingAssistant({ onSelectSlot, onClose }: Props) {
         `/calendar/scheduling-assistant?attendees=${encodeURIComponent(attendees)}&date=${date}&duration=${duration}`
       );
       setResult(data);
-    } catch (e: any) { setError(e.message); }
+    } catch (e) { setError(e instanceof Error && e.message ? e.message : 'No se pudo consultar la disponibilidad'); }
     setLoading(false);
   };
 
