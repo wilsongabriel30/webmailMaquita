@@ -81,7 +81,9 @@ en vez de editarse en línea.
 
 - `ALMACEN_ADMINS` (en `.env`): correos con rol master — pueden recuperar
   archivos de cualquier usuario (papelera y retención) y administrar cuotas.
-- Cuota por defecto: 20 GB por usuario (`ALMACEN_CUOTA_DEFECTO`).
+- Cuota por defecto de la instalación: 5 GB por usuario (`ALMACEN_CUOTA_DEFECTO`; el master
+  puede cambiarla en Configuración → Espacio de usuarios). La cuota propia de una cuenta, si
+  la tiene, prevalece.
 - Papelera: el usuario la vacía → pasa a RETENCIÓN 90 días (solo admins
   recuperan) → purga definitiva. Cron sugerido:
   `0 3 * * * /opt/maquita-webmail/almacen/venv/bin/python3 /opt/maquita-webmail/almacen/servicio/purgar_retencion.py`

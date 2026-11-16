@@ -550,8 +550,12 @@ def buscar():
 
 @bp_archivos.route('/cuota', methods=['GET'])
 def cuota():
-    """GET /cuota — uso y límite de almacenamiento."""
+    """GET /cuota — uso y límite de almacenamiento de quien tiene la sesión.
+
+    `cuota_propia`: True si la cuenta tiene un límite asignado; False si se le aplica la
+    cuota por defecto de la instalación. Las pantallas lo dicen para no confundir ambas."""
     usuario = usuario_actual()
     datos = nucleo.cuota(usuario)
+    datos['cuota_propia'] = bool(_consultar_bd('SELECT 1 FROM cuotas WHERE usuario_id = %s', (usuario,)))
     datos['success'] = True
     return jsonify(datos)

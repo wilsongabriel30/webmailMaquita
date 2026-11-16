@@ -2,9 +2,17 @@
  * explorador-navegacion.js  -  Modulo: Navegacion del explorador
  * Responsabilidad UNICA: cargar/listar archivos de una ruta, navegar (SPA) y breadcrumb.
  * Depende de globales: renderizarArchivos (render.js), mostrarLoader (panels.js),
- *   mostrarPaginaPrincipal/invalidarCache (core.js), rutaActual, vistaActual, URL_BASE, API_BASE.
- * Cargar DESPUES de config, core, interactions, render.
+ *   mostrarPaginaPrincipal/invalidarCache (core.js), rutaActual, vistaActual, URL_BASE, API_BASE,
+ *   seccionDeCarga/tituloDeSeccion/actualizarTituloSeccion (secciones.js),
+ *   ajustarVistaPapelera (papelera.js).
+ * Cargar DESPUES de config, core, interactions, render, secciones y papelera.
  */
+
+/** Tras pintar una lista: el encabezado dice la sección y la Papelera muestra (u oculta) lo suyo. */
+function _anunciarSeccion(seccion, total) {
+    if (typeof actualizarTituloSeccion === 'function') actualizarTituloSeccion(seccion);
+    if (typeof ajustarVistaPapelera === 'function') ajustarVistaPapelera(seccion === 'papelera', total);
+}
 
 
 async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
@@ -38,6 +46,7 @@ async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
     // (explorador-compartidos-conmigo.js). Sin esto se pedía la lista propia (/archivos?ruta=/).
     if (MODO_ALMACEN && typeof esVistaCompartidosConmigo === 'function' && esVistaCompartidosConmigo(ruta)) {
         await cargarCompartidosConmigo(ruta, silencioso);
+        _anunciarSeccion('compartidos', 0);
         if (!silencioso) mostrarLoader(false);
         return;
     }
@@ -89,15 +98,9 @@ async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
                 // Para vistas especiales, el formato de respuesta es diferente
                 rutaActual = ruta;
 
-                // Determinar título del breadcrumb según la vista
-                const titulosVista = {
-                    'compartidos': 'Compartido conmigo',
-                    'compartidos_por_mi': 'Compartido por mí',
-                    'papelera': 'Papelera',
-                    'favoritos': 'Destacados',
-                    'recientes': 'Recientes'
-                };
-                const tituloVista = titulosVista[vistaActual] || vistaActual;
+                // Título según la sección (ruta pedida o vista con que se abrió la página)
+                const seccion = seccionDeCarga(ruta);
+                const tituloVista = tituloDeSeccion(seccion);
                 actualizarBreadcrumb([{nombre: tituloVista, ruta: ruta}]);
 
                 // Procesar respuesta según el tipo
@@ -137,35 +140,20 @@ async function cargarArchivos(ruta, forzarRecarga = false, silencioso = false) {
                 const archivos = items.filter(i => !i.es_carpeta);
                 console.log('[Nube Maquita] Renderizando vista especial:', carpetas.length, 'carpetas,', archivos.length, 'archivos');
                 
-                // Mostrar barra de acciones de papelera
-                const barraExistente = document.getElementById("papeleraAcciones");
-                if (barraExistente) barraExistente.remove();
-                if (vistaActual === "papelera" || rutaActual === "/papelera" || rutaActual === "/papelera/") {
-                    const totalItems = carpetas.length + archivos.length;
-                    if (totalItems > 0) {
-                        const barra = document.createElement("div");
-                        barra.id = "papeleraAcciones";
-                        barra.style.cssText = "display:flex;align-items:center;gap:10px;padding:8px 16px;background:#fff3cd;border-bottom:1px solid #ffc107;font-size:13px;";
-                        barra.innerHTML = '<span class="material-icons" style="color:#856404;font-size:18px;">delete_sweep</span>'
-                            + '<span style="color:#856404;flex:1;">Papelera: <strong>' + totalItems + '</strong> elemento' + (totalItems > 1 ? 's' : '') + ' eliminado' + (totalItems > 1 ? 's' : '') + '. Clic derecho para restaurar.</span>'
-                            + '<button onclick="vaciarPapelera()" style="background:#dc3545;color:#fff;border:none;padding:4px 12px;border-radius:4px;font-size:12px;cursor:pointer;" title="Eliminar permanentemente todos los archivos">'
-                            + '<span class="material-icons" style="font-size:14px;vertical-align:middle;">delete_forever</span> Vaciar papelera</button>';
-                        const fileArea = document.querySelector(".gd-file-area") || document.querySelector(".gd-main-content");
-                        if (fileArea) fileArea.insertBefore(barra, fileArea.firstChild);
-                    }
-                }
                 if (_esCompartidosVista && typeof renderizarCompartidosAgrupados === 'function') {
                     renderizarCompartidosAgrupados([...carpetas, ...archivos]);
                 } else {
                     if (typeof _ocultarFiltrosComp === 'function') _ocultarFiltrosComp();
                     renderizarArchivos(carpetas, archivos);
                 }
+                _anunciarSeccion(seccion, carpetas.length + archivos.length);
             } else {
                 rutaActual = data.ruta_actual;
                 actualizarBreadcrumb(data.breadcrumb);
                 console.log('[Nube Maquita] Renderizando:', data.carpetas.length, 'carpetas,', data.archivos.length, 'archivos');
                 if (typeof _ocultarFiltrosComp === 'function') _ocultarFiltrosComp();
                 renderizarArchivos(data.carpetas, data.archivos);
+                _anunciarSeccion(seccionDeCarga(rutaActual), data.carpetas.length + data.archivos.length);
             }
         } else {
             console.error('[Nube Maquita] Error en respuesta:', data.error);

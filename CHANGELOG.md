@@ -49,6 +49,23 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Segunda tanda de hallazgos de Andes sobre la nube (15/11/2026)**:
+  - *Papelera*: el menú del elemento ofrece «Restaurar» y «Eliminar definitivamente», vuelve a verse la franja con
+    «Vaciar papelera» (se insertaba en un contenedor que no existe) y, tras restaurar o vaciar, la lista se recarga
+    sin la caché de 30 s. El encabezado y la pestaña dicen la sección: Papelera, Destacados, Recientes, Compartido
+    conmigo.
+  - *Diagramas*: el Almacén del webmail no tiene editor de diagramas ni las rutas `/drawio/*`; «Nuevo» ya no ofrece
+    «Diagrama» y un `.drawio` existente se explica y se puede descargar (antes: «No se pudo cargar el diagrama»).
+  - *Configuración*: una cuenta normal ya no ve las herramientas de administración (recuperar archivos de otra
+    persona, destino del almacenamiento, cuotas); solo su actividad, sus unidades y su espacio.
+  - *Cifras de espacio*: el «Por defecto 20 GB» era un valor fijo del navegador que aparecía cuando la petición de
+    administración fallaba. Las cifras salen siempre del servidor y cada pantalla dice si es la cuota de la cuenta
+    o la cuota por defecto de la instalación (`GET /cuota` añade `cuota_propia`).
+  - *Ayuda y texto*: el botón (?) abre una guía breve; los archivos `.txt`, `.md` y `.log` se abren con doble clic
+    en un visor de solo lectura.
+  - *Editor en línea*: los documentos y presentaciones nuevos declaran su idioma (antes se rotulaban «English –
+    United States»); la región del editor es configurable (`ALMACEN_ONLYOFFICE_REGION`) y la pestaña «AI» queda
+    oculta salvo `ALMACEN_ONLYOFFICE_IA=1`.
 
 ### Cambiado
 

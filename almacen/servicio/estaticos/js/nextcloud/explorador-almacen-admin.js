@@ -7,40 +7,12 @@
 
 function _soloAlmacen() { return typeof MODO_ALMACEN !== 'undefined' && MODO_ALMACEN; }
 
-// Abre el panel principal de configuración/administración
-async function abrirConfigAlmacen() {
-    if (!_soloAlmacen()) return;
-    Swal.fire({
-        title: '⚙️ Configuración del Almacén',
-        html: `
-            <style>
-              .alm-menu-btn{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;
-                border:none;border-bottom:1px solid #ececec;background:#fff;color:#3c4043;
-                font-size:.95rem;font-family:Roboto,Arial,sans-serif;cursor:pointer;text-align:left;
-                border-radius:0;transition:background .12s}
-              .alm-menu-btn:hover{background:#f5f6f7}
-              .alm-menu-btn:last-child{border-bottom:none}
-              .alm-menu-btn .material-icons{font-size:20px;color:#5f6368}
-            </style>
-            <p style="color:#5f6368;font-size:.9rem;margin:0 0 10px">
-                Herramientas de administración (solo master).
-            </p>
-            <div style="display:flex;flex-direction:column;gap:2px;text-align:left">
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirRecuperacionAlmacen();"><span class="material-icons">restore</span> Recuperar archivos de un usuario</button>
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirAlmacenamiento();"><span class="material-icons">storage</span> Almacenamiento — dónde se guardan los archivos</button>
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirActividad();"><span class="material-icons">schedule</span> Actividad reciente</button>
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirCuotas();"><span class="material-icons">person</span> Espacio de usuarios (cuotas)</button>
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirUnidades();"><span class="material-icons">groups</span> Unidades compartidas (equipos)</button>
-                <button class="alm-menu-btn" onclick="Swal.close(); abrirCuotaAlmacen();"><span class="material-icons">pie_chart</span> Ver almacenamiento (mi cuenta)</button>
-            </div>`,
-        showConfirmButton: false,
-        showCloseButton: true,
-        width: 460,
-    });
-}
+// El panel «Configuración» (qué opciones ve cada rol) y «Mi almacenamiento» están en
+// explorador-almacen-menu.js. Aquí quedan las herramientas que ese panel abre.
 
 // --- Recuperación de archivos de cualquier usuario (papelera + retención) ---
 async function abrirRecuperacionAlmacen() {
+    if (!exigirAdminAlmacen()) return;
     const { value: consulta } = await Swal.fire({
         title: '♻️ Recuperar archivos',
         input: 'text',
@@ -139,20 +111,11 @@ async function restaurarItemAlmacen(origen, uid, ruta) {
     }
 }
 
-// Utilidad simple: cuota propia
-async function abrirCuotaAlmacen() {
-    try {
-        const d = await (await fetch('/api/almacen/cuota')).json();
-        Swal.fire({ title: '📊 Mi almacenamiento',
-            html: `<div style="text-align:left">Usado: <b>${d.usado_humano}</b><br>Total: <b>${d.total_humano}</b><br>Libre: <b>${(d.libre/1073741824).toFixed(2)} GB</b><br>Uso: <b>${d.porcentaje}%</b></div>`,
-            confirmButtonColor: '#3c4043' });
-    } catch (e) { Swal.fire({ icon: 'error', title: 'Error' }); }
-}
-
 // ============================================================================
 // ALMACENAMIENTO — elegir/conectar dónde se guardan los archivos (solo master)
 // ============================================================================
 async function abrirAlmacenamiento() {
+    if (!exigirAdminAlmacen()) return;
     Swal.fire({ title: 'Cargando...', didOpen: () => Swal.showLoading(), allowOutsideClick: false });
     let info;
     try {
@@ -330,15 +293,25 @@ async function pintarComentarios(ruta, nombre) {
 // CUOTAS POR USUARIO — panel minimalista estilo Google (sin colores) — 2026-07-03
 // ============================================================================
 async function abrirCuotas() {
-    let def = 20;
-    try { def = (await (await fetch('/api/almacen/admin/cuota-defecto')).json()).gb || 20; } catch (e) {}
+    if (!exigirAdminAlmacen()) return;
+    // La cifra sale SOLO del servidor. Antes, si la petición fallaba (403 a una cuenta normal),
+    // se mostraba un «20 GB» fijo que no era la cuota de nadie.
+    let def = null;
+    try {
+        const d = await (await fetch('/api/almacen/admin/cuota-defecto')).json();
+        if (d && d.success && Number(d.gb) > 0) def = Number(d.gb);
+    } catch (e) {}
+    if (def === null) {
+        Swal.fire({ icon: 'error', title: 'No disponible', text: 'No se pudo leer la cuota por defecto de la instalación.' });
+        return;
+    }
     const html = `
         <div style="text-align:left;font-family:Roboto,Arial,sans-serif;color:#202124">
             <div style="font-size:.85rem;color:#5f6368;margin-bottom:14px">
-                Asigna el espacio en la nube de cada persona. Por defecto ${def} GB.
+                Asigne el espacio de cada persona. Quien no tiene una cuota propia usa la cuota por defecto de la instalación: ${def} GB.
             </div>
             <div style="border:1px solid #dadce0;border-radius:8px;padding:12px;margin-bottom:14px">
-                <div style="font-weight:500;margin-bottom:6px">Cuota por defecto</div>
+                <div style="font-weight:500;margin-bottom:6px">Cuota por defecto de la instalación</div>
                 <div style="display:flex;gap:8px;align-items:center">
                     <input id="qDef" type="number" min="1" value="${def}"
                         style="width:90px;padding:6px 8px;border:1px solid #dadce0;border-radius:6px">
@@ -388,7 +361,7 @@ async function verCuotaUsuario(uid, nombre) {
                 <div style="font-weight:500">${String(nombre).replace(/</g,'&lt;')}</div>
                 <div style="font-size:.85rem;color:#5f6368;margin:4px 0 10px">
                     Usa <b>${d.usado_gb} GB</b> de ${d.limite_gb} GB (${d.porcentaje}%)
-                    ${d.tiene_cuota_propia ? '· cuota propia' : '· por defecto'}
+                    ${d.tiene_cuota_propia ? '· cuota propia de la cuenta' : '· cuota por defecto de la instalación'}
                 </div>
                 <div style="display:flex;gap:8px;align-items:center">
                     <input id="qGb" type="number" min="0" value="${d.limite_gb}"
@@ -446,7 +419,7 @@ async function abrirUnidades() {
         html: `<div style="text-align:left">
                  <div style="font-size:.85rem;color:#5f6368;margin-bottom:10px">Drives de equipo (propiedad de la organización).</div>
                  <div style="max-height:280px;overflow:auto">${filas}</div>
-                 <button onclick="crearUnidad()" style="margin-top:12px;padding:8px 14px;border:none;background:#3c4043;color:#fff;border-radius:6px;cursor:pointer">➕ Nueva unidad</button>
+                 ${esAdminAlmacen() ? '<button onclick="crearUnidad()" style="margin-top:12px;padding:8px 14px;border:none;background:#3c4043;color:#fff;border-radius:6px;cursor:pointer">➕ Nueva unidad</button>' : ''}
                </div>`,
         showConfirmButton: false, showCloseButton: true,
     });
@@ -627,7 +600,6 @@ async function compartirCorreoItem() {
 }
 window.compartirCorreoItem = compartirCorreoItem;
 
-window.abrirConfigAlmacen = abrirConfigAlmacen;
 window.abrirAlmacenamiento = abrirAlmacenamiento;
 async function deshacerActividad(id) {
     try {
