@@ -397,6 +397,7 @@ def onlyoffice_config():
             'coEditing': {'mode': 'fast', 'change': False},
             'lang': 'es',
             'region': editor_presentacion.region(),
+            **({'plugins': editor_presentacion.complementos()} if editor_presentacion.complementos() else {}),
             'mode': 'edit' if puede_editar else 'view',
             'user': {'id': str(usuario), 'name': _nombre_usuario(usuario)},
             'customization': {
@@ -632,6 +633,7 @@ def onlyoffice_config_public():
             'coEditing': {'mode': 'fast', 'change': False},
             'lang': 'es',
             'region': editor_presentacion.region(),
+            **({'plugins': editor_presentacion.complementos()} if editor_presentacion.complementos() else {}),
             'mode': 'edit' if puede_editar else 'view',
             'user': {'id': f'invitado-{comp["id"]}', 'name': f'{invitado} (invitado)'},
             'customization': {

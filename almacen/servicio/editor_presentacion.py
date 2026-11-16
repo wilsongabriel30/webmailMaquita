@@ -49,3 +49,18 @@ def ia_visible() -> bool:
 def personalizacion() -> dict:
     """Claves que se añaden a `editorConfig.customization`."""
     return {'ai': {'disabled': not ia_visible()}}
+
+
+# Identificador del complemento «AI» del servidor de documentos (el mismo en todas las instalaciones).
+COMPLEMENTO_IA = 'asc.{9DC93CDB-B576-4F0C-B55E-FCC9C48DD007}'
+
+
+def complementos() -> dict:
+    """Contenido de `editorConfig.plugins`; vacío si no hay nada que desactivar.
+
+    `customization.ai.disabled` solo lo entienden los servidores de documentos recientes; en uno anterior
+    la pestaña seguía a la vista (reprueba de Andes, 15/11/2026). La lista `plugins.disable` es la forma
+    larga de lo mismo y se envía también. En un servidor que no admita ninguna de las dos, la pestaña se
+    quita en el propio servidor de documentos (ver almacen/README.md).
+    """
+    return {} if ia_visible() else {'disable': [COMPLEMENTO_IA]}

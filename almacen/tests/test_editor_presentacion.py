@@ -80,3 +80,17 @@ def test_la_presentacion_en_blanco_declara_su_idioma():
     assert '<p:defaultTextStyle><a:defPPr><a:defRPr lang="es-ES"/></a:defPPr></p:defaultTextStyle>' in presentacion
     # orden del esquema: el estilo de texto va después del tamaño de las notas
     assert presentacion.index("<p:notesSz") < presentacion.index("<p:defaultTextStyle>")
+
+
+def test_la_pestana_ia_se_desactiva_tambien_por_la_lista_de_complementos(monkeypatch):
+    # servidores de documentos que no conocen `customization.ai.disabled` (reprueba de Andes, 15/11/2026)
+    assert ep.complementos() == {"disable": [ep.COMPLEMENTO_IA]}
+    monkeypatch.setenv("ALMACEN_ONLYOFFICE_IA", "1")
+    assert ep.complementos() == {}
+
+
+def test_las_dos_configuraciones_del_editor_envian_los_complementos():
+    ruta = os.path.join(RAIZ, "servicio", "api_onlyoffice.py")
+    with open(ruta, encoding="utf-8") as f:
+        codigo = "\n".join(l for l in f.read().splitlines() if not l.lstrip().startswith("#"))
+    assert codigo.count("'plugins': editor_presentacion.complementos()") == 2
