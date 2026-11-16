@@ -14,6 +14,7 @@
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador.css') }}?v=20260610k">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-compartir.css') }}?v=20260703">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-papelera.css') }}?v=20261115">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-movil.css') }}?v=20261115">
 {% endblock %}
 
 {% block content %}
@@ -1236,6 +1237,7 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20261028"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20261028"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-movil.js') }}?v=20261115"></script>
 {% if almacen_modo %}
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-menu.js') }}?v=20261115"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20261115"></script>
