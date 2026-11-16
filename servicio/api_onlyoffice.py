@@ -470,6 +470,9 @@ def onlyoffice_config():
     # Nivel efectivo: editar solo si la extensión lo permite y (en unidades
     # compartidas) el usuario tiene rol de escritura. Espacio personal: dueño.
     escritura = _permiso_unidad(usuario, ruta, escritura=True)
+    import candado_unidad                                  # unidad con candado: se abre en solo lectura (16/11/2026)
+    if escritura and candado_unidad.unidad_cerrada(ruta) is not None:
+        escritura = False
 
     # Formatos antiguos (.doc/.xls/.ppt…): con permiso de escritura se
     # convierten al formato moderno en la misma carpeta y se abre ESE archivo
@@ -692,7 +695,9 @@ def onlyoffice_callback():
         # El token de callback debe haber sido emitido para EDICION ('w') y el
         # usuario debe conservar permiso de escritura sobre la ruta. Sin esto,
         # un enlace/modo de SOLO LECTURA podia sobrescribir el archivo del dueno.
-        if not datos.get('w') or not _permiso_unidad(usuario, ruta, escritura=True):
+        import candado_unidad
+        if (not datos.get('w') or not _permiso_unidad(usuario, ruta, escritura=True)
+                or candado_unidad.unidad_cerrada(ruta) is not None):
             log.error('OnlyOffice callback SIN permiso de escritura: ruta=%s usuario=%s',
                       ruta, usuario)
             return jsonify({'error': 1})

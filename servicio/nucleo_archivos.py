@@ -587,6 +587,8 @@ def restaurar_version(usuario_id: int, file_id: str, version_id: int) -> None:
     ruta_virtual = filas[0]['ruta']
     version_fisico = filas[0]['version_fisico']
 
+    import candado_unidad
+    candado_unidad.exigir_abierta(ruta_virtual, 'restaurar versión')
     fisica = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if os.path.isfile(fisica):
         _guardar_version(usuario_id, ruta_virtual, fisica)   # preserva el actual
@@ -630,6 +632,8 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
         raise RutaInvalida(
             'Este archivo protege la sincronización de tu Drive y no se '
             'puede eliminar.')
+    import candado_unidad
+    candado_unidad.exigir_abierta(ruta_virtual, 'renombrar')
     origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_virtual)
@@ -666,6 +670,8 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
 def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
           sobrescribir: bool = False, conservar_ambos: bool = False) -> str:
     """Mueve archivo/carpeta a otra ruta virtual (renombrar entre carpetas)."""
+    import candado_unidad
+    candado_unidad.exigir_abierta(normalizar_ruta_virtual(ruta_origen), 'mover')
     origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen), escritura=True)
     destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino), escritura=True)
     if not os.path.exists(origen):
@@ -744,6 +750,8 @@ def enviar_a_papelera(usuario_id: int, ruta_virtual: str) -> str:
     if es_carpeta_interna(normalizar_ruta_virtual(ruta_virtual).rsplit('/', 1)[-1]):
         raise RutaInvalida(MOTIVO_CARPETA)
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
+    import candado_unidad
+    candado_unidad.exigir_abierta(ruta_virtual, 'enviar a la papelera')
     origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_virtual)
