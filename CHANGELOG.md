@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Redactor: al pasar el puntero sobre un texto vinculado (o poner el cursor dentro) se muestra a dónde lleva el enlace, con las acciones Abrir, Cambiar y Quitar; Ctrl + clic lo abre en otra pestaña. Los enlaces escritos sin protocolo se completan con `https://`.
+
 ## [1.22.0] - 2026-11-16
 
 Recuperación entre servidores con decisión del servidor del destinatario sobre los correos ya leídos (opción y dominios
