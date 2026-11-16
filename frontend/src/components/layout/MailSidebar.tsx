@@ -203,7 +203,10 @@ export function MailSidebar() {
           await api.del(`/mail/folders/${encodeURIComponent(name)}`); showToast('Carpeta eliminada');
           const st = useMailStore.getState();
           st.setColoresCarpetas(quitarDeColores(st.coloresCarpetas, name));
-        } catch { /* el aviso de error ya lo da el backend */ }
+        } catch (e) {
+          // Solo se anuncia el borrado si el servidor lo confirmó; si no, se dice por qué (15/11/2026).
+          showToast(e instanceof Error && e.message ? e.message : 'No se pudo eliminar la carpeta');
+        }
         fetchFolders();
       },
     });

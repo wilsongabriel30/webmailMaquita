@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { api } from '../../api/client';
 import { showToast } from '../common/Toast';
+import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { useMailStore } from '../../store/mailStore';
 
 // Botones naturales al abrir un correo: marcarlo como No deseado (o No es spam en esa carpeta) y
@@ -46,10 +47,11 @@ export function AccionesCorreoNoDeseado(
   const correo = extraerCorreo(from);
 
   const marcarNoDeseado = async () => {
+    // Informar también bloquea al remitente: se pregunta antes y se avisa después (informarCorreo.ts)
+    if (!(await confirmarInforme('no-deseado'))) return;
     setOcupado(true);
     try {
-      await api.post('/mail/spam/report', { folder, uid });
-      showToast('Movido a Correo no deseado. El filtro aprendió que es spam.');
+      showToast(await enviarInforme(folder, [uid], 'no-deseado'));
       refrescar();
     } catch { showToast('No se pudo marcar como no deseado'); }
     finally { setOcupado(false); }
@@ -79,7 +81,7 @@ export function AccionesCorreoNoDeseado(
 
   const bloquear = async () => {
     if (!correo.includes('@')) { showToast('No se pudo leer el remitente'); return; }
-    if (!window.confirm(`¿Bloquear a ${correo}?\n\nSus próximos correos irán directo a Correo no deseado. Puedes deshacerlo en Configuración → Remitentes bloqueados.`)) return;
+    if (!window.confirm(`¿Bloquear a ${correo}?\n\nSus próximos correos irán directo a Correo no deseado. Puede deshacerlo en Configuración → Remitentes bloqueados.`)) return;
     setOcupado(true);
     try {
       await api.post('/mail/remitentes-bloqueados', { correo });

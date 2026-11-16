@@ -1,7 +1,11 @@
 {% extends "base.html" %}
 {% set nube_subperms = nube_subperms | default({}) %}
 
-{% block title %}Mi unidad - {{ drive_name }}{% endblock %}
+{# Nombre de la sección que abre el servidor (misma tabla que explorador-secciones.js) #}
+{% set titulo_seccion = {'compartidos': 'Compartido conmigo', 'recientes': 'Recientes', 'favoritos': 'Destacados', 'papelera': 'Papelera'}.get(vista, 'Mi unidad') %}
+{% set es_admin_almacen = current_user is defined and current_user and current_user.role in ('master', 'master_admin') %}
+
+{% block title %}{{ titulo_seccion }} - {{ drive_name }}{% endblock %}
 
 {% block extra_css %}
 <link href="/almacen-static/vendor/fonts/google-sans-roboto.css" rel="stylesheet">
@@ -9,6 +13,8 @@
 <script src="/almacen-static/vendor/sweetalert2/sweetalert2.all.min.js"></script>
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador.css') }}?v=20260610k">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-compartir.css') }}?v=20260703">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-papelera.css') }}?v=20261115">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/nextcloud/explorador-movil.css') }}?v=20261115">
 {% endblock %}
 
 {% block content %}
@@ -47,7 +53,7 @@
             <span class="material-icons gd-sync-status" id="syncStatusIcon">check_circle</span>
         </button>
         <!-- Ayuda -->
-        <button class="gd-icon-btn" title="Soporte">
+        <button class="gd-icon-btn" id="btnAyuda" onclick="abrirAyudaNube()" title="Ayuda">
             <span class="material-icons">help_outline</span>
         </button>
         <!-- Configuración -->
@@ -241,10 +247,13 @@
                     <span class="material-icons" style="color: #5f6368;">article</span>
                     <span class="item-label">Archivo de texto</span>
                 </div>
+{# El Almacén del webmail no tiene editor de diagramas (ni las rutas /drawio/*): no se ofrece crear lo que no se puede abrir. #}
+{% if not almacen_modo %}
                 <div class="gd-new-menu-item" onclick="crearDocumento('diagrama')">
                     <span class="material-icons" style="color: #f08705;">account_tree</span>
                     <span class="item-label">Diagrama (Draw.io)</span>
                 </div>
+{% endif %}
             </div>
         </div>
 
@@ -361,7 +370,7 @@
         <div class="gd-toolbar">
             <!-- Section Header -->
             <div class="gd-section-header">
-                <h1 id="sectionTitle">Mi unidad</h1>
+                <h1 id="sectionTitle">{{ titulo_seccion }}</h1>
                 <span class="material-icons">arrow_drop_down</span>
             </div>
 
@@ -676,6 +685,16 @@
 
 <!-- Menú contextual - Estilo {{ drive_name }} con submenús -->
 <div class="gd-context-menu" id="contextMenu">
+    <!-- Solo dentro de la Papelera (explorador-papelera.css oculta el resto del menú) -->
+    <div class="gd-context-item ctx-solo-papelera" onclick="restaurarSeleccionado()">
+        <span class="material-icons">restore_from_trash</span>
+        <span class="ctx-label">Restaurar</span>
+    </div>
+    <div class="gd-context-item danger ctx-solo-papelera" onclick="eliminarDefinitivoSeleccionados()">
+        <span class="material-icons">delete_forever</span>
+        <span class="ctx-label">Eliminar definitivamente</span>
+    </div>
+
     <!-- 1. Descargar -->
     <div class="gd-context-item" onclick="descargarSeleccionado()">
         <span class="material-icons">download</span>
@@ -1182,6 +1201,8 @@ const USUARIO_NC = {{ (usuario_nextcloud or '') | tojson }};
 // Solo master llega aquí. No afecta la Nube en producción.
 window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
         window.DRIVE_NAME = "{{ drive_name }}";
+        // Rol para la presentación (qué opciones se muestran); el servidor sigue autorizando cada ruta.
+        window.ALMACEN_ES_ADMIN = {{ 'true' if es_admin_almacen else 'false' }};
         // Branding del panel (favicon y color primario) — misma fuente que el webmail.
         fetch('/api/branding').then(function(r){return r.json();}).then(function(b){
           try {
@@ -1202,18 +1223,24 @@ window.ALMACEN_OVERRIDE = { api: '/api/almacen', url: '/archivos-almacen' };
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-config.js') }}?v=20260703d"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-core.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-cuota.js') }}?v=20261115"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-interactions.js') }}?v=20261115b"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-arbol.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-render.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos.js') }}?v=20260906"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartidos-conmigo.js') }}?v=20261115"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-perfil.js') }}?v=20261115"></script>
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-secciones.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-papelera.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-abrir.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-ayuda.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-navegacion.js') }}?v=20261115b"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-panels.js') }}?v=20261016"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-notify-push.js') }}?v=20261028"></script>
 <script src="{{ url_for('static', filename='js/nextcloud/explorador-compartir.js') }}?v=20261028"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-movil.js') }}?v=20261115"></script>
 {% if almacen_modo %}
-<script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20260703l"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-menu.js') }}?v=20261115"></script>
+<script src="{{ url_for('static', filename='js/nextcloud/explorador-almacen-admin.js') }}?v=20261115"></script>
 {% endif %}
 
 

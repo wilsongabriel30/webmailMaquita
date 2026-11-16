@@ -9,6 +9,25 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Corregido
 
+- **Buscador y carpetas del correo: segunda tanda de hallazgos de Andes (15/11/2026)**:
+  - *«Todas las carpetas» en un servidor sin buzón virtual*: daba «No se pudo cargar el correo» (404 «Folder
+    'Virtual.Todo' not found») y, como la elección se guarda, dejaba a la persona sin buscador. Ahora el servidor
+    dice si el buzón virtual existe (`todas_las_carpetas` en `GET /api/mail/search/capacidades`, comprobado por
+    IMAP y recordado en Redis) y, si no existe, la interfaz no ofrece «Todas las carpetas», busca en la carpeta
+    abierta aunque la preferencia guardada diga otra cosa y deja de lanzar consultas a `Virtual.Todo` (la que se
+    hacía al no haber resultados en la carpeta). Si aun así una petición a `Virtual.Todo` responde 404, la lista
+    vuelve sola a la carpeta. El ajuste nuevo `deploy/ajustes/84-dovecot-buzon-virtual.sh` crea el buzón virtual
+    donde falta (ver `UPGRADING.md`).
+  - *El buscador no encontraba palabras del texto*: solo se buscaba en el cuerpo en las cuentas anotadas como
+    indexadas, y una cuenta se anota de noche, al terminar su indexación inicial; la creada ese día buscaba solo
+    en remitente y asunto aunque Dovecot ya indexa cada correo al llegar. Ahora, con el motor de búsqueda
+    instalado, las carpetas de hasta 2 000 mensajes se buscan también en el texto sin esperar a la noche.
+  - *Eliminar una carpeta con subcarpetas*: la primera vez decía «Carpeta eliminada» y la carpeta seguía ahí
+    (IMAP no borra en cascada: el servidor responde OK y deja el nombre mientras tenga hijas); después, 400
+    «Failed to delete folder». Ahora se borran primero las subcarpetas, de la más profunda a la raíz, con sus
+    suscripciones, y se comprueba que no queda nada; si queda, la interfaz muestra el motivo en vez de anunciar
+    el borrado. También termina de eliminar las carpetas que el fallo anterior dejó a medias.
+
 - **Hallazgos de la prueba completa de la interfaz hecha por Andes (15/11/2026)**:
   - *Lista de correos*: el asunto ya no desaparece cuando el correo tiene varias categorías; se muestran dos y el
     resto se resume en «+N».
@@ -30,6 +49,45 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Correo sin conexión: el service worker ya no borra las copias de otros (15/11/2026)**: al activarse borraba
+  todas las cachés del dominio que no fueran la suya, incluidas las del chat (y el del chat hacía lo mismo con las
+  del correo, por lo que el correo no arrancaba sin red y el candado `correo-cifrado` fallaba desde el 13/11).
+  Ahora solo limpia las suyas de versiones anteriores. Falta el cambio equivalente en el service worker del chat.
+
+- **Correo, cinta y textos: segunda tanda de hallazgos de Andes (15/11/2026)**:
+  - *«Informar» y «Marcar como no deseado»*: antes de actuar se pregunta, diciendo que el remitente quedará
+    bloqueado y dónde se deshace; el aviso final nombra a quién se bloqueó. Igual en la cinta, el menú del correo
+    abierto, el clic derecho y la barra del lector. El «Marcar como spam» del aviso de publicidad llamaba a una
+    ruta que no existe; ahora funciona.
+  - *«Programar envío»*: la hora propuesta era la UTC tratada como local (5 horas adelantada en Ecuador). Mismo
+    defecto corregido en el mínimo de «Posponer › Personalizado» y en la fecha inicial del asistente de reuniones.
+  - *Ayuda*: «Comentarios» se dirige al correo de contacto de la instalación (y no se muestra si no hay ninguno);
+    «Obtener diagnósticos» muestra la versión instalada en lugar de «v1.0».
+  - *Selección*: Ctrl+clic (Cmd+clic) con un correo abierto suma ese correo y el pulsado a la selección.
+  - *Textos*: tildes, signos de apertura y trato de usted en firmas, cinta y lista; «puntuación» en lugar de
+    «score»; avisos de la aplicación en lugar de ventanas del navegador en las firmas.
+
+- **Nube en celular (15/11/2026, hallazgo de Andes)**: por debajo de 768 px el menú lateral se ocultaba sin
+  alternativa (sin «Nuevo», Papelera ni Compartido conmigo) y la cabecera se desbordaba. Ahora hay un botón de
+  menú con panel deslizante, un botón «Nuevo» flotante y la cabecera en dos filas, sin desplazamiento horizontal.
+
+- **Segunda tanda de hallazgos de Andes sobre la nube (15/11/2026)**:
+  - *Papelera*: el menú del elemento ofrece «Restaurar» y «Eliminar definitivamente», vuelve a verse la franja con
+    «Vaciar papelera» (se insertaba en un contenedor que no existe) y, tras restaurar o vaciar, la lista se recarga
+    sin la caché de 30 s. El encabezado y la pestaña dicen la sección: Papelera, Destacados, Recientes, Compartido
+    conmigo.
+  - *Diagramas*: el Almacén del webmail no tiene editor de diagramas ni las rutas `/drawio/*`; «Nuevo» ya no ofrece
+    «Diagrama» y un `.drawio` existente se explica y se puede descargar (antes: «No se pudo cargar el diagrama»).
+  - *Configuración*: una cuenta normal ya no ve las herramientas de administración (recuperar archivos de otra
+    persona, destino del almacenamiento, cuotas); solo su actividad, sus unidades y su espacio.
+  - *Cifras de espacio*: el «Por defecto 20 GB» era un valor fijo del navegador que aparecía cuando la petición de
+    administración fallaba. Las cifras salen siempre del servidor y cada pantalla dice si es la cuota de la cuenta
+    o la cuota por defecto de la instalación (`GET /cuota` añade `cuota_propia`).
+  - *Ayuda y texto*: el botón (?) abre una guía breve; los archivos `.txt`, `.md` y `.log` se abren con doble clic
+    en un visor de solo lectura.
+  - *Editor en línea*: los documentos y presentaciones nuevos declaran su idioma (antes se rotulaban «English –
+    United States»); la región del editor es configurable (`ALMACEN_ONLYOFFICE_REGION`) y la pestaña «AI» queda
+    oculta salvo `ALMACEN_ONLYOFFICE_IA=1`.
 
 ### Cambiado
 

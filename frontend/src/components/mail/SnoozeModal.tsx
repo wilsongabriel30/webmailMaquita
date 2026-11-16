@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useSnooze } from '../../hooks/useSnooze';
+import { paraCampoFechaHora } from '../../lib/fechaCampoLocal';
 
 interface SnoozeModalProps {
   open: boolean;
@@ -161,7 +162,7 @@ export function SnoozeModal({ open, onClose, folder, uids, onSnoozed }: SnoozeMo
                 type="datetime-local"
                 value={customDate}
                 onChange={(e) => { setCustomDate(e.target.value); setError(''); }}
-                min={new Date().toISOString().slice(0, 16)}
+                min={paraCampoFechaHora(new Date())}
                 className="w-full px-3 py-2 border border-[#edebe9] dark:border-[#444] rounded bg-white dark:bg-[#1e1e1e] text-[#323130] dark:text-[#e0e0e0] focus:border-[#0078d4] outline-none text-[14px]"
               />
               <button

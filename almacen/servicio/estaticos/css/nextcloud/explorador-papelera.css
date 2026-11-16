@@ -1,0 +1,49 @@
+/* Sección «Papelera» del explorador (explorador-papelera.js pone `gd-en-papelera` en <body>).
+   Fuera de la Papelera no se ven sus acciones; dentro, solo se ven las suyas: lo eliminado
+   no se comparte, descarga, mueve ni renombra hasta restaurarlo. */
+
+body:not(.gd-en-papelera) .ctx-solo-papelera,
+body.gd-en-papelera #contextMenu > :not(.ctx-solo-papelera),
+body.gd-en-papelera #listBody .gd-list-actions-btns > button[title="Compartir"],
+body.gd-en-papelera #listBody .gd-list-actions-btns > button[title="Descargar"] {
+    display: none !important;
+}
+
+.gd-papelera-franja {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    padding: 8px 16px;
+    margin-bottom: 12px;
+    background: #fff3cd;
+    border: 1px solid #ffc107;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #664d03;
+}
+
+.gd-papelera-franja > .material-icons {
+    font-size: 18px;
+}
+
+.gd-papelera-franja .gd-papelera-texto {
+    flex: 1 1 220px;
+}
+
+.gd-papelera-franja button {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 6px 12px;
+    border: none;
+    border-radius: 4px;
+    background: #b3261e;
+    color: #fff;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.gd-papelera-franja button .material-icons {
+    font-size: 16px;
+}

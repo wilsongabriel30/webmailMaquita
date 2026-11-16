@@ -18,7 +18,7 @@ from app.mail.clients.imap_client import (
     get_imap_connection,
 )
 from app.mail.clients.imap_pool import get_pooled_imap
-from app.mail.services import reglas_al_renombrar
+from app.mail.services import borrar_carpeta, reglas_al_renombrar
 from app.mail.services.folder_service import get_folders
 
 router = APIRouter(prefix="/api/mail", tags=["mail-folders"])
@@ -225,20 +225,24 @@ async def move_folder_named(
 async def delete_folder(
     folder_name: str, request: Request, username: str = Depends(get_current_user)
 ):
+    """Elimina la carpeta y sus subcarpetas (services/borrar_carpeta.py). Si algo queda, 400."""
     protected = {"INBOX", "Sent", "Drafts", "Trash", "Junk", "Archive"}
     if folder_name in protected:
-        raise HTTPException(status_code=400, detail="Cannot delete system folder")
+        raise HTTPException(
+            status_code=400, detail="No se puede eliminar una carpeta del sistema."
+        )
     password = await get_user_password(request, username)
     login_user = await get_imap_login_user(request, username)
     imap = await get_imap_connection(login_user, password)
     try:
-        imap_name = _quote_folder(folder_name)  # entre comillas, igual que al crear
-        await imap.unsubscribe(imap_name)
-        resp = await imap.delete(imap_name)
-        if resp.result != "OK":
-            raise HTTPException(status_code=400, detail="Failed to delete folder")
-        await request.app.state.redis.delete(f"folders:{username}")
-        return {"status": "deleted", "name": folder_name}
+        try:
+            hecho = await borrar_carpeta.borrar_con_subcarpetas(imap, folder_name)
+        except borrar_carpeta.NoSePudoBorrar as e:
+            raise HTTPException(status_code=e.estado, detail=e.mensaje)
+        finally:
+            # También si falló a medias: la lista debe mostrar lo que de verdad queda.
+            await request.app.state.redis.delete(f"folders:{username}")
+        return {"status": "deleted", "name": folder_name, **hecho}
     finally:
         try:
             await imap.logout()

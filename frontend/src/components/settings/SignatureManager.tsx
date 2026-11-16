@@ -13,6 +13,7 @@
 import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { api } from '../../api/client';
+import { showToast } from '../common/Toast';
 import { envolverMensaje, extraerMensaje } from './firmaMensaje';
 
 /** El redactor guarda la firma en la pestaña para no pedirla en cada correo. Al cambiarla aquí
@@ -169,7 +170,7 @@ export function SignatureManager() {
       <div className="rounded border border-[#edebe9] bg-white">
         <div className="border-b border-[#edebe9] px-5 py-3">
           <h2 className="text-[15px] font-semibold text-[#323130]">Configuración de firma</h2>
-          <p className="mt-0.5 text-[12px] text-[#605e5c]">Elige donde aparece tu firma en los correos</p>
+          <p className="mt-0.5 text-[12px] text-[#605e5c]">Elija dónde aparece su firma en los correos</p>
         </div>
         <div className="px-5 py-4 space-y-3">
           <div>
@@ -262,7 +263,7 @@ export function SignatureManager() {
                           <div className="text-[13px] sig-preview" dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(sig.html_content) }} />
                         </div>
                       ) : (
-                        <p className="text-[12px] text-[#a19f9d] italic py-2">Sin contenido - haz clic en Editar para agregar tu firma</p>
+                        <p className="text-[12px] text-[#a19f9d] italic py-2">Sin contenido: haga clic en Editar para agregar su firma</p>
                       )}
                     </div>
                     <div className="flex flex-col gap-1 shrink-0 pt-1">
@@ -272,7 +273,7 @@ export function SignatureManager() {
                       <ActionBtn label="Editar" onClick={() => startEdit(sig)} />
                       {isDeleting ? (
                         <div className="flex items-center gap-1">
-                          <ActionBtn label="Si" danger onClick={() => handleDelete(sig.id)} />
+                          <ActionBtn label="Sí" danger onClick={() => handleDelete(sig.id)} />
                           <ActionBtn label="No" onClick={() => setDeletingId(null)} />
                         </div>
                       ) : (
@@ -286,7 +287,7 @@ export function SignatureManager() {
             {signatures.length === 0 && !isCreating && (
               <li className="px-5 py-8 text-center">
                 <p className="text-[13px] text-[#a19f9d] mb-2">No hay firmas configuradas</p>
-                <button onClick={startCreate} className="text-[13px] text-[#0078d4] hover:underline">Crear tu primera firma</button>
+                <button onClick={startCreate} className="text-[13px] text-[#0078d4] hover:underline">Crear su primera firma</button>
               </li>
             )}
           </ul>
@@ -424,9 +425,9 @@ function VisualSignatureEditor({
         setFields(df);
         setPreviewHtml(applyFields(res.raw_template, df));
       } else {
-        alert('No hay plantilla predeterminada para tu dominio');
+        showToast('No hay plantilla predeterminada para su dominio. Puede editar los campos o el HTML directamente.');
       }
-    } catch { alert('Error al cargar plantilla'); }
+    } catch { showToast('No se pudo cargar la plantilla. Inténtelo de nuevo.'); }
     finally { setLoadingTpl(false); }
   }, [fields, name, onNameChange]);
 
@@ -519,8 +520,8 @@ function VisualSignatureEditor({
             <span className="w-px h-5 bg-[#d2d0ce] mx-1" />
             <select className="h-7 text-[11px] border border-[#d2d0ce] rounded bg-white px-1"
               onChange={e => execCmd('fontSize', e.target.value)} defaultValue="3">
-              <option value="1">Muy pequeno</option>
-              <option value="2">Pequeno</option>
+              <option value="1">Muy pequeño</option>
+              <option value="2">Pequeño</option>
               <option value="3">Normal</option>
               <option value="4">Mediano</option>
               <option value="5">Grande</option>
@@ -564,10 +565,10 @@ function VisualSignatureEditor({
         </div>
       ) : hasTemplate ? (
         <div key="modo-campos" className="rounded border border-[#edebe9] bg-[#faf9f8] p-4">
-          <p className="text-[11px] text-[#605e5c] mb-3">Modifica tus datos y la vista previa se actualiza al instante:</p>
+          <p className="text-[11px] text-[#605e5c] mb-3">Modifique sus datos y la vista previa se actualiza al instante:</p>
           <div className="grid grid-cols-2 gap-x-4 gap-y-3">
             <FieldInput label="Nombre completo" value={fields.nombre} onChange={v => updateField('nombre', v)} placeholder="Ej: Wilson Arguello" />
-            <FieldInput label="Cargo / Area" value={fields.cargo} onChange={v => updateField('cargo', v)} placeholder="Ej: Soporte Informatico" />
+            <FieldInput label="Cargo / Área" value={fields.cargo} onChange={v => updateField('cargo', v)} placeholder="Ej: Soporte Informático" />
             <FieldInput label="Teléfono fijo" value={fields.telefono1} onChange={v => updateField('telefono1', v)} placeholder="Ej: (593 2) 3061624" />
             <FieldInput label="Celular" value={fields.telefono2} onChange={v => updateField('telefono2', v)} placeholder="Ej: (593 9) 95797062" />
             <FieldInput label="Correo electrónico" value={fields.email} onChange={v => updateField('email', v)} placeholder="usuario@ejemplo.com" />
@@ -577,13 +578,13 @@ function VisualSignatureEditor({
               <textarea value={fields.mensaje} onChange={e => updateField('mensaje', e.target.value)} rows={4}
                 placeholder={'Ej.: Estimado proveedor, adjunto el comprobante de pago. Quedo atenta a su confirmación.'}
                 className="block w-full rounded border border-[#edebe9] bg-white px-3 py-2 text-[13px] text-[#323130] outline-none focus:border-[#0078d4] resize-y" />
-              <span className="block text-[11px] text-[#a19f9d] mt-1">Crea una firma por cada tipo de mensaje y elígela al redactar: el texto sale solo.</span>
+              <span className="block text-[11px] text-[#a19f9d] mt-1">Cree una firma por cada tipo de mensaje y elíjala al redactar: el texto sale solo.</span>
             </label>
           </div>
         </div>
       ) : (
         <div key="modo-sin-plantilla">
-          <p className="text-[11px] text-[#605e5c] mb-2">No hay plantilla cargada. Usa "Cargar plantilla predeterminada" o edita el HTML directamente.</p>
+          <p className="text-[11px] text-[#605e5c] mb-2">No hay plantilla cargada. Use «Cargar plantilla predeterminada» o edite el HTML directamente.</p>
           <textarea value={htmlSrc} onChange={e => { setHtmlSrc(e.target.value); setPreviewHtml(e.target.value); }} rows={8}
             className="block w-full rounded border border-[#edebe9] bg-white px-3 py-2 text-[12px] text-[#323130] font-mono outline-none focus:border-[#0078d4] resize-y" />
         </div>
@@ -593,7 +594,7 @@ function VisualSignatureEditor({
       <div>
         <p className="text-[11px] font-semibold text-[#605e5c] mb-1 flex items-center gap-1">
           <svg className="w-3 h-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 3C4.5 3 1.7 5.6 1 8c.7 2.4 3.5 5 7 5s6.3-2.6 7-5c-.7-2.4-3.5-5-7-5zm0 8.5A3.5 3.5 0 114.5 8 3.5 3.5 0 018 11.5z"/><circle cx="8" cy="8" r="1.5"/></svg>
-          Asi se vera tu firma en el correo
+          Así se verá su firma en el correo
         </p>
         <div className="rounded border border-[#edebe9] bg-white p-4 shadow-sm">
           <div className="text-[13px] text-[#605e5c] italic mb-3">...contenido del correo...</div>

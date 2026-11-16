@@ -12,11 +12,14 @@ import tailwindcss from '@tailwindcss/vite'
 import sri from 'vite-plugin-sri'
 // Color de acento personalizable (Configuración → Apariencia): ver complementos/acento/tonos.ts
 import { acentoEnCss, acentoEnLinea } from './complementos/acento/index.ts'
+// Versión instalada para «Obtener diagnósticos» (git describe al compilar): ver complementos/version
+import { versionInstalada } from './complementos/version/index.ts'
 
 export default defineConfig({
   plugins: [acentoEnLinea(), react(), tailwindcss(), sri()],
   css: { postcss: { plugins: [acentoEnCss()] } },
   base: '/webmail/',
+  define: { __VERSION_INSTALADA__: JSON.stringify(versionInstalada()) },
   build: {
     outDir: 'dist',
     rollupOptions: {
