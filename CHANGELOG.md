@@ -144,6 +144,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Responder con los adjuntos del original (16/11/2026)**: al responder a una persona o a todos, si el correo
+  original trae archivos adjuntos, el redactor muestra debajo del asunto la franja «El correo original tiene N
+  archivos adjuntos que no van en esta respuesta» con el botón **«Incluir adjuntos del original»** (lo tenía
+  Zimbra y lo pidió el personal). No se cargan solos; al pulsarlo entran al redactor como en un reenvío: se ven,
+  se pueden abrir y se puede quitar alguno. Funciona desde la vista del correo, la barra superior, el menú de la
+  lista, las teclas `r`/`R` y las respuestas sugeridas (`compose/IncluirAdjuntosOriginal.tsx`, dato
+  `respuesta_de`). Solo interfaz: sin cambios en el servidor.
+
 - **Filtro de adjuntos: un adjunto sin analizar ya no pasa en silencio**. Si el análisis de un adjunto agota su
   tiempo o falla el motor, el correo se entrega igual, pero con la cabecera `X-Maquita-Scan: sin-analizar=N`, una
   línea `ADJUNTO_SIN_ANALIZAR` en el registro y una anotación en el contador que vigila `vigilar-milter.sh`.

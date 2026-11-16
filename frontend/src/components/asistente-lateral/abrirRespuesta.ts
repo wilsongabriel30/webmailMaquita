@@ -23,5 +23,6 @@ export function abrirRespuestaConTexto(msg: MessageFull, texto: string): void {
     references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
     html_body: cita,
     prefill_body: `<p>${escapeHtml(texto).replace(/\n/g, '<br>')}</p>`,
+    respuesta_de: msg.folder ? { folder: msg.folder, uid: msg.uid, adjuntos: msg.attachments } : undefined,
   });
 }

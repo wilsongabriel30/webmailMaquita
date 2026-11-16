@@ -538,6 +538,7 @@ export function Toolbar() {
     openCompose('reply', {
       to: [msg.from], subject: `Re: ${msg.subject}`,
       html_body: buildQuote(), text_body: '', in_reply_to: msg.message_id || '', references: msg.references || '',
+      respuesta_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
     closeAllDropdowns();
   };
@@ -548,6 +549,7 @@ export function Toolbar() {
     openCompose('replyAll', {
       to: destinatarios.to, cc: destinatarios.cc, subject: `Re: ${msg.subject}`,
       html_body: buildQuote(), text_body: '', in_reply_to: msg.message_id || '', references: msg.references || '',
+      respuesta_de: { folder: msg.folder || currentFolder, uid: msg.uid, adjuntos: msg.attachments },
     });
     closeAllDropdowns();
   };

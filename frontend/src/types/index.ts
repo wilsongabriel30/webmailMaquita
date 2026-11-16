@@ -120,6 +120,8 @@ export interface ComposeData {
   adjuntos_borrador?: AttachmentInfo[];
   /** Correo que se reenvía: sus adjuntos se descargan y viajan con el reenvío. */
   reenvio_de?: { folder: string; uid: number; adjuntos?: AttachmentInfo[] };
+  /** Correo al que se responde: sus adjuntos se ofrecen con un botón (compose/IncluirAdjuntosOriginal.tsx). */
+  respuesta_de?: { folder: string; uid: number; adjuntos?: AttachmentInfo[] };
   // Archivos del Almacén a adjuntar al abrir el redactor (accion "Enviar por correo")
   adjuntos_almacen?: { nombre: string; ruta: string }[];
   /** Correos que se reenvían como adjunto .eml (lib/correosComoAdjunto.ts). */

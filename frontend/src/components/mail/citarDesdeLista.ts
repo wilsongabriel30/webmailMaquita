@@ -43,6 +43,7 @@ export async function responderDesdeLista(resumen: MessageSummary, carpetaActual
     html_body: msg ? cita(msg, false) : '',
     in_reply_to: msg?.message_id || '',
     references: msg ? (msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || '')) : '',
+    respuesta_de: msg ? { folder, uid: resumen.uid, adjuntos: msg.attachments } : undefined,
   });
 }
 
