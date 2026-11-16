@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+## [1.23.0] - 2026-11-16
+
+El redactor muestra a dónde lleva cada enlace y permite abrirlo antes de enviar.
+
 ### Añadido
 - Redactor: al pasar el puntero sobre un texto vinculado (o poner el cursor dentro) se muestra a dónde lleva el enlace, con las acciones Abrir, Cambiar y Quitar; Ctrl + clic lo abre en otra pestaña. Los enlaces escritos sin protocolo se completan con `https://`.
 
