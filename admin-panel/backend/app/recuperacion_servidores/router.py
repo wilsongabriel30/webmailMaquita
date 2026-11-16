@@ -21,7 +21,7 @@ router = APIRouter(
 ULTIMAS = 30
 
 _SOLICITUDES = f"""
-SELECT created_at AS fecha, admin_user AS remitente, target AS message_id, ip_address::text AS ip,
+SELECT created_at AS fecha, admin_user AS remitente, target AS message_id, host(ip_address) AS ip,
        details->>'dominio_solicitante' AS dominio,
        details->'destinatarios'->0->>'destinatario' AS destinatario,
        details->'destinatarios'->0->>'resultado' AS resultado,
