@@ -69,7 +69,7 @@ async def atender(request, s: protocolo.Solicitud, ip: str | None) -> dict:
     carpetas = list(info.get("folders") or [])
     if plazo_recuperacion.vencido(info.get("received")):
         estado = protocolo.ESTADO_FUERA_DE_PLAZO
-    elif leido and not politica.permite_retirar_leido(dominio):
+    elif leido and not await politica.permitido(db, dominio):
         # Ya leído: se queda en el buzón; el servidor que pidió le enviará el aviso de «enviado por error».
         estado = protocolo.ESTADO_LEIDO_NO_RETIRADO
     elif await asyncio.to_thread(

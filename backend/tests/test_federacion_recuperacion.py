@@ -239,6 +239,40 @@ async def test_destino_no_retira_lo_leido_de_un_dominio_sin_confianza(
     assert destino.expunges == []
 
 
+def _panel(destino, retirar_leidos, dominios):
+    async def _fetchrow(_sql):
+        return {"retirar_leidos": retirar_leidos, "dominios_confianza": dominios}
+
+    destino.db.fetchrow = _fetchrow
+
+
+async def test_lo_guardado_en_el_panel_manda_sobre_el_env(destino, monkeypatch):
+    # El .env lo permitiría para todos; el panel dice que no y no hay dominios de confianza.
+    _politica(monkeypatch, retirar_leidos=True)
+    _panel(destino, False, [])
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r["estado"] == "leido_no_retirado"
+    assert destino.expunges == []
+
+
+async def test_dominio_de_confianza_puesto_desde_el_panel(destino, monkeypatch):
+    _politica(monkeypatch)
+    _panel(destino, False, ["Origen.test"])
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r == {"estado": "recalled", "leido": True}
+
+
+async def test_si_la_tabla_del_panel_falla_rige_el_env(destino, monkeypatch):
+    _politica(monkeypatch, confianza="origen.test")
+
+    async def _roto(_sql):
+        raise RuntimeError("relation does not exist")
+
+    destino.db.fetchrow = _roto
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r["estado"] == "recalled"
+
+
 async def test_destino_retira_lo_no_leido_sin_mirar_la_politica(destino, monkeypatch):
     _politica(monkeypatch)
     monkeypatch.setattr(
