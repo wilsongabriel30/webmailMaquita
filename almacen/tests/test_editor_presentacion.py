@@ -60,7 +60,9 @@ def test_las_dos_configuraciones_del_editor_la_usan():
         assert "**editor_presentacion.personalizacion()," in bloque, funcion
         # la configuración se firma DESPUÉS de completarla
         assert bloque.index("editor_presentacion.personalizacion()") < bloque.index("config['token'] = firmar_jwt(config)")
-        assert "'macros'" not in bloque and "'plugins'" not in bloque
+        # nada de macros; de complementos, solo la lista que desactiva la pestaña «AI» (y solo si se oculta)
+        assert "'macros'" not in bloque
+        assert bloque.count("'plugins'") == 1 and "'plugins': editor_presentacion.complementos()" in bloque
 
 
 def _parte(extension, nombre):
