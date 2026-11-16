@@ -9,6 +9,8 @@
 const NOMBRE_APP = "Correo";
 const CACHE_NAME = "maquita-mail-v202609041254";  // T-49: nombre nuevo para descartar el cache anterior, que tenia correo en claro
 const API_CACHE = CACHE_NAME + "-api";
+// Parte del nombre que no cambia entre publicaciones («maquita-mail-v»): identifica las copias propias.
+const PREFIJO_PROPIO = CACHE_NAME.slice(0, CACHE_NAME.lastIndexOf("-v") + 2);
 const BASE = "/webmail/";
 
 // T-35 (d): la portada SÍ se precachea (clave fija INDEX_KEY) para poder ARRANCAR SIN RED; el deploy cambia
@@ -60,7 +62,10 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) =>
       Promise.all(
-        keys.filter((key) => key !== CACHE_NAME && key !== API_CACHE)
+        // Solo las copias PROPIAS de versiones anteriores. El almacén de cachés es uno por sitio y lo comparten
+        // todos los service workers del mismo dominio (el del chat vive en /chat/): borrar «todo lo que no es
+        // mío» dejaba al otro sin su copia para arrancar sin red (15/11/2026).
+        keys.filter((key) => key.startsWith(PREFIJO_PROPIO) && key !== CACHE_NAME && key !== API_CACHE)
           .map((key) => { console.log("[SW] Deleting old cache:", key); return caches.delete(key); })
       )
     )

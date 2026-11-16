@@ -49,6 +49,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Correo sin conexión: el service worker ya no borra las copias de otros (15/11/2026)**: al activarse borraba
+  todas las cachés del dominio que no fueran la suya, incluidas las del chat (y el del chat hacía lo mismo con las
+  del correo, por lo que el correo no arrancaba sin red y el candado `correo-cifrado` fallaba desde el 13/11).
+  Ahora solo limpia las suyas de versiones anteriores. Falta el cambio equivalente en el service worker del chat.
+
 - **Correo, cinta y textos: segunda tanda de hallazgos de Andes (15/11/2026)**:
   - *«Informar» y «Marcar como no deseado»*: antes de actuar se pregunta, diciendo que el remitente quedará
     bloqueado y dónde se deshace; el aviso final nombra a quién se bloqueó. Igual en la cinta, el menú del correo
