@@ -67,6 +67,7 @@ import { DirectoryPanel } from '../contacts/DirectoryPanel';
 import { textoErrorEnvio } from '../../lib/mensajeErrorEnvio';
 import { anotarEnvioReciente, retirarEnvioReciente } from '../../lib/enviosRecientes';   // envío sin aviso de «enviando» (13/11/2026)
 import { reabrirRedaccion } from './reabrirRedaccion';
+import { paraCampoFechaHora } from '../../lib/fechaCampoLocal';
 import { envioPrevioSi, huellaDeEnvio, idDeIntento, paraCola } from '../../lib/intentoEnvio';   // un identificador por intento (13/11/2026)
 
 // Module-level pending send map (persists after compose unmounts)
@@ -1124,7 +1125,7 @@ export function ComposePanel({ win }: Props) {
   // Schedule send
   const handleScheduleSend = useCallback(() => {
     const now = new Date(); now.setHours(now.getHours() + 1);
-    setScheduleDate(now.toISOString().slice(0, 16));
+    setScheduleDate(paraCampoFechaHora(now));
     setShowScheduleModal(true);
   }, []);
 
