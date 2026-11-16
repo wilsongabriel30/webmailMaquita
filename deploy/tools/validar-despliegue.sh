@@ -191,6 +191,29 @@ if [ -n "$DOM" ]; then
   dig +short TXT "_dmarc.$DOM" 2>/dev/null | grep -q 'v=DMARC1' && ok "DMARC presente" || warn "sin DMARC en $DOM"
 else warn "MAIL_DOMAIN no definido — omito DNS"; fi
 
+# 16/11/2026 (Andes): los servidores de la suite se encuentran por el MX y NO siguen redirecciones. Si el MX de
+# un dominio alojado tiene otro nombre que el correo web y redirige (o no tiene certificado válido), los pedidos
+# de recuperación y las reacciones de otros servidores no llegan, sin ningún error a la vista.
+hdr "Federación entre servidores: el MX debe atender /api/federacion/ sin redirigir (informativo)"
+if command -v dig >/dev/null 2>&1; then
+  MXS="$($PSQL "SELECT domain FROM domain WHERE active = true AND domain <> 'ALL' ORDER BY domain LIMIT 40" 2>/dev/null \
+        | while read -r d; do [ -n "$d" ] && dig +short +time=3 +tries=1 MX "$d" 2>/dev/null | sort -n | head -2 | awk '{print $2}' | sed 's/\.$//'; done \
+        | grep -E '^[A-Za-z0-9.-]+$' | sort -u | head -12 || true)"
+  if [ -z "$MXS" ]; then warn "sin registros MX que comprobar (o sin DNS): omito la federación"
+  else
+    while read -r mx; do
+      [ -n "$mx" ] || continue
+      COD="$(curl -s -o /dev/null -m 8 --max-redirs 0 -w '%{http_code}' "https://$mx/api/federacion/v1/recuperacion" 2>/dev/null || true)"
+      case "$COD" in
+        200) ok "MX $mx atiende la federación" ;;
+        30?) warn "MX $mx responde $COD (redirige) en /api/federacion/: los demás servidores no siguen redirecciones y sus pedidos no llegan. Ver deploy/tools/federacion-mx-nginx.sh" ;;
+        000|"") warn "MX $mx no responde por HTTPS con certificado válido en /api/federacion/ (si el MX es de otro proveedor, es lo esperado). Ver docs/RECUPERACION-ENTRE-SERVIDORES.md" ;;
+        *) warn "MX $mx responde $COD en /api/federacion/v1/recuperacion (se esperaba 200)" ;;
+      esac
+    done <<<"$MXS"
+  fi
+else warn "sin 'dig' — omito la comprobación de la federación"; fi
+
 # --- Hallazgos de Andes (03/10/2026): fallos que no dan error visible ---
 hdr "Filtro de spam, aprendizaje y permisos de la base"
 # 1) Sieve global: sin él, el spam marcado cae en la bandeja de entrada.
