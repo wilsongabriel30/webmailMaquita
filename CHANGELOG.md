@@ -49,6 +49,15 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Tras la reprueba de Andes (15/11/2026)**:
+  - *Sin IA configurada*, el lector ya no ofrece «Respuesta IA» ni «Resumir» (respondían 502). El botón de la
+    lista pasa a llamarse «Analizar este mensaje»: no depende de la IA.
+  - *Nube › «Compartido conmigo»*: cada elemento tiene «Descargar» (también en la vista de tarjetas) y un menú
+    con clic derecho o «Más acciones»; la descarga es directa, y si el enlace tiene clave se abre su página.
+  - *Tope de peticiones (429) con la lista en pantalla*: se avisa una vez cada medio minuto de que la lista no se
+    actualizó; antes no se decía nada.
+  - *Texto*: «Esta nube no tiene editor de diagramas».
+
 - **Correo sin conexión: el service worker ya no borra las copias de otros (15/11/2026)**: al activarse borraba
   todas las cachés del dominio que no fueran la suya, incluidas las del chat (y el del chat hacía lo mismo con las
   del correo, por lo que el correo no arrancaba sin red y el candado `correo-cifrado` fallaba desde el 13/11).

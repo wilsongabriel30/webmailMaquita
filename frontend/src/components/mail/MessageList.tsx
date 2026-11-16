@@ -33,6 +33,7 @@ import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
 import { EtiquetasFila } from './EtiquetasFila';
 import { AvisoErrorCarga, type MotivoErrorCarga } from './AvisoErrorCarga';
 import { esLimiteDePeticiones } from '../../api/errorApi';
+import { avisarLimiteConLista } from './avisoLimite';
 import { CabeceraEtiqueta } from '../labels/CabeceraEtiqueta';
 import { SinResultados } from './SinResultados';
 import { AvisoFiltroSinResultados } from './AvisoFiltroSinResultados';
@@ -388,6 +389,7 @@ export function MessageList() {
           const st = useMailStore.getState();
           st.setMessages(st.messages, st.totalMessages, st.currentPage);
           if (st.messages.length === 0) setErrorCarga(esLimiteDePeticiones(err) ? 'limite' : 'conexion');
+          else avisarLimiteConLista(err);
         });
       return;
     }
@@ -465,6 +467,7 @@ export function MessageList() {
       }
       useMailStore.getState().setMessages(useMailStore.getState().messages, useMailStore.getState().totalMessages, useMailStore.getState().currentPage);
       if (useMailStore.getState().messages.length === 0) setErrorCarga(esLimiteDePeticiones(err) ? 'limite' : 'conexion');
+      else avisarLimiteConLista(err);
     });
   }, [currentFolder, currentPage, pageSize, debouncedSearchQuery, buscarEnContenido, filter, etiquetaFiltro]);
 
@@ -1275,7 +1278,7 @@ export function MessageList() {
               className={`p-1 rounded transition-colors ${
                 spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
               }`}
-              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Escanear este mensaje con IA' : 'Escanear carpeta por spam'}
+              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Analizar este mensaje' : 'Analizar la carpeta en busca de correo no deseado'}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
@@ -1321,7 +1324,7 @@ export function MessageList() {
               className={`p-1 rounded transition-colors ${
                 spamScanning ? 'text-[#ca5010] animate-pulse' : 'text-[#a19f9d] hover:text-[#ca5010] hover:bg-[#fde7e9]'
               }`}
-              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Escanear este mensaje con IA' : 'Escanear carpeta por spam'}
+              title={spamScanning ? 'Escaneando...' : selectedMessage ? 'Analizar este mensaje' : 'Analizar la carpeta en busca de correo no deseado'}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />

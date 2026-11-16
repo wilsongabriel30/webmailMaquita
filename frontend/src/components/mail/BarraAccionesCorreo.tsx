@@ -10,6 +10,7 @@ import React from 'react';
 import { AccionesCorreoNoDeseado } from './AccionesCorreoNoDeseado';
 import { BotonAsignarCorreo } from '../tareas/BotonAsignarCorreo';
 import { BotonEtiquetasCorreo } from '../labels/BotonEtiquetasCorreo';
+import { useIADisponible } from '../asistente-lateral/iaDisponible';
 
 const estiloBotonBarra: React.CSSProperties = {
   background: 'none',
@@ -61,6 +62,8 @@ export function BarraAccionesCorreo({
   /** Extra a la derecha (p. ej. «Recuperar mensaje» en Enviados). */
   children?: React.ReactNode;
 }) {
+  // Sin IA configurada en la instalación no se ofrecen «Respuesta IA» ni «Resumir» (Andes, 15/11/2026).
+  const hayIA = useIADisponible();
   return (
     <div className="barra-acciones-correo" style={{
       padding: '8px 88px 10px 24px', borderTop: '1px solid #f3f2f1', flexShrink: 0,
@@ -95,6 +98,7 @@ export function BarraAccionesCorreo({
         {/* «Respuesta IA» y «Resumir» conservan siempre su texto (revisión 04/11/2026, H11): solo con
             icono no se reconocen, y en pantalla táctil no hay descripción emergente. Si falta sitio, la
             barra pasa a una segunda fila. */}
+        {hayIA !== false && (<>
         <button style={{ ...estiloBotonBarra, color: '#8764b8' }} onClick={onRespuestaIA} disabled={generandoRespuestas} title="Respuestas sugeridas por IA">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
           <Etiqueta texto={generandoRespuestas ? 'Generando...' : 'Respuesta IA'} />
@@ -103,6 +107,7 @@ export function BarraAccionesCorreo({
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}><path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
           <Etiqueta texto={resumiendo ? 'Resumiendo...' : 'Resumir'} />
         </button>
+        </>)}
       </>)}
       {children}
     </div>
