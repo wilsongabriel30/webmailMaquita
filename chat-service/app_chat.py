@@ -454,6 +454,16 @@ def crear_app():
         """Ventana dedicada de llamada grupal (LiveKit)."""
         return render_template("chat/conferencia.html")
 
+    @app.route("/chat/sw.js")
+    def chat_service_worker():
+        # T-116: service worker en scope /chat/ para que el chat abra sin internet.
+        from flask import send_from_directory
+        resp = app.make_response(send_from_directory(_ESTATICOS, "chat-sw.js"))
+        resp.headers["Content-Type"] = "application/javascript; charset=utf-8"
+        resp.headers["Service-Worker-Allowed"] = "/chat/"
+        resp.headers["Cache-Control"] = "no-cache"
+        return resp
+
     @app.route("/chat/")
     @app.route("/chat")
     def pagina_chat():
@@ -540,6 +550,9 @@ def crear_app():
 
     @app.before_request
     def _auth():
+        # T-116: el service worker del chat se sirve SIN exigir sesión (no lleva datos privados).
+        if request.path == "/chat/sw.js":
+            return None
         # Push de notificaciones desde otros sistemas: se autentica con X-Notif-Secret (sin sesión)
         if request.path in _RUTAS_SERVICIO and request.headers.get("X-Notif-Secret"):
             # [H-02] Se COMPARA el secreto aquí, no solo su presencia: la protección no
