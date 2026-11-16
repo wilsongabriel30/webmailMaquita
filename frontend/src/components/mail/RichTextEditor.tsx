@@ -1,7 +1,7 @@
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
+import { EnlaceRedactor } from '../compose/EnlaceRedactor';
 import Placeholder from '@tiptap/extension-placeholder';
 import TextAlign from '@tiptap/extension-text-align';
 import { TextStyle } from '@tiptap/extension-text-style';
@@ -13,7 +13,7 @@ interface Props { content: string; onChange: (html: string) => void; }
 export default function RichTextEditor({ content, onChange }: Props) {
   const editor = useEditor({
     extensions: [
-      StarterKit, Underline, Link.configure({ openOnClick: false }),
+      StarterKit, Underline, EnlaceRedactor,
       Placeholder.configure({ placeholder: 'Escribe aqui...' }),
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
       TextStyle, Color,
