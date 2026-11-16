@@ -25,7 +25,7 @@ from app.mail.services.busqueda_adjuntos import (
     filtrar_uids_por_adjunto,
 )
 from app.mail.services.cache_uids import registrar_clave
-from app.mail.services.indice_texto import cuenta_indexada
+from app.mail.services.indice_texto import carpeta_abarcable, cuenta_indexada
 
 
 def _imap_utf7_decode(s: str) -> str:
@@ -247,11 +247,13 @@ async def list_message_uids(
     # mensajes multipart y luego se filtra por BODYSTRUCTURE (busqueda_adjuntos).
     consulta_original = search_query
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
+    # También en el texto si la cuenta aún no está anotada pero la carpeta es pequeña (15/11/2026).
+    con_indice = cuenta_indexada(username) or carpeta_abarcable(resp.lines)
     if search_query:
         criteria = parse_search_query(
             search_query,
             buscar_en_contenido=buscar_en_contenido,
-            con_indice=cuenta_indexada(username),
+            con_indice=con_indice,
             direcciones_nombre=direcciones_nombre,
         )
     else:
@@ -268,7 +270,7 @@ async def list_message_uids(
         por_niveles,
         search_query,
         buscar_en_contenido,
-        cuenta_indexada(username),
+        con_indice,
         direcciones_nombre,
         clave=f"{username}|{folder}|{consulta_original}",
     )
