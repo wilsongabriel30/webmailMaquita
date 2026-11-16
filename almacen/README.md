@@ -113,3 +113,18 @@ Los cambios aplican solos en menos de 1 minuto. Detalle y ejemplos:
   con expiración — nunca la sesión del usuario.
 - La cabecera interna `X-Almacen-Usuario-Id` se descarta SIEMPRE si viene
   del cliente; solo la fija el candado tras validar la cookie.
+
+## Pestaña «AI» del editor
+
+Por defecto el Almacén pide al servidor de documentos que no muestre la pestaña «AI»
+(`ALMACEN_ONLYOFFICE_IA=1` la conserva). Se envían las dos formas que el servidor admite:
+`editorConfig.customization.ai.disabled` y `editorConfig.plugins.disable` con el identificador del
+complemento. Las dos son de versiones recientes del servidor de documentos; uno anterior las ignora y
+la pestaña sigue a la vista. En ese caso se quita en el propio servidor de documentos:
+
+- versiones recientes: `aiSettings.enable: false` en su configuración (`local.json`), o desmarcar
+  «AI features» en su panel de administración (Settings → Services);
+- versiones anteriores: retirar el complemento de IA de la carpeta de complementos del servidor
+  (`sdkjs-plugins`) y reiniciarlo.
+
+Después de cambiar `almacen/.env` hay que reiniciar el servicio del Almacén (no basta recargarlo).

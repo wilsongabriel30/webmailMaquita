@@ -49,6 +49,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Editor en línea: la pestaña «AI» se desactiva también por la lista de complementos (15/11/2026)**: en un
+  servidor de documentos que no conoce `customization.ai.disabled` la pestaña seguía visible (reprueba de
+  Andes). Ahora se envía además `plugins.disable`; si el servidor tampoco la admite, `almacen/README.md` explica
+  cómo quitarla en el propio servidor de documentos.
+
 - **Tras la reprueba de Andes (15/11/2026)**:
   - *Sin IA configurada*, el lector ya no ofrece «Respuesta IA» ni «Resumir» (respondían 502). El botón de la
     lista pasa a llamarse «Analizar este mensaje»: no depende de la IA.

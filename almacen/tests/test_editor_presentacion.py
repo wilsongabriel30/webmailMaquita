@@ -60,7 +60,9 @@ def test_las_dos_configuraciones_del_editor_la_usan():
         assert "**editor_presentacion.personalizacion()," in bloque, funcion
         # la configuración se firma DESPUÉS de completarla
         assert bloque.index("editor_presentacion.personalizacion()") < bloque.index("config['token'] = firmar_jwt(config)")
-        assert "'macros'" not in bloque and "'plugins'" not in bloque
+        # nada de macros; de complementos, solo la lista que desactiva la pestaña «AI» (y solo si se oculta)
+        assert "'macros'" not in bloque
+        assert bloque.count("'plugins'") == 1 and "'plugins': editor_presentacion.complementos()" in bloque
 
 
 def _parte(extension, nombre):
@@ -80,3 +82,17 @@ def test_la_presentacion_en_blanco_declara_su_idioma():
     assert '<p:defaultTextStyle><a:defPPr><a:defRPr lang="es-ES"/></a:defPPr></p:defaultTextStyle>' in presentacion
     # orden del esquema: el estilo de texto va después del tamaño de las notas
     assert presentacion.index("<p:notesSz") < presentacion.index("<p:defaultTextStyle>")
+
+
+def test_la_pestana_ia_se_desactiva_tambien_por_la_lista_de_complementos(monkeypatch):
+    # servidores de documentos que no conocen `customization.ai.disabled` (reprueba de Andes, 15/11/2026)
+    assert ep.complementos() == {"disable": [ep.COMPLEMENTO_IA]}
+    monkeypatch.setenv("ALMACEN_ONLYOFFICE_IA", "1")
+    assert ep.complementos() == {}
+
+
+def test_las_dos_configuraciones_del_editor_envian_los_complementos():
+    ruta = os.path.join(RAIZ, "servicio", "api_onlyoffice.py")
+    with open(ruta, encoding="utf-8") as f:
+        codigo = "\n".join(l for l in f.read().splitlines() if not l.lstrip().startswith("#"))
+    assert codigo.count("'plugins': editor_presentacion.complementos()") == 2
