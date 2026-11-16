@@ -22,6 +22,7 @@ import { useRedaccionPersistente } from './useRedaccionPersistente';
 import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, insertarImagenesEnTexto, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
+import { BarraEnlace } from './BarraEnlace';
 import { BotonAutocompletarIA, BotonSugerirAsuntoIA, FranjaSugerenciaIA } from './SugerenciaIA';
 import { revisarBorradorConIA } from './revisionEditor';
 import { AVISO_IA_SIN_RESPUESTA, avisarSiNoHayIA } from './sinIA';
@@ -1415,6 +1416,7 @@ export function ComposePanel({ win }: Props) {
         }}
         onPaste={(e) => { if (editor && !editor.isDestroyed) pegarImagenesFueraDelTexto(editor.view, e.nativeEvent); }}>
         <BarraImagen editor={editor} />
+        <BarraEnlace editor={editor} />
         <VistaPreviaRedaccion editor={editor} asunto={subject} activo={!win.minimized} />
         <EditorContent editor={editor}
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
