@@ -101,12 +101,14 @@ async def registrar_auditoria(
     resultados: list[dict],
     ip: str | None = None,
     movido_a_borradores: bool = False,
+    extra: dict | None = None,
 ) -> bool:
     """Deja rastro de la recuperación en `audit_log` con las columnas reales de la tabla.
 
     `target` es el Message-ID (la columna admite 255 caracteres) y `details` lleva remitente,
     destinatarios, resultado por destinatario y si cada uno ya lo había leído.
     Un fallo aquí no rompe la recuperación, pero SÍ queda en el registro del servidor.
+    `extra` añade datos al detalle (p. ej. que el pedido vino de otro servidor y de qué dominio).
     """
     detalles = {
         "remitente": remitente,
@@ -122,6 +124,8 @@ async def registrar_auditoria(
         ],
         "movido_a_borradores": movido_a_borradores,
     }
+    if extra:
+        detalles.update(extra)
     try:
         await db.execute(
             """INSERT INTO audit_log (admin_user, action, target, details, ip_address)

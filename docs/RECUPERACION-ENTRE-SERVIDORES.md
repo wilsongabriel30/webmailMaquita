@@ -9,6 +9,8 @@ suite**: no hay que registrarse en ningún sitio ni intercambiar claves.
 - Abre el correo en «Enviados» → «Recuperar mensaje». Si el destinatario está en otro servidor compatible, la
   comprobación dice «Otro servidor compatible: se intentará retirar de su buzón…».
 - Al confirmar: «Recuperado del servidor del destinatario» o, si ya pasó el plazo de ese servidor, «Fuera de plazo».
+- Si el destinatario **ya lo había leído** y su servidor no retira correos leídos (es lo normal entre
+  organizaciones distintas), el correo se queda en su buzón y recibe el aviso de «enviado por error».
 - Si el otro servidor no es compatible, no responde o rechaza la petición, el destinatario recibe en la misma
   conversación el aviso de «enviado por error» (como cualquier externo).
 
@@ -26,10 +28,33 @@ y se le habla por HTTPS con certificado válido.
      `Authentication-Results` (la más alta; las que traiga el correo no cuentan);
    - el servidor del dominio del `From` (su MX) confirma la solicitud:
      `POST https://<MX del remitente>/api/federacion/v1/recuperacion/confirmar` → `{"confirmado":true}`;
-   - el correo sigue dentro del plazo de recuperación **de B** (`RECALL_MAX_MINUTOS`, 60 por defecto).
+   - el correo sigue dentro del plazo de recuperación **de B** (`RECALL_MAX_MINUTOS`, 60 por defecto);
+   - si el destinatario ya lo leyó, **la política de B** permite retirarlo (ver «Correos ya leídos»).
 4. B retira el correo, refresca la bandeja del destinatario y lo anota en su auditoría; A anota la suya.
 
 Cualquier fallo responde `{"estado":"no_recuperado"}`, sin detalles, para no revelar qué buzones o correos existen.
+
+## Correos ya leídos: decide el servidor del destinatario
+
+Entre organizaciones distintas, hacer desaparecer un correo que la persona ya leyó es decisión del servidor
+que lo recibió, no del que lo pide:
+
+- **Por defecto no se retira.** B responde `{"estado":"leido_no_retirado","leido":true}`, el correo se queda en el
+  buzón y A envía al destinatario el aviso de «enviado por error», igual que a un servidor no compatible. Un
+  servidor A con una versión anterior no conoce ese estado y hace lo mismo: envía el aviso.
+- **Opción de cada instalación:** `RECALL_FEDERADO_RETIRAR_LEIDOS=true` lo permite para cualquier servidor;
+  `RECALL_FEDERADO_DOMINIOS_CONFIANZA=socio.org,filial.org` lo permite solo cuando el correo viene de esos dominios
+  (el dominio del `From`, que B ya autenticó y cuyo servidor confirmó la solicitud).
+- La comprobación previa («¿se puede recuperar?») no revela si el correo fue leído: eso solo se sabe al ejecutar
+  una solicitud confirmada.
+- Dentro de una misma instalación (todos sus dominios) no cambia nada: se retira aunque se haya leído, dentro del plazo.
+
+## Auditoría en el servidor del destinatario
+
+Toda solicitud confirmada que llega de otro servidor queda en `audit_log` de B (acción `message_recall`), se retire
+o no y aunque al destinatario no se le muestre nada: quién lo pidió (`admin_user` = remitente), cuándo, qué
+Message-ID (`target`), desde qué IP y, en `details`, el destinatario, el resultado, si estaba leído, las carpetas,
+`pedido_por_otro_servidor: true`, `dominio_solicitante` y `retirado`.
 
 ## Por qué es seguro
 
@@ -47,6 +72,8 @@ Cualquier fallo responde `{"estado":"no_recuperado"}`, sin detalles, para no rev
 |---|---|---|
 | `RECALL_ENTRE_SERVIDORES` | `true` | `false` apaga la función en los dos sentidos (los puntos de entrada responden 404). |
 | `RECALL_MAX_MINUTOS` | `60` | Plazo de recuperación de este servidor. |
+| `RECALL_FEDERADO_RETIRAR_LEIDOS` | `false` | `true`: se retiran también los correos ya leídos cuando lo pide otro servidor. |
+| `RECALL_FEDERADO_DOMINIOS_CONFIANZA` | vacío | Dominios (separados por coma) a los que sí se les permite retirar correos ya leídos. |
 | `RECALL_FEDERADO_HOSTS_INTERNOS` | vacío | Nombres MX de servidores hermanos que se alcanzan por la red privada (separados por coma). |
 | `RECALL_FEDERADO_AUTHSERV` | vacío | Nombres (separados por coma) con que este servidor firma `Authentication-Results`. Vacío: el de la URL pública, el de la máquina y el `myhostname` de Postfix, que es el que usa rspamd. Si se indica, valen solo esos. |
 

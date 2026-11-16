@@ -4,6 +4,7 @@ Sin red, sin BD y sin doveadm: todo lo externo se sustituye con dobles.
 """
 
 import email
+import json
 from datetime import datetime, timedelta
 from types import SimpleNamespace
 
@@ -11,6 +12,7 @@ import pytest
 
 from app.federacion import recuperacion_cliente as cliente
 from app.federacion import recuperacion_mensaje as mensaje
+from app.federacion import recuperacion_politica as politica
 from app.federacion import recuperacion_protocolo as protocolo
 from app.federacion import recuperacion_servidor as servidor
 from app.federacion import red
@@ -194,7 +196,88 @@ def destino(monkeypatch):
     )
 
 
-async def test_destino_retira_si_todo_cuadra(destino):
+def _politica(monkeypatch, retirar_leidos=False, confianza=""):
+    ajustes = SimpleNamespace(
+        recall_federado_retirar_leidos=retirar_leidos,
+        recall_federado_dominios_confianza=confianza,
+    )
+    monkeypatch.setattr(politica, "get_settings", lambda: ajustes)
+
+
+async def test_destino_no_retira_lo_ya_leido_por_defecto(destino, monkeypatch):
+    _politica(monkeypatch)
+    r = await servidor.atender(destino.peticion, _solicitud(), "203.0.113.9")
+    assert r == {"estado": "leido_no_retirado", "leido": True}
+    assert destino.expunges == []
+    # Aunque no se retire, queda en la auditoría: quién, qué Message-ID, desde dónde.
+    args = destino.db.inserciones[0]
+    assert args[1] == "ana@origen.test" and args[3] == "<abc@origen.test>"
+    assert args[5] == "203.0.113.9"
+    detalles = json.loads(args[4])
+    assert detalles["pedido_por_otro_servidor"] is True
+    assert detalles["dominio_solicitante"] == "origen.test"
+    assert detalles["retirado"] is False
+    assert detalles["destinatarios"][0]["leido"] is True
+
+
+async def test_destino_retira_lo_leido_si_el_dominio_es_de_confianza(
+    destino, monkeypatch
+):
+    _politica(monkeypatch, confianza="otro.test, Origen.test")
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r == {"estado": "recalled", "leido": True}
+    assert destino.expunges == [("luis@destino.test", ["INBOX"])]
+    assert json.loads(destino.db.inserciones[0][4])["retirado"] is True
+
+
+async def test_destino_no_retira_lo_leido_de_un_dominio_sin_confianza(
+    destino, monkeypatch
+):
+    _politica(monkeypatch, confianza="otro.test")
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r["estado"] == "leido_no_retirado"
+    assert destino.expunges == []
+
+
+async def test_destino_retira_lo_no_leido_sin_mirar_la_politica(destino, monkeypatch):
+    _politica(monkeypatch)
+    monkeypatch.setattr(
+        recall,
+        "_doveadm_fetch_info",
+        lambda dest, mid: {
+            "folders": ["INBOX"],
+            "was_read": False,
+            "received": datetime.now(),
+        },
+    )
+    r = await servidor.atender(destino.peticion, _solicitud(), None)
+    assert r == {"estado": "recalled", "leido": False}
+    assert destino.expunges == [("luis@destino.test", ["INBOX"])]
+
+
+async def test_cliente_entiende_leido_no_retirado(monkeypatch):
+    async def _mx(dominio):
+        return ["mail." + dominio]
+
+    async def _llamar(host, metodo, ruta, cuerpo=None, tiempo_s=8.0):
+        if metodo == "GET":
+            return {"version": 1, "activo": True}
+        return {"estado": "leido_no_retirado", "leido": True}
+
+    monkeypatch.setattr(red, "servidores_de", _mx)
+    monkeypatch.setattr(red, "llamar", _llamar)
+    r = await cliente.recuperar_en_otro_servidor(
+        _Redis(), "a@origen.test", "b@destino.test", "<x@y>"
+    )
+    assert r == {
+        "estado": "leido_no_retirado",
+        "leido": True,
+        "servidor": "mail.destino.test",
+    }
+
+
+async def test_destino_retira_si_todo_cuadra(destino, monkeypatch):
+    _politica(monkeypatch, retirar_leidos=True)
     r = await servidor.atender(destino.peticion, _solicitud(), "203.0.113.9")
     assert r == {"estado": "recalled", "leido": True}
     assert destino.expunges == [("luis@destino.test", ["INBOX"])]

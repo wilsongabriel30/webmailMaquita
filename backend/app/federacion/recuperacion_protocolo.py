@@ -25,6 +25,8 @@ TTL_SOLICITUD_S = 120
 ESTADO_RECUPERADO = "recalled"
 ESTADO_FUERA_DE_PLAZO = "fuera_de_plazo"
 ESTADO_NO_RECUPERADO = "no_recuperado"
+# El destinatario ya lo leyó y su servidor no retira correos leídos: quien pidió envía el aviso.
+ESTADO_LEIDO_NO_RETIRADO = "leido_no_retirado"
 
 
 class Solicitud(BaseModel):

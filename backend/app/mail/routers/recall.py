@@ -365,6 +365,12 @@ async def recall_message(
                     )
                 )
                 continue
+            # Ya leído y su servidor no retira lo leído: se le envía el aviso, como a un externo.
+            ya_leido = bool(
+                federado
+                and federado["estado"]
+                == recuperacion_cliente.protocolo.ESTADO_LEIDO_NO_RETIRADO
+            )
             if body.action == "delete":
                 # Send a recall request email to the recipient
                 recall_sent = await _send_external_recall_request(
@@ -375,12 +381,17 @@ async def recall_message(
                         recipient=recipient,
                         status="external_request_sent" if recall_sent else "external",
                         detail=(
-                            "Destinatario externo: no se puede retirar el correo de su buzón. "
-                            "Se le envió, en la misma conversación, el aviso de que el mensaje se envió por error; "
+                            (
+                                "El destinatario ya había leído el correo y su servidor no retira correos leídos. "
+                                if ya_leido
+                                else "Destinatario externo: no se puede retirar el correo de su buzón. "
+                            )
+                            + "Se le envió, en la misma conversación, el aviso de que el mensaje se envió por error; "
                             "usted recibió una copia como constancia."
                             if recall_sent
                             else "Destinatario externo: no se pudo enviar el aviso de envío por error"
                         ),
+                        was_read=True if ya_leido else None,
                     )
                 )
             else:
@@ -601,7 +612,8 @@ async def check_recallable(
                     "can_request": True,
                     "otro_servidor": bool(compatible),
                     "reason": (
-                        "Otro servidor compatible: se intentará retirar de su buzón; si no se puede, "
+                        "Otro servidor compatible: se intentará retirar de su buzón; si no se puede "
+                        "(por ejemplo, porque ya lo leyó y su servidor no retira correos leídos), "
                         "recibirá el aviso de «enviado por error»"
                         if compatible
                         else "Externo: no se puede retirar de su buzón; se le enviará el aviso de "

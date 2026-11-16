@@ -144,6 +144,21 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Recuperación entre servidores: los correos ya leídos los decide el servidor del destinatario (16/11/2026)**.
+  Acordado con otra instalación de la suite tras la prueba cruzada:
+  - *Por defecto ya no se retira un correo leído cuando lo pide otro servidor*: se queda en el buzón, el servidor
+    responde `leido_no_retirado` y quien lo pidió envía al destinatario el aviso de «enviado por error», como a un
+    servidor no compatible (una versión anterior no conoce ese estado y hace lo mismo). **Cambio de
+    comportamiento**: antes se retiraba aunque estuviera leído.
+  - *Opción de cada instalación*: `RECALL_FEDERADO_RETIRAR_LEIDOS=true` lo permite para todos;
+    `RECALL_FEDERADO_DOMINIOS_CONFIANZA` (dominios separados por coma) lo permite solo para esos dominios
+    (`federacion/recuperacion_politica.py`).
+  - *Auditoría*: toda solicitud confirmada de otro servidor queda en `audit_log` del servidor del destinatario, se
+    retire o no: remitente, fecha, Message-ID, IP y, en el detalle, `pedido_por_otro_servidor`,
+    `dominio_solicitante` y `retirado`.
+  - Dentro de una misma instalación no cambia nada. La comprobación previa sigue sin revelar si el correo fue
+    leído. Detalle en `docs/RECUPERACION-ENTRE-SERVIDORES.md`.
+
 - **Responder con los adjuntos del original (16/11/2026)**: al responder a una persona o a todos, si el correo
   original trae archivos adjuntos, el redactor muestra debajo del asunto la franja «El correo original tiene N
   archivos adjuntos que no van en esta respuesta» con el botón **«Incluir adjuntos del original»** (lo tenía
