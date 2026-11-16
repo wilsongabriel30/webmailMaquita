@@ -8,6 +8,8 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Corregido
+- Redactor: lo que se escribe después de un texto vinculado ya no queda dentro del enlace.
+- Redactor: si se quita la firma por error, el aviso «Se quitó la firma · Deshacer» y Ctrl + Z la devuelven; Ctrl + Z con el foco fuera del texto deshace el último cambio del mensaje.
 - Panel › Recuperación entre servidores: la columna «Desde» de las solicitudes muestra la dirección IP sin la máscara («/32»).
 
 ## [1.23.1] - 2026-11-16

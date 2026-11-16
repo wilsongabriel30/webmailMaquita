@@ -10,7 +10,6 @@ import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
 import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensibilidad';
 import { cuentaDeCarpeta } from '../../lib/cuentas';
-import { sanitizeSignatureHtml } from '../../lib/sanitize';
 import { separarCitado } from '../../lib/borradorCitado';
 import { cargarAdjuntosDelBorrador, cargarAdjuntosDelReenvio, filtrarPeligrosos, huellaAdjuntos, type ArchivoAdjunto } from '../../lib/adjuntosBorrador';
 import { tomarArchivosParaRedaccion } from '../../lib/archivosParaRedaccion';
@@ -23,6 +22,8 @@ import { EVENTO_MOSTRAR_CAMPO } from './chipsArrastrables';
 import { IMAGENES_SOLTADAS_EN_TEXTO, OPCIONES_RESIZE, insertarImagenesEnTexto, pegarImagenes, pegarImagenesFueraDelTexto, quitarImagenesLocales, soltarImagenes } from './imagenesPegadas';
 import { BarraImagen } from './BarraImagen';
 import { BarraEnlace } from './BarraEnlace';
+import { EnlaceRedactor } from './EnlaceRedactor';
+import { FirmaRedaccion } from './FirmaRedaccion';
 import { BotonAutocompletarIA, BotonSugerirAsuntoIA, FranjaSugerenciaIA } from './SugerenciaIA';
 import { revisarBorradorConIA } from './revisionEditor';
 import { AVISO_IA_SIN_RESPUESTA, avisarSiNoHayIA } from './sinIA';
@@ -38,7 +39,6 @@ import React from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
-import Link from '@tiptap/extension-link';
 import Image from '@tiptap/extension-image';
 import { Table } from '@tiptap/extension-table';
 import { TableRow } from '@tiptap/extension-table-row';
@@ -218,7 +218,7 @@ export function ComposePanel({ win }: Props) {
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] }, link: false, underline: false }),
-      Underline, Link.configure({ openOnClick: false }),
+      Underline, EnlaceRedactor,
       Image.configure({ inline: true, allowBase64: true, resize: OPCIONES_RESIZE }),
       Table.configure({ resizable: true }),
       TableRow,
@@ -1422,26 +1422,7 @@ export function ComposePanel({ win }: Props) {
           className="[&_.tiptap_h1]:text-[24px] [&_.tiptap_h1]:font-bold [&_.tiptap_h1]:mb-3 [&_.tiptap_h2]:text-[20px] [&_.tiptap_h2]:font-bold [&_.tiptap_h2]:mb-2 [&_.tiptap_h3]:text-[16px] [&_.tiptap_h3]:font-bold [&_.tiptap_h3]:mb-1 [&_.tiptap_ul]:list-disc [&_.tiptap_ul]:pl-6 [&_.tiptap_ol]:list-decimal [&_.tiptap_ol]:pl-6 [&_.tiptap_blockquote]:border-l-4 [&_.tiptap_blockquote]:border-[#e1dfdd] [&_.tiptap_blockquote]:pl-4 [&_.tiptap_blockquote]:italic [&_.tiptap_blockquote]:text-[#605e5c] [&_.tiptap_a]:text-[#0078d4] [&_.tiptap_a]:underline [&_.tiptap_pre]:bg-[#f3f2f1] [&_.tiptap_pre]:p-3 [&_.tiptap_pre]:rounded [&_.tiptap_pre]:font-mono [&_.tiptap_pre]:text-[13px] [&_.tiptap_hr]:border-[#edebe9] [&_.tiptap_hr]:my-3 [&_.tiptap_p]:mb-1 [&_.tiptap_img]:max-w-full [&_.tiptap_img]:h-auto [&_.tiptap_img]:rounded" />
 
         {/* Firma — renderizada fuera del editor para preservar HTML complejo */}
-        {signatureHtml && (
-          <div className="compose-signature" style={{ position: 'relative', padding: '0 24px', marginTop: 8, color: '#605e5c' }}>
-            <button
-              onClick={() => setSignatureHtml('')}
-              title="Quitar firma"
-              style={{ position: 'absolute', top: 0, right: 24, background: 'none', border: 'none', cursor: 'pointer', color: '#a19f9d', fontSize: 14, padding: '2px 6px', borderRadius: 3 }}
-              onMouseEnter={(e) => { e.currentTarget.style.color = '#323130'; e.currentTarget.style.background = '#f3f2f1'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.color = '#a19f9d'; e.currentTarget.style.background = 'none'; }}
-            >×</button>
-            <div
-              id="compose-signature-edit"
-              contentEditable
-              suppressContentEditableWarning
-              onBlur={(e) => setSignatureHtml(e.currentTarget.innerHTML)}
-              style={{ outline: 'none' }}
-              title="Puedes editar tu firma aqui"
-              dangerouslySetInnerHTML={{ __html: sanitizeSignatureHtml(signatureHtml) }}
-            />
-          </div>
-        )}
+        <FirmaRedaccion html={signatureHtml} onCambiar={setSignatureHtml} editor={editor} />
         {/* Contenido citado (reply/forward) — se muestra DESPUES de la firma */}
         {/* 07/11/2026: no se modifica (antifraude) pero se puede resaltar/subrayar (CitaMarcable.tsx) */}
         {quotedHtml && <CitaMarcable html={quotedHtml} onCambiar={setQuotedHtml} />}
