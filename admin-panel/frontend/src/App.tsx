@@ -49,6 +49,7 @@ import { SafeLinksConfig } from "./pages/SafeLinksConfig";
 import { Zap } from "./pages/Zap";
 import { SafeAttachments } from "./pages/SafeAttachments";
 import { SecurityPolicies } from "./pages/SecurityPolicies";
+import { RecuperacionServidores } from "./pages/RecuperacionServidores";
 import { PhishSim } from "./pages/PhishSim";
 import { ThreatDashboard } from "./pages/ThreatDashboard";
 import { Air } from "./pages/Air";
@@ -175,6 +176,7 @@ function App() {
             <Route path="zap" element={<Zap />} />
             <Route path="safeattach" element={<SafeAttachments />} />
             <Route path="anti-suplantacion" element={<SecurityPolicies />} />
+            <Route path="recuperacion-servidores" element={<RecuperacionServidores />} />
             <Route path="phishsim" element={<PhishSim />} />
             <Route path="threats" element={<ThreatDashboard />} />
             <Route path="air" element={<Air />} />

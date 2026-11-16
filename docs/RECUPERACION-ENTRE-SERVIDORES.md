@@ -42,7 +42,11 @@ que lo recibió, no del que lo pide:
 - **Por defecto no se retira.** B responde `{"estado":"leido_no_retirado","leido":true}`, el correo se queda en el
   buzón y A envía al destinatario el aviso de «enviado por error», igual que a un servidor no compatible. Un
   servidor A con una versión anterior no conoce ese estado y hace lo mismo: envía el aviso.
-- **Opción de cada instalación:** `RECALL_FEDERADO_RETIRAR_LEIDOS=true` lo permite para cualquier servidor;
+- **Desde el panel de administración:** Seguridad → «Recuperación entre servidores». Ahí se activa «retirar
+  correos ya leídos a pedido de cualquier servidor», se mantiene la lista de dominios de confianza y se ven las
+  últimas solicitudes recibidas. Solo guarda un superadministrador; el cambio queda en la auditoría del panel y
+  rige en la siguiente solicitud, **sin reiniciar nada**. Lo guardado en el panel manda sobre el `.env`.
+- **En el `.env` (mientras no se guarde nada desde el panel):** `RECALL_FEDERADO_RETIRAR_LEIDOS=true` lo permite para cualquier servidor;
   `RECALL_FEDERADO_DOMINIOS_CONFIANZA=socio.org,filial.org` lo permite solo cuando el correo viene de esos dominios
   (el dominio del `From`, que B ya autenticó y cuyo servidor confirmó la solicitud).
 - La comprobación previa («¿se puede recuperar?») no revela si el correo fue leído: eso solo se sabe al ejecutar

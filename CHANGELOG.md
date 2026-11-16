@@ -144,6 +144,14 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ### Añadido
 
+- **Panel: «Recuperación entre servidores» (16/11/2026)**. La política sobre los correos ya leídos se administra
+  desde el panel (Seguridad → «Recuperación entre servidores»), sin editar el `.env` ni reiniciar: opción «retirar
+  correos ya leídos a pedido de cualquier servidor», lista de dominios de confianza y tabla con las últimas
+  solicitudes recibidas de otros servidores. Guarda solo un superadministrador y queda en la auditoría del panel.
+  Lo guardado en el panel manda sobre el `.env`; mientras no se guarde nada, la pantalla muestra y rige lo del
+  `.env`. Migración nueva `migrations/2026-11-16-recuperacion-entre-servidores-politica.sql` (idempotente); tras
+  actualizar, reconstruir el panel (`npm ci && npm run build` en `admin-panel/frontend`) y reiniciar `maquita-admin`.
+
 - **Recuperación entre servidores: los correos ya leídos los decide el servidor del destinatario (16/11/2026)**.
   Acordado con otra instalación de la suite tras la prueba cruzada:
   - *Por defecto ya no se retira un correo leído cuando lo pide otro servidor*: se queda en el buzón, el servidor

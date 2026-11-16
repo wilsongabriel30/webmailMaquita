@@ -69,6 +69,7 @@ from app.office_config.router import router as office_config_router
 from app.voice_config.router import router as voice_config_router
 from app.dlp_config.router import router as dlp_config_router
 from app.security_policies.router import router as security_policies_router
+from app.recuperacion_servidores.router import router as recuperacion_servidores_router
 from app.secure_config.router import router as secure_config_router
 from app.safelinks_config.router import router as safelinks_config_router
 from app.phish_campaigns.router import router as phish_router
@@ -255,6 +256,7 @@ app.include_router(office_config_router)
 app.include_router(voice_config_router)
 app.include_router(dlp_config_router)
 app.include_router(security_policies_router)
+app.include_router(recuperacion_servidores_router)
 app.include_router(secure_config_router)
 app.include_router(safelinks_config_router)
 app.include_router(phish_router)
