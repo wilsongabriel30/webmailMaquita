@@ -7,6 +7,11 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- Panel: la ayuda «¿Cómo funciona esta sección?» se cierra con Esc, con la × o pulsando fuera, y deja de tapar los campos.
+- Panel › Recuperación entre servidores: «Agregar» valida cada dominio al momento; lo que no es un dominio no entra en la lista y se señala en rojo.
+- Redactor: «Vincular» y «Cambiar» el enlace usan un cuadro propio del programa en lugar de la ventana del navegador.
+
 ## [1.23.0] - 2026-11-16
 
 El redactor muestra a dónde lleva cada enlace y permite abrirlo antes de enviar.

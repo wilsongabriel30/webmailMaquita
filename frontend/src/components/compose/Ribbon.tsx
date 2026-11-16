@@ -10,7 +10,7 @@ import { useIADisponible } from '../asistente-lateral/iaDisponible';
 import { LargeBtn, MedBtn } from './BotonesCinta';
 import { MenuInsertar } from './MenuInsertar';
 import { EVENTO_ADJUNTAR_CORREO } from '../../lib/correosComoAdjunto';
-import { normalizarEnlace } from './enlaces';
+import { pedirEnlace } from './pedirEnlace';
 
 type Tab = 'message' | 'insert' | 'format' | 'options';
 
@@ -370,8 +370,7 @@ const FONTS = ['Calibri','Arial','Helvetica','Segoe UI','Verdana','Tahoma','Treb
 
 function doLink(editor: Editor) {
   if (editor.isActive('link')) { editor.chain().focus().unsetLink().run(); return; }
-  const url = normalizarEnlace(window.prompt('Dirección del enlace:') || '');
-  if (url) editor.chain().focus().setLink({ href: url }).run();
+  void pedirEnlace().then(url => { if (url) editor.chain().focus().setLink({ href: url }).run(); });
 }
 
 function mkImageHandler(editor: Editor) {
