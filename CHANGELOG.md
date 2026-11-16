@@ -49,6 +49,23 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
   - *Configuración → Integraciones*: «Crear clave» y «Crear» avisan qué falta en vez de no hacer nada.
   - *Textos*: tildes y trato de usted en Contactos, la nube y la invitación a la videollamada; el aviso de la escala
     dice «se guarda en su cuenta»; sin nombres de marcas en los rótulos de la nube y de Contactos.
+- **Correo, cinta y textos: segunda tanda de hallazgos de Andes (15/11/2026)**:
+  - *«Informar» y «Marcar como no deseado»*: antes de actuar se pregunta, diciendo que el remitente quedará
+    bloqueado y dónde se deshace; el aviso final nombra a quién se bloqueó. Igual en la cinta, el menú del correo
+    abierto, el clic derecho y la barra del lector. El «Marcar como spam» del aviso de publicidad llamaba a una
+    ruta que no existe; ahora funciona.
+  - *«Programar envío»*: la hora propuesta era la UTC tratada como local (5 horas adelantada en Ecuador). Mismo
+    defecto corregido en el mínimo de «Posponer › Personalizado» y en la fecha inicial del asistente de reuniones.
+  - *Ayuda*: «Comentarios» se dirige al correo de contacto de la instalación (y no se muestra si no hay ninguno);
+    «Obtener diagnósticos» muestra la versión instalada en lugar de «v1.0».
+  - *Selección*: Ctrl+clic (Cmd+clic) con un correo abierto suma ese correo y el pulsado a la selección.
+  - *Textos*: tildes, signos de apertura y trato de usted en firmas, cinta y lista; «puntuación» en lugar de
+    «score»; avisos de la aplicación en lugar de ventanas del navegador en las firmas.
+
+- **Nube en celular (15/11/2026, hallazgo de Andes)**: por debajo de 768 px el menú lateral se ocultaba sin
+  alternativa (sin «Nuevo», Papelera ni Compartido conmigo) y la cabecera se desbordaba. Ahora hay un botón de
+  menú con panel deslizante, un botón «Nuevo» flotante y la cabecera en dos filas, sin desplazamiento horizontal.
+
 - **Segunda tanda de hallazgos de Andes sobre la nube (15/11/2026)**:
   - *Papelera*: el menú del elemento ofrece «Restaurar» y «Eliminar definitivamente», vuelve a verse la franja con
     «Vaciar papelera» (se insertaba en un contenedor que no existe) y, tras restaurar o vaciar, la lista se recarga
