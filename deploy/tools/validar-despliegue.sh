@@ -214,6 +214,23 @@ if command -v dig >/dev/null 2>&1; then
   fi
 else warn "sin 'dig' — omito la comprobación de la federación"; fi
 
+# 16/11/2026 (Andes): con NoNewPrivileges=yes o sin CAP_SETUID/CAP_SETGID, «sudo» no corre dentro del servicio y
+# dejan de funcionar sin error visible la recuperación de correos, los borrados, las búsquedas de cumplimiento, la
+# cola y los bloqueos (todo lo que pasa por maquita-sudo). Lo traía una versión anterior del hardening.conf opcional.
+hdr "El backend puede usar sudo (recuperar correos, borrados, cumplimiento, cola)"
+if [ -e /etc/sudoers.d/maquita-sudo ] || grep -rqs 'maquita-sudo' /etc/sudoers.d/ 2>/dev/null; then
+  for SVC in maquita-webmail maquita-webmail-respaldo; do
+    systemctl cat "$SVC" >/dev/null 2>&1 || continue
+    NNP="$(systemctl show "$SVC" -p NoNewPrivileges --value 2>/dev/null)"
+    CAPS="$(systemctl show "$SVC" -p CapabilityBoundingSet --value 2>/dev/null | tr 'A-Z' 'a-z')"
+    if [ "$NNP" = "yes" ]; then
+      bad "$SVC tiene NoNewPrivileges=yes: sudo no funciona dentro del servicio. Reemplace el drop-in por deploy/hardening/systemd/maquita-webmail.service.d/hardening.conf y reinicie"
+    elif ! grep -qw cap_setuid <<<"$CAPS" || ! grep -qw cap_setgid <<<"$CAPS"; then
+      bad "$SVC no conserva CAP_SETUID y CAP_SETGID (CapabilityBoundingSet): sudo no funciona dentro del servicio. Ver deploy/hardening/systemd/maquita-webmail.service.d/hardening.conf"
+    else ok "$SVC puede ejecutar sudo (NoNewPrivileges=no, con CAP_SETUID y CAP_SETGID)"; fi
+  done
+else warn "sin regla de sudo para maquita-sudo en /etc/sudoers.d — omito"; fi
+
 # --- Hallazgos de Andes (03/10/2026): fallos que no dan error visible ---
 hdr "Filtro de spam, aprendizaje y permisos de la base"
 # 1) Sieve global: sin él, el spam marcado cae en la bandeja de entrada.
