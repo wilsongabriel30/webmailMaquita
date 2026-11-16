@@ -4,7 +4,7 @@
  */
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
-import { aplicarBusqueda, cambiarAmbito, TODO_EL_CORREO_DISPONIBLE } from '../../lib/busquedaGlobal';
+import { aplicarBusqueda, cambiarAmbito, useTodoElCorreo } from '../../lib/busquedaGlobal';
 import { QuisoDecir } from './QuisoDecir';
 
 interface Props { consulta: string; enTodo: boolean; carpeta: string; }
@@ -22,32 +22,33 @@ function primerNombre(): string {
 
 export function SinResultados({ consulta, enTodo, carpeta }: Props) {
   const nombre = primerNombre();
+  const hayTodoElCorreo = useTodoElCorreo();
   const saludo = nombre ? `Hola ${nombre}, ` : 'Hola, ';
   const tieneOperador = consulta.includes(':');
   return (
     <div className="max-w-[360px] text-center px-4">
       <p className="text-[13px] text-[#323130]">
-        {saludo}no encontramos ningún correo con «{consulta}»{enTodo ? ' en todo tu correo' : ` en ${carpeta}`}.
+        {saludo}no encontramos ningún correo con «{consulta}»{enTodo ? ' en todo su correo' : ` en ${carpeta}`}.
       </p>
       <QuisoDecir consulta={consulta} />
       <p className="text-[12px] text-[#605e5c] mt-2">Sugerencias para afinar la búsqueda:</p>
       <ul className="text-[12px] text-[#605e5c] text-left mt-1 space-y-1 list-disc pl-5">
-        {!enTodo && !TODO_EL_CORREO_DISPONIBLE && (
+        {!enTodo && !hayTodoElCorreo && (
           <li>Pruebe también en otras carpetas (Enviados, subcarpetas): la búsqueda mira solo la carpeta abierta.</li>
         )}
-        {!enTodo && TODO_EL_CORREO_DISPONIBLE && (
+        {!enTodo && hayTodoElCorreo && (
           <li>
             <button type="button" className="text-[#0078d4] hover:underline" onClick={() => cambiarAmbito(true)}>
               Buscar en todas las carpetas
             </button> (enviados, papelera y carpetas propias).
           </li>
         )}
-        <li>Revisa la ortografía o usa una palabra más corta (con 3 letras basta).</li>
+        <li>Revise la ortografía o use una palabra más corta (con 3 letras basta).</li>
         {!tieneOperador && (
-          <li>Acota con operadores: <code>de:nombre</code>, <code>asunto:palabra</code>, <code>despues:2026-01-01</code>, <code>semana</code>.</li>
+          <li>Acote con operadores: <code>de:nombre</code>, <code>asunto:palabra</code>, <code>despues:2026-01-01</code>, <code>semana</code>.</li>
         )}
-        <li>¿Buscas un archivo? Prueba <code>adjunto:factura</code> o <code>adjunto:.pdf</code>.</li>
-        <li>Puedes escribir varias palabras (un nombre y algo del asunto): se buscan por separado, también dentro del texto.</li>
+        <li>¿Busca un archivo? Pruebe <code>adjunto:factura</code> o <code>adjunto:.pdf</code>.</li>
+        <li>Puede escribir varias palabras (un nombre y algo del asunto): se buscan por separado, también dentro del texto.</li>
       </ul>
       <button type="button" onClick={() => aplicarBusqueda('')} className="text-[11px] mt-3 text-[#0078d4] hover:underline">
         Limpiar la búsqueda

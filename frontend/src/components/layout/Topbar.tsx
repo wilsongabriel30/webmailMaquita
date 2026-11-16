@@ -6,7 +6,7 @@ import { useThemeStore } from '../../store/themeStore';
 import { useNavigate } from 'react-router-dom';
 import { getFolderDisplayName } from '../../folders';
 import { SearchAdvanced } from "../common/SearchAdvanced";
-import { aplicarBusqueda, cambiarAmbito, TODO_EL_CORREO_DISPONIBLE } from "../../lib/busquedaGlobal";
+import { aplicarBusqueda, cambiarAmbito, useTodoElCorreo } from "../../lib/busquedaGlobal";
 import { useResponsive } from "../../hooks/useResponsive";
 import { useNombreApp } from "../../lib/marca";
 import OpcionDescargaApp from './OpcionDescargaApp';
@@ -32,6 +32,7 @@ export function Topbar() {
   const searchQuery = useMailStore(s => s.searchQuery);
   const setBuscarEnContenido = useMailStore(s => s.setBuscarEnContenido);
   const buscarEnTodo = useMailStore(s => s.buscarEnTodo);
+  const hayTodoElCorreo = useTodoElCorreo();   // sin buzón virtual en el servidor no se ofrece (15/11/2026)
   const folders = useMailStore(s => s.folders);
   const setCurrentFolder = useMailStore(s => s.setCurrentFolder);
   const { dark, toggle: toggleTheme } = useThemeStore();
@@ -172,8 +173,8 @@ export function Topbar() {
           onChange={aplicarBusqueda}
           onSearch={aplicarBusqueda}
           onBuscarEnContenido={setBuscarEnContenido}
-          enTodo={TODO_EL_CORREO_DISPONIBLE && buscarEnTodo}
-          onEnTodo={TODO_EL_CORREO_DISPONIBLE ? cambiarAmbito : undefined}
+          enTodo={hayTodoElCorreo && buscarEnTodo}
+          onEnTodo={hayTodoElCorreo ? cambiarAmbito : undefined}
           placeholder="Buscar en el correo (/ para enfocar)"
         />
       </div>

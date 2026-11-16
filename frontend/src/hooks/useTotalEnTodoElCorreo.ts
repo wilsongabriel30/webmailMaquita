@@ -9,6 +9,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { CARPETA_TODO } from '../lib/busquedaGlobal';
+import { anotarSiNoHayBuzonVirtual } from '../lib/buzonVirtual';
 import type { MessagesResponse } from '../types';
 
 const ESPERA_MS = 500;
@@ -30,7 +31,8 @@ export function useTotalEnTodoElCorreo(consulta: string, activo: boolean): numbe
           recordados.set(texto, r.total);
           if (vigente) setDato({ texto, total: r.total });
         })
-        .catch(() => { /* sin el dato, el aviso se queda como estaba */ });
+        // Sin el dato, el aviso se queda como estaba; si el buzón virtual no existe, no se vuelve a preguntar.
+        .catch((e) => { anotarSiNoHayBuzonVirtual(e); });
     }, ESPERA_MS);
     return () => { vigente = false; clearTimeout(reloj); };
   }, [texto, activo]);

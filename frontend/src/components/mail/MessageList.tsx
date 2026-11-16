@@ -25,7 +25,8 @@ import { usePriority } from '../../hooks/usePriority';
 import { getFolderDisplayName } from '../../folders';
 import { cargarEtiquetasDeMensajes, claveEtiquetas } from '../../lib/etiquetasDeMensajes';   // por carpeta real (05/11/2026)
 import { cargarCorreosDeEtiqueta } from '../../lib/correosPorEtiqueta';   // vista «Etiqueta: X» (05/11/2026)
-import { carpetaDeUid } from '../../lib/carpetaReal';
+import { carpetaDeUid, CARPETA_VIRTUAL } from '../../lib/carpetaReal';
+import { anotarSiNoHayBuzonVirtual } from '../../lib/buzonVirtual';
 import { copiasRepetidas } from '../../lib/copiasEnTodo';
 import { AvisoCopiasOcultas } from './AvisoCopiasOcultas';
 import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
@@ -441,6 +442,8 @@ export function MessageList() {
     }).catch(async (err) => {
       console.error(err);
       if (!vigente()) return;
+      // El servidor no tiene buzón virtual: se vuelve sola a la carpeta de antes (lib/busquedaGlobal.ts).
+      if (currentFolder === CARPETA_VIRTUAL && anotarSiNoHayBuzonVirtual(err)) return;
       if ((esLimiteDePeticiones(err) || /429|Too Many/i.test(String(err?.message || err))) && useMailStore.getState().loadingMore) {
         // Límite de peticiones del servidor: se espera y se vuelve a pedir la misma tanda.
         // eslint-disable-next-line react-hooks/immutability -- reintento diferido: fetch_ ya existe cuando corre el callback
@@ -1375,7 +1378,7 @@ export function MessageList() {
           <>
           <div className="flex flex-col items-center justify-center h-48 px-6 text-center">
             <div className="w-6 h-6 border-2 border-[#0078d4] border-t-transparent rounded-full animate-spin" />
-            <p className="text-[13px] font-semibold text-[#323130] mt-3">Buscando «{debouncedSearchQuery}»{currentFolder === 'Virtual.Todo' ? ' en todo tu correo' : ''}…</p>
+            <p className="text-[13px] font-semibold text-[#323130] mt-3">Buscando «{debouncedSearchQuery}»{currentFolder === 'Virtual.Todo' ? ' en todo su correo' : ''}…</p>
             <p className="text-[12px] text-[#605e5c] mt-1">Un momento, por favor. La primera búsqueda en un buzón grande puede tardar unos segundos; las siguientes son inmediatas.</p>
           </div>
           {currentFolder === 'Virtual.Todo' && <AdelantoCarpetaActual consulta={debouncedSearchQuery} />}

@@ -11,7 +11,7 @@ import { useEffect } from 'react';
 import { useMailStore } from '../../store/mailStore';
 import { getFolderDisplayName } from '../../folders';
 import {
-  CARPETA_TODO, TODO_EL_CORREO_DISPONIBLE, ampliadaDesde, ampliarPorFaltaDeResultados, cambiarAmbito, volverALaCarpeta,
+  CARPETA_TODO, ampliadaDesde, ampliarPorFaltaDeResultados, cambiarAmbito, useTodoElCorreo, volverALaCarpeta,
 } from '../../lib/busquedaGlobal';
 import { useTotalEnTodoElCorreo } from '../../hooks/useTotalEnTodoElCorreo';
 
@@ -34,11 +34,13 @@ export function AvisoBusquedaEnCarpeta() {
   const cargando = useMailStore(s => s.loadingMessages);
   const filtro = useMailStore(s => s.filter);
   const enCarpeta = currentFolder !== CARPETA_TODO;
+  // Sin buzón virtual en el servidor no se pregunta por «todas las carpetas» ni se ofrece (15/11/2026).
+  const hayTodoElCorreo = useTodoElCorreo();
   // Solo se pregunta cuando la carpeta ya respondió a ESTA búsqueda, no hay un filtro puesto y la carpeta
   // NO tiene ningún resultado. Preguntar en cada búsqueda (como se publicó el 13/11 por la mañana) lanzaba una
   // búsqueda en todo el correo por cada búsqueda normal: con el disco de buzones cargado tardaban 30 s de
   // mediana y se acumulaban. Buscar en todas las carpetas sigue a un clic.
-  const listo = TODO_EL_CORREO_DISPONIBLE && enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery && totalAqui === 0;
+  const listo = hayTodoElCorreo && enCarpeta && !cargando && filtro === 'all' && buscada.trim() !== '' && buscada === searchQuery && totalAqui === 0;
   const totalTodo = useTotalEnTodoElCorreo(buscada, listo);
   const enOtras = totalTodo === null ? null : Math.max(0, totalTodo - totalAqui);
 
@@ -73,7 +75,7 @@ export function AvisoBusquedaEnCarpeta() {
           ? <>Buscando en <strong>{carpeta}</strong>. Hay <strong>{enOtras.toLocaleString('es')}</strong> {enOtras === 1 ? 'resultado más' : 'resultados más'} en otras carpetas.</>
           : <>La búsqueda se realizará únicamente en la carpeta <strong>{carpeta}</strong>.</>}
       </span>
-      {TODO_EL_CORREO_DISPONIBLE && (
+      {hayTodoElCorreo && (
         <button type="button" onClick={() => cambiarAmbito(true)} className={BOTON}>
           {enOtras ? 'Ver todos' : 'Buscar en todas las carpetas'}
         </button>
