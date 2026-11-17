@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Buscador › «Buscar un correo»: nuevo apartado «¿Con quién fue el correo?». Se escribe el nombre o el correo de una persona y se elige qué ver: lo que se escribieron directamente (lo que le envió a usted y lo que usted le envió, sin las copias), solo lo que le envió a usted, solo lo que usted le envió, o todo donde aparece. Si hace falta mirar los enviados, la búsqueda pasa sola a «todas las carpetas».
+- Buscador: operadores `directo:`, `meenvio:`, `leenvie:` y `con:` para escribir lo mismo en la caja de búsqueda; «¿Quién iba en copia?» en «Más opciones».
+
+### Cambiado
+- Buscador › «Buscar un correo»: «¿Quién lo envió?» y «¿A quién se envió?» pasan a «Más opciones», con la aclaración de que traen también los correos recibidos en copia.
+
 ## [1.23.2] - 2026-11-16
 
 Correcciones del redactor (enlaces y firma) y de la tabla de solicitudes del panel.

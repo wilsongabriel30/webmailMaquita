@@ -4,7 +4,43 @@
 // útil para quien conoce los operadores, ruido para el resto. Aquí se dice lo mismo en palabras:
 // «Correos de «daniel», con «factura» en el asunto, de esta semana, con archivo adjunto».
 
+/** Qué parte de la correspondencia con una persona se quiere ver (busqueda_persona.py). */
+export type AlcancePersona = 'directo' | 'meenvio' | 'leenvie' | 'con';
+
+export const ALCANCES: { valor: AlcancePersona; titulo: string; detalle: string; frase: (n: string) => string }[] = [
+  {
+    valor: 'directo',
+    titulo: 'Lo que nos escribimos directamente',
+    detalle: 'Lo que le envió a usted y lo que usted le envió. Sin las copias.',
+    frase: (n) => `que «${n}» le envió a usted o que usted le envió (sin los que llegaron solo en copia)`,
+  },
+  {
+    valor: 'meenvio',
+    titulo: 'Solo lo que me envió a mí',
+    detalle: 'Usted como destinatario, no en copia.',
+    frase: (n) => `que «${n}» le envió directamente a usted`,
+  },
+  {
+    valor: 'leenvie',
+    titulo: 'Solo lo que yo le envié',
+    detalle: 'Esa persona como destinatario, no en copia.',
+    frase: (n) => `que usted le envió a «${n}»`,
+  },
+  {
+    valor: 'con',
+    titulo: 'Todo donde aparece',
+    detalle: 'También si uno de los dos iba solo en copia.',
+    frase: (n) => `en los que aparece «${n}», también en copia`,
+  },
+];
+
+/** ¿Hace falta mirar también la carpeta de enviados? (todo menos «solo lo que me envió»). */
+export function alcanceMiraEnviados(a: AlcancePersona): boolean {
+  return a !== 'meenvio';
+}
+
 export interface CamposBusqueda {
+  persona: string; alcance: AlcancePersona; copia: string;
   de: string; para: string; asunto: string; texto: string; dominio: string;
   desde: string; hasta: string; atajo: string;
   conAdjunto: boolean; adjuntoNombre: string; soloNoLeidos: boolean; soloMarcados: boolean;
@@ -35,8 +71,10 @@ function fechaLegible(iso: string): string {
 /** Frase que describe lo que se va a buscar; '' si no hay nada escrito. */
 export function resumirBusqueda(c: CamposBusqueda, incluyeReenviados = false): string {
   const p: string[] = [];
+  if (c.persona.trim()) p.push((ALCANCES.find((a) => a.valor === c.alcance) || ALCANCES[0]).frase(c.persona.trim()));
   if (c.de.trim()) p.push(`de «${c.de.trim()}»${incluyeReenviados ? ' (y los que otra persona le reenvió)' : ''}`);
   if (c.para.trim()) p.push(`enviados a «${c.para.trim()}»`);
+  if (c.copia.trim()) p.push(`con «${c.copia.trim()}» en copia`);
   if (c.dominio.trim()) p.push(`de o para alguien de «${c.dominio.trim().replace(/^@/, '')}»`);
   if (c.asunto.trim()) p.push(`con «${c.asunto.trim()}» en el asunto`);
   if (c.texto.trim()) p.push(c.enContenido ? `que contengan «${c.texto.trim()}»` : `con «${c.texto.trim()}» en el remitente, el destinatario o el asunto`);

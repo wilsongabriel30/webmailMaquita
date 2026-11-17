@@ -246,6 +246,8 @@ async def list_message_uids(
     # «adjunto:nombre» / «adjunto:.pdf»: IMAP no busca por nombre de archivo; se acota a
     # mensajes multipart y luego se filtra por BODYSTRUCTURE (busqueda_adjuntos).
     consulta_original = search_query
+    # «directo:», «meenvio:», «leenvie:» necesitan saber quién busca (busqueda_persona.py).
+    mis_direcciones = (username.split("*")[0],) if username else ()
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
     # También en el texto si la cuenta aún no está anotada pero la carpeta es pequeña (15/11/2026).
     con_indice = cuenta_indexada(username) or carpeta_abarcable(resp.lines)
@@ -255,6 +257,7 @@ async def list_message_uids(
             buscar_en_contenido=buscar_en_contenido,
             con_indice=con_indice,
             direcciones_nombre=direcciones_nombre,
+            mis_direcciones=mis_direcciones,
         )
     else:
         criteria = ["ALL"]
@@ -273,6 +276,7 @@ async def list_message_uids(
         con_indice,
         direcciones_nombre,
         clave=f"{username}|{folder}|{consulta_original}",
+        mis_direcciones=mis_direcciones,
     )
 
     # FQA-002: Try Redis cache for sorted UIDs (avoids 25s+ IMAP SORT on large folders)

@@ -13,6 +13,10 @@ const OPERATORS = [
   { op: 'is:flagged', desc: 'Con bandera', icon: '🚩' },
   { op: 'larger:', desc: 'Mayor a tamaño', icon: '📦' },
   { op: 'smaller:', desc: 'Menor a tamaño', icon: '📦' },
+  { op: 'directo:', desc: 'Lo que esa persona me envió a mí o yo le envié (sin copias)', icon: '👥' },
+  { op: 'meenvio:', desc: 'Solo lo que esa persona me envió a mí', icon: '👥' },
+  { op: 'leenvie:', desc: 'Solo lo que yo le envié a esa persona', icon: '👥' },
+  { op: 'con:', desc: 'Todo donde aparece esa persona, también en copia', icon: '👥' },
   { op: 'dominio:', desc: 'De o para un dominio', icon: '🌐' },
   { op: 'de-dominio:', desc: 'Solo remitentes de un dominio', icon: '🌐' },
   { op: 'entre:', desc: 'Rango de fechas (2026-01-01,2026-03-31)', icon: '📅' },
@@ -173,7 +177,10 @@ export function SearchAdvanced({ value, onChange, onSearch, onBuscarEnContenido,
       {panelAbierto && (
         <PanelBusquedaAvanzada
           onCerrar={() => setPanelAbierto(false)}
-          onBuscar={(consulta, enContenido) => {
+          enTodo={enTodo}
+          onBuscar={(consulta, enContenido, enTodasLasCarpetas) => {
+            // Lo que la persona envió está en Enviados: se pasa a «todas las carpetas» antes de buscar.
+            if (enTodasLasCarpetas && !enTodo) onEnTodo?.(true);
             onBuscarEnContenido?.(enContenido);
             onChange(consulta);
             onSearch(consulta);
