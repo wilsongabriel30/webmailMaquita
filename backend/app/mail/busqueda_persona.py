@@ -12,9 +12,14 @@ Operadores (el panel «Buscar un correo» los compone; también se pueden escrib
   meenvio:x    solo lo que x me envió a mí (yo en «Para», no en copia)
   leenvie:x    solo lo que yo le envié a x (x en «Para», no en copia)
 
-«A mí» y «yo» son las direcciones de la cuenta que busca. Si no se conocen, los tres últimos se
-quedan en remitente y destinatario, sin la condición de la otra parte. Todo va por cabecera, que
-es lo que el servidor tiene indexado: no hay que abrir ningún mensaje.
+«A mí» y «yo» son las direcciones de la cuenta que busca: la suya y sus alias personales (las
+otras direcciones que entregan solo en su buzón; las listas no cuentan). Si no se conocen, los
+tres últimos se quedan en remitente y destinatario, sin la condición de la otra parte.
+
+La persona se puede escribir con varias palabras («Mariana López»): tienen que estar todas en
+el mismo campo, en cualquier orden, así que también encuentra «López Paredes, Mariana».
+
+Todo va por cabecera, que es lo que el servidor tiene indexado: no hay que abrir ningún mensaje.
 """
 
 from __future__ import annotations
@@ -53,15 +58,23 @@ def _y(*criterios: str) -> str:
     return "(" + " ".join(c for c in criterios if c) + ")"
 
 
+def _persona(campo: str, valor: str, comillas: Callable[[str], str]) -> str:
+    """La persona en `campo`: todas sus palabras, en cualquier orden."""
+    palabras = [_campo(campo, (p,), comillas) for p in valor.split()]
+    palabras = [p for p in palabras if p]
+    if len(palabras) <= 1:
+        return palabras[0] if palabras else ""
+    return _y(*palabras)
+
+
 def con(valor: str, comillas: Callable[[str], str]) -> list[str]:
     """Todo donde aparece la persona: remitente, destinatario o copia."""
-    v = (valor,)
     return [
         "OR",
-        _campo("FROM", v, comillas),
+        _persona("FROM", valor, comillas),
         "OR",
-        _campo("TO", v, comillas),
-        _campo("CC", v, comillas),
+        _persona("TO", valor, comillas),
+        _persona("CC", valor, comillas),
     ]
 
 
@@ -69,14 +82,14 @@ def me_envio(
     valor: str, mias: Iterable[str], comillas: Callable[[str], str]
 ) -> list[str]:
     """La persona lo envió y yo estoy en «Para»."""
-    return [_y(_campo("FROM", (valor,), comillas), _campo("TO", mias, comillas, False))]
+    return [_y(_persona("FROM", valor, comillas), _campo("TO", mias, comillas, False))]
 
 
 def le_envie(
     valor: str, mias: Iterable[str], comillas: Callable[[str], str]
 ) -> list[str]:
     """Yo lo envié y la persona está en «Para»."""
-    return [_y(_campo("FROM", mias, comillas, False), _campo("TO", (valor,), comillas))]
+    return [_y(_campo("FROM", mias, comillas, False), _persona("TO", valor, comillas))]
 
 
 def directo(
@@ -93,6 +106,16 @@ OPERADORES = {
     "sentme:": me_envio,
     "isent:": le_envie,
 }
+
+
+def usa_operador(consulta: str) -> bool:
+    """¿La consulta necesita saber quién busca? (para no consultar los alias en cada búsqueda)."""
+    bajo = (consulta or "").lower()
+    return any(
+        op in bajo
+        for op in ("directo:", "meenvio:", "meenvió:", "leenvie:", "leenvié:")
+        + ("direct:", "sentme:", "isent:")
+    )
 
 
 def criterio(

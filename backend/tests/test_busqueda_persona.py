@@ -67,6 +67,30 @@ def test_las_comillas_de_lo_escrito_no_rompen_el_criterio():
     assert "ALL" not in t
 
 
+def test_varias_palabras_valen_en_cualquier_orden(sin_tildes):
+    # «Mariana López» también encuentra «López Paredes, Mariana»: cada palabra por separado.
+    assert _texto('meenvio:"mariana lopez"') == (
+        '((FROM "mariana" FROM "lopez") TO "yo@example.org")'
+    )
+    assert _texto('con:"mariana lopez"').count('"mariana lopez"') == 0
+
+
+def test_lo_enviado_a_un_alias_propio_tambien_es_a_mi(sin_tildes):
+    t = _texto("directo:mariana", mias=("yo@example.org", "soporte@example.org"))
+    assert t == (
+        'OR (FROM "mariana" (OR TO "yo@example.org" TO "soporte@example.org")) '
+        '((OR FROM "yo@example.org" FROM "soporte@example.org") TO "mariana")'
+    )
+
+
+def test_solo_se_piden_los_alias_cuando_la_busqueda_los_usa():
+    from app.mail import busqueda_persona
+
+    assert busqueda_persona.usa_operador("directo:mariana factura")
+    assert busqueda_persona.usa_operador("LEENVIE:ana")
+    assert not busqueda_persona.usa_operador("con:mariana de:ana factura")
+
+
 def test_operador_sin_valor_no_anade_nada():
     assert _texto("directo:") == "ALL"
 

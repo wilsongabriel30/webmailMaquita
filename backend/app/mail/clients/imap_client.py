@@ -222,6 +222,7 @@ async def list_message_uids(
     direcciones_nombre: tuple | list = (),
     ttl_cache: int = 300,
     por_niveles: bool = False,
+    alias_propios: tuple | list = (),
 ) -> dict:
     """List message UIDs with pagination (newest first).
 
@@ -247,7 +248,10 @@ async def list_message_uids(
     # mensajes multipart y luego se filtra por BODYSTRUCTURE (busqueda_adjuntos).
     consulta_original = search_query
     # «directo:», «meenvio:», «leenvie:» necesitan saber quién busca (busqueda_persona.py).
-    mis_direcciones = (username.split("*")[0],) if username else ()
+    # La cuenta y sus alias personales: lo enviado a un alias también es «a mí».
+    mis_direcciones = (
+        (username.split("*")[0], *alias_propios) if username else tuple(alias_propios)
+    )
     search_query, patrones_adjunto = extraer_patrones(search_query or "")
     # También en el texto si la cuenta aún no está anotada pero la carpeta es pequeña (15/11/2026).
     con_indice = cuenta_indexada(username) or carpeta_abarcable(resp.lines)

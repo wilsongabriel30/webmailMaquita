@@ -30,6 +30,7 @@ async def list_messages(
     redis_adjuntos=None,
     ttl_cache: int = 300,
     por_niveles: bool = False,
+    alias_propios: tuple | list = (),
 ) -> dict:
     """List messages with snippets, newest first.
 
@@ -49,6 +50,7 @@ async def list_messages(
         direcciones_nombre=direcciones_nombre,
         ttl_cache=ttl_cache,
         por_niveles=por_niveles,
+        alias_propios=alias_propios,
     )
     exactos = uid_result.get("exactos")
 
