@@ -1040,3 +1040,5 @@ import api_encuestas_listas  # noqa: E402,F401
 import api_encuestas_versiones  # noqa: E402,F401
 # Importar un Excel de ODK o Kobo (XLSForm) en el editor (10/11/2026).
 import api_encuestas_importar_xlsform  # noqa: E402,F401
+# Una sola persona edita a la vez (17/11/2026).
+import api_encuestas_edicion  # noqa: E402,F401

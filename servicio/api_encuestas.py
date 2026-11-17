@@ -236,10 +236,12 @@ def cargar():
     if fallo:
         return fallo
     usuario, ruta, definicion = datos
+    import encuestas_edicion          # «base»: versión sobre la que se edita (17/11/2026)
+    base = encuestas_edicion.base(definicion)
     definicion = _limpiar_definicion(definicion)
     fila = _sincronizar_bd(usuario, ruta, definicion)
     return jsonify({'success': True, 'formulario': definicion,
-                    'estado': _resumen(fila, definicion),
+                    'estado': _resumen(fila, definicion), 'base': base,
                     'nombre': ruta.rsplit('/', 1)[-1]})
 
 
@@ -251,6 +253,14 @@ def guardar():
         return fallo
     usuario, ruta, previa = datos
     cuerpo = request.get_json(silent=True) or {}
+    # Una sola persona edita a la vez y nunca se pisa una versión que cambió (17/11/2026).
+    import encuestas_edicion
+    if previa.get('id'):
+        choque = encuestas_edicion.comprobar_guardado(
+            previa['id'], usuario_actual(), cuerpo.get('sesion'), cuerpo.get('base'), previa)
+        if choque:
+            log.warning('guardado rechazado %s: %s', ruta, choque[1].get('conflicto'))
+            return jsonify(dict({'success': False, 'error': choque[0]}, **choque[1])), 409
     try:
         definicion = _limpiar_definicion(cuerpo.get('formulario'),
                                          id_previo=previa.get('id'))
@@ -296,7 +306,11 @@ def guardar():
     nombres = {e['id']: e['nombre'] for e in definicion['elementos'] if e.get('nombre')}
     for e in definicion['elementos']:           # subpreguntas de las repeticiones
         nombres.update({c['id']: c['nombre'] for c in e.get('campos') or [] if c.get('nombre')})
-    return jsonify({'success': True, 'estado': _resumen(fila, definicion), 'nombres': nombres})
+    try:
+        base = encuestas_edicion.base(leer_definicion(usuario, ruta))
+    except Exception:
+        base = None
+    return jsonify({'success': True, 'estado': _resumen(fila, definicion), 'nombres': nombres, 'base': base})
 
 
 @bp_encuestas.route('/encuestas/publicar', methods=['POST'])
