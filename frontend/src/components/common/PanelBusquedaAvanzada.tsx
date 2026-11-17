@@ -13,20 +13,33 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../../api/client';
-import { ATAJOS_FECHA, TAMANOS, resumirBusqueda, type CamposBusqueda } from '../../lib/resumenBusqueda';
+import { ATAJOS_FECHA, TAMANOS, alcanceMiraEnviados, resumirBusqueda, type CamposBusqueda } from '../../lib/resumenBusqueda';
+import { PersonaBusqueda } from './PersonaBusqueda';
 
 interface Props {
-  /** Se llama con la consulta compuesta, lista para buscar. */
-  onBuscar: (consulta: string, buscarEnContenido: boolean) => void;
+  /**
+   * Se llama con la consulta compuesta, lista para buscar. `enTodasLasCarpetas` va en true cuando
+   * lo pedido incluye correos que la persona envió: están en Enviados, no en la carpeta abierta.
+   */
+  onBuscar: (consulta: string, buscarEnContenido: boolean, enTodasLasCarpetas: boolean) => void;
   onCerrar: () => void;
+  /** ¿Está el buscador en «todas las carpetas»? Si no, se avisa de que se cambiará para esta búsqueda. */
+  enTodo?: boolean;
+}
+
+/** Un valor con espacios va entre comillas para que el servidor lo tome entero («maria jose»). */
+function entero(valor: string): string {
+  const v = valor.trim().replace(/"/g, '');
+  return /\s/.test(v) ? `"${v}"` : v;
 }
 
 const VACIO: CamposBusqueda = {
+  persona: '', alcance: 'directo', copia: '',
   de: '', para: '', asunto: '', texto: '', dominio: '', desde: '', hasta: '', atajo: '',
   conAdjunto: false, adjuntoNombre: '', soloNoLeidos: false, soloMarcados: false, tamMin: '', enContenido: false,
 };
 
-export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
+export function PanelBusquedaAvanzada({ onBuscar, onCerrar, enTodo = true }: Props) {
   const [c, setC] = useState<CamposBusqueda>(VACIO);
   const [masOpciones, setMasOpciones] = useState(false);
   const [conIndice, setConIndice] = useState(false);
@@ -47,8 +60,10 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
 
   function componer(): string {
     const partes: string[] = [];
+    if (c.persona.trim()) partes.push(`${c.alcance}:${entero(c.persona)}`);
     if (c.de.trim()) partes.push(`de:${c.de.trim()}`);
     if (c.para.trim()) partes.push(`para:${c.para.trim()}`);
+    if (c.copia.trim()) partes.push(`copia:${entero(c.copia)}`);
     if (c.asunto.trim()) partes.push(`asunto:${c.asunto.trim()}`);
     if (c.dominio.trim()) partes.push(`dominio:${c.dominio.trim().replace(/^@/, '')}`);
     // Un rango explícito manda sobre el atajo: si alguien escribió las fechas, es lo que quiere.
@@ -72,9 +87,12 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
   const frase = resumirBusqueda(c, conIndice);
   const acotadaATresMeses = c.enContenido && !conIndice && !c.desde && !c.hasta && !c.atajo;
 
+  // Lo que la persona envió está en Enviados: si se pide, la búsqueda tiene que ir a todas las carpetas.
+  const pideEnviados = !!c.persona.trim() && alcanceMiraEnviados(c.alcance);
+
   function buscar() {
     if (!consulta) return;
-    onBuscar(consulta, c.enContenido);
+    onBuscar(consulta, c.enContenido, pideEnviados);
     onCerrar();
   }
 
@@ -92,18 +110,15 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
         <div className="text-[12px] text-[#605e5c]">Llene solo lo que recuerde; no hace falta completar todo.</div>
       </div>
 
+      <PersonaBusqueda persona={c.persona} alcance={c.alcance} claseCampo={campo} claseRotulo={rotulo}
+        onPersona={(v) => poner({ persona: v })} onAlcance={(v) => poner({ alcance: v })} />
+      {pideEnviados && !enTodo && (
+        <span className="block -mt-1 mb-3 text-[11px] text-[#8a6d3b] bg-[#fff4ce] rounded px-2 py-1">
+          Para incluir lo que usted envió, esta búsqueda se hará en todas las carpetas.
+        </span>
+      )}
+
       <div className="grid grid-cols-2 gap-3 max-[520px]:grid-cols-1">
-        <div>
-          <label className={rotulo} htmlFor="ba-de">¿Quién lo envió?</label>
-          <input id="ba-de" className={campo} value={c.de} onChange={(e) => poner({ de: e.target.value })}
-            placeholder="Nombre o correo. Ej.: Daniel" autoFocus />
-          {conIndice && <span className={ayuda}>También salen los correos suyos que otra persona le reenvió.</span>}
-        </div>
-        <div>
-          <label className={rotulo} htmlFor="ba-para">¿A quién se envió?</label>
-          <input id="ba-para" className={campo} value={c.para} onChange={(e) => poner({ para: e.target.value })}
-            placeholder="Nombre o correo" />
-        </div>
         <div className="col-span-2 max-[520px]:col-span-1">
           <label className={rotulo} htmlFor="ba-asunto">¿Qué decía el asunto?</label>
           <input id="ba-asunto" className={campo} value={c.asunto} onChange={(e) => poner({ asunto: e.target.value })}
@@ -175,10 +190,29 @@ export function PanelBusquedaAvanzada({ onBuscar, onCerrar }: Props) {
 
       <button type="button" onClick={() => setMasOpciones(!masOpciones)} aria-expanded={masOpciones}
         className="mt-3 text-[12px] text-[#0078d4] hover:underline">
-        {masOpciones ? '▾ Menos opciones' : '▸ Más opciones (empresa, nombre del archivo, tamaño)'}
+        {masOpciones ? '▾ Menos opciones' : '▸ Más opciones (remitente, destinatario, copia, empresa, archivo, tamaño)'}
       </button>
       {masOpciones && (
         <div className="mt-2 grid grid-cols-2 gap-3 max-[520px]:grid-cols-1">
+          <div>
+            <label className={rotulo} htmlFor="ba-de">¿Quién lo envió?</label>
+            <input id="ba-de" className={campo} value={c.de} onChange={(e) => poner({ de: e.target.value })}
+              placeholder="Nombre o correo. Ej.: Daniel" />
+            <span className={ayuda}>
+              Cualquier correo suyo, aunque usted solo fuera en copia.
+              {conIndice ? ' También los que otra persona le reenvió.' : ''}
+            </span>
+          </div>
+          <div>
+            <label className={rotulo} htmlFor="ba-para">¿A quién se envió?</label>
+            <input id="ba-para" className={campo} value={c.para} onChange={(e) => poner({ para: e.target.value })}
+              placeholder="Nombre o correo" />
+          </div>
+          <div className="col-span-2 max-[520px]:col-span-1">
+            <label className={rotulo} htmlFor="ba-copia">¿Quién iba en copia?</label>
+            <input id="ba-copia" className={campo} value={c.copia} onChange={(e) => poner({ copia: e.target.value })}
+              placeholder="Nombre o correo de alguien que recibió copia" />
+          </div>
           <div className="col-span-2 max-[520px]:col-span-1">
             <label className={rotulo} htmlFor="ba-dominio">¿De qué empresa o institución?</label>
             <input id="ba-dominio" className={campo} value={c.dominio} onChange={(e) => poner({ dominio: e.target.value })}

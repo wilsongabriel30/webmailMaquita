@@ -8,7 +8,7 @@ Soporta: from:, to:, subject:, has:attachment, before:, after:, is:unread, is:fl
 import re
 from datetime import datetime, timedelta
 
-from app.mail import busqueda_palabras, busqueda_reenviados
+from app.mail import busqueda_palabras, busqueda_persona, busqueda_reenviados
 
 # Atajos de fecha: lo que uno recuerda de un correo suele ser «era de esta semana».
 _ATAJOS_FECHA = {
@@ -43,6 +43,7 @@ def parse_search_query(
     direcciones_nombre: tuple | list = (),
     solo_encabezados: bool = False,
     detalle: dict | None = None,
+    mis_direcciones: tuple | list = (),
 ) -> list[str]:
     """
     Parse a search query with operators into IMAP SEARCH criteria.
@@ -102,6 +103,13 @@ def parse_search_query(
         "de-dominio:": "fromdomain:",
         "entre:": "between:",
         "reenviado:": "forwarded:",
+        # Correspondencia con una persona (busqueda_persona.py, 17/11/2026).
+        "con:": "with:",
+        "directo:": "direct:",
+        "meenvio:": "sentme:",
+        "meenvió:": "sentme:",
+        "leenvie:": "isent:",
+        "leenvié:": "isent:",
     }
     _ES_EXACT = {
         "tiene:adjunto": "has:attachment",
@@ -131,9 +139,12 @@ def parse_search_query(
         for k, v in quotes.items():
             token = token.replace(k, v)
 
+        persona = busqueda_persona.criterio(token, mis_direcciones, _entrecomillar)
+        if persona is not None:
+            criteria.extend(persona)
         # Acotar por dominio: es cabecera, sale al instante y es lo que uno recuerda cuando
         # no sabe el remitente exacto («era alguien de Andes»).
-        if token.lower().startswith("domain:"):
+        elif token.lower().startswith("domain:"):
             dom = token[7:].strip('"').lstrip("@")
             if dom:
                 criteria.extend(

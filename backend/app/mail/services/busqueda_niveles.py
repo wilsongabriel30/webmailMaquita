@@ -82,6 +82,7 @@ def plan(
     con_indice: bool,
     direcciones: tuple | list = (),
     clave: str = "",
+    mis_direcciones: tuple | list = (),
 ) -> Plan | None:
     """El plan de niveles de una consulta, o `None` si debe quedarse como está.
 
@@ -104,6 +105,7 @@ def plan(
         direcciones_nombre=direcciones,
         solo_encabezados=True,
         detalle=detalle,
+        mis_direcciones=mis_direcciones,
     )
     terminos = busqueda_palabras.terminos(detalle.get("libres") or [])
     exactos = tuple(t for t in terminos if busqueda_exacta.es_exacto(t))
@@ -297,10 +299,20 @@ class Niveles:
         con_indice: bool,
         direcciones: tuple | list = (),
         clave: str = "",
+        mis_direcciones: tuple | list = (),
     ) -> Niveles:
         if not pedido or not consulta:
             return cls()
-        return cls(plan(consulta, buscar_en_contenido, con_indice, direcciones, clave))
+        return cls(
+            plan(
+                consulta,
+                buscar_en_contenido,
+                con_indice,
+                direcciones,
+                clave,
+                mis_direcciones,
+            )
+        )
 
     @property
     def prefijo(self) -> str:

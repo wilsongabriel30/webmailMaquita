@@ -10,7 +10,7 @@ from fastapi.responses import Response
 
 from app.auth.dependencies import get_current_user
 from app.core.session import get_imap_login_user, get_user_password
-from app.mail import telemetria_busqueda
+from app.mail import busqueda_persona, telemetria_busqueda
 from app.mail.clients.imap_client import (
     fetch_raw_message,
     get_imap_connection,
@@ -23,6 +23,7 @@ from app.mail.clients.imap_pool import es_conexion_caida, get_pooled_imap
 from app.mail.nombre_carpeta import nombre_valido
 from app.mail.schemas.messages import BulkActionRequest, FlagRequest, MoveRequest
 from app.mail.services import etiquetas_reubicar, reacciones, tope_listado
+from app.mail.services.alias_propios import alias_de
 from app.mail.services.cache_uids import invalidar_uids
 from app.mail.services.message_service import get_message, list_messages
 from app.rag import eliminar as rag_eliminar
@@ -178,6 +179,13 @@ async def get_messages(
             if search.strip() and not is_unread and not is_flagged
             else None
         )
+        # «directo:», «meenvio:» y «leenvie:»: lo enviado a un alias de la cuenta también es
+        # «a mí» (busqueda_persona.py). Solo se consultan los alias si la búsqueda los usa.
+        alias_propios = (
+            await alias_de(request.app.state.db_pool, username.split("*")[0])
+            if busqueda_persona.usa_operador(search_query)
+            else []
+        )
 
         async def _listar(con):
             return await list_messages(
@@ -189,6 +197,7 @@ async def get_messages(
                 username=username,
                 buscar_en_contenido=buscar_en_contenido,
                 direcciones_nombre=direcciones,
+                alias_propios=tuple(alias_propios),
                 # Solo para la caché de adjuntos (07/11/2026); la lista de UIDs sigue sin caché aquí.
                 redis_adjuntos=getattr(request.app.state, "redis", None),
                 # Salvo al BUSCAR con texto (13/11/2026): al bajar por los resultados la interfaz
