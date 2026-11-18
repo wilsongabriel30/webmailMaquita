@@ -7,6 +7,13 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Corregido
+- Bandeja de salida: un correo guardado en el equipo cuyo contenido ya no se puede leer dejaba de enviarse sin explicación y el servidor lo rechazaba en cada intento. Ahora no se envía, se marca con el motivo y se indica dónde está la copia (Borradores).
+- Bandeja de salida: cuando el servidor rechaza un correo de la cola aparece un aviso fijo con el asunto y la causa, con acceso directo a la bandeja; antes fallaba en silencio.
+
+### Añadido
+- Bandeja de salida: botón «Editar y reenviar», que abre el correo en el redactor con su texto y sus adjuntos y lo saca de la cola.
+
 ### Cambiado
 - Servidor: cuando una solicitud se rechaza por datos inválidos (por ejemplo, un correo que no llega a enviarse), el registro anota qué campo falló y por qué, sin guardar su contenido. La respuesta a la persona no cambia.
 

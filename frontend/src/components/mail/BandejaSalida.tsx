@@ -17,9 +17,12 @@ import { reintentarEnvio, syncOutbox, hayConexion, causaSinConexion, TEXTO_ESTAD
 import { esDeLaSesion } from '../../lib/sesionActual';
 import { esClienteEscritorio } from '../../lib/clienteEscritorio';
 import { showToast } from '../common/Toast';
+import { esIlegible, aRedaccion, archivosDe, avisoDeRechazo, TEXTO_ILEGIBLE } from '../../lib/colaSalidaLegible';
+import { reabrirRedaccion } from '../compose/reabrirRedaccion';
 
 const ABRIR = 'abrir-bandeja-salida';
 const CAMBIO = 'outbox-cambio';   // lo emite syncQueue al cambiar la cola
+const RECHAZO = 'outbox-rechazado';   // lo emite syncQueue cuando un correo de la cola no puede salir
 
 function useBandeja(activo: boolean) {
   const [lista, setLista] = useState<OutboxEmail[]>([]);
@@ -49,7 +52,7 @@ export function EntradaBandejaSalida() {
   const enCola = lista.length - fallidos;
   return (
     <button type="button" onClick={() => window.dispatchEvent(new CustomEvent(ABRIR))}
-      title="Correos escritos sin conexión que saldrán al volver la red"
+      title={fallidos > 0 ? 'Hay correos que no se pudieron enviar: ábralos para corregirlos' : 'Correos escritos sin conexión que saldrán al volver la red'}
       className="w-full flex items-center gap-1.5 px-2 py-[4px] rounded text-[13px] text-[#323130] hover:bg-[#edebe9] dark:text-[#e0e0e0] dark:hover:bg-[#333]">
       <span className="w-[12px] shrink-0" />
       <svg className="w-[15px] h-[15px] shrink-0 text-[#605e5c]" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24" aria-hidden="true">
@@ -72,6 +75,15 @@ export function PanelBandejaSalida() {
     window.addEventListener(ABRIR, abrir);
     return () => window.removeEventListener(ABRIR, abrir);
   }, []);
+  // Un rechazo ya no pasa en silencio: aviso fijo con acceso directo a la bandeja (18/11/2026).
+  useEffect(() => {
+    const rechazo = (ev: Event) => {
+      const d = (ev as CustomEvent<{ asunto?: string; mensaje?: string }>).detail || {};
+      showToast(avisoDeRechazo(d.asunto, d.mensaje), { label: 'Ver', onClick: () => setAbierto(true) }, { fijo: true, clave: 'outbox-rechazado' });
+    };
+    window.addEventListener(RECHAZO, rechazo);
+    return () => window.removeEventListener(RECHAZO, rechazo);
+  }, []);
   useEffect(() => {
     if (!abierto) return;
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') setAbierto(false); };
@@ -88,6 +100,14 @@ export function PanelBandejaSalida() {
     if (!hayConexion()) { showToast('Sin conexión: ' + causaSinConexion()); return; }
     showToast('Reintentando…');
     await reintentarEnvio(e.id);
+  };
+  /** Abre el correo en el redactor, con su texto y sus adjuntos, y lo saca de la cola. */
+  const editar = async (e: OutboxEmail) => {
+    reabrirRedaccion('new', aRedaccion(e), archivosDe(e));
+    await removeFromOutbox(e.id);
+    window.dispatchEvent(new CustomEvent(CAMBIO));
+    setAbierto(false);
+    showToast('El correo se abrió para corregirlo. Al terminar, pulse «Enviar».');
   };
   const descartar = async (e: OutboxEmail) => {
     if (!window.confirm(`¿Descartar «${e.subject || '(sin asunto)'}»? No se enviará y se borrará de la cola.`)) return;
@@ -113,7 +133,7 @@ export function PanelBandejaSalida() {
               No hay correos en cola. Lo que escriba sin conexión aparecerá aquí y saldrá solo al volver la red.
             </p>
           )}
-          {lista.map((e) => (
+          {lista.map((e) => { const ilegible = esIlegible(e); return (
             <div key={e.id} className="px-5 py-3 border-b border-[#f3f2f1] dark:border-[#333]">
               <div className="flex items-baseline gap-2">
                 <span className="text-[14px] font-semibold text-[#323130] truncate dark:text-[#e0e0e0]">{e.subject || '(sin asunto)'}</span>
@@ -122,20 +142,23 @@ export function PanelBandejaSalida() {
                 {(e.status === 'pending' || e.status === 'retenido') && <span className="shrink-0 text-[11px] text-[#005a9e]">{TEXTO_ESTADO[e.status]}</span>}
               </div>
               <div className="text-[12px] text-[#605e5c] truncate">Para: {(e.to || []).join(', ') || '—'}</div>
-              {e.status === 'failed' && e.error && <div className="text-[12px] text-[#a4262c] mt-0.5">{e.error}</div>}
+              {ilegible
+                ? <div className="text-[12px] text-[#a4262c] mt-0.5">{TEXTO_ILEGIBLE}</div>
+                : e.status === 'failed' && e.error && <div className="text-[12px] text-[#a4262c] mt-0.5">{e.error}</div>}
               <div className="mt-1.5 flex flex-wrap items-center gap-2">
                 <span className="text-[11px] text-[#605e5c]">{new Date(e.createdAt).toLocaleString('es-EC', { dateStyle: 'medium', timeStyle: 'short' })}</span>
                 <span className="flex gap-2 ml-auto">
-                  {e.status === 'failed' && <button type="button" className={boton} onClick={() => reintentar(e)}>Reintentar</button>}
-                  {(e.status === 'pending' || e.status === 'retenido') && <button type="button" className={boton} onClick={() => enviarAhora(e)}>Enviar ahora</button>}
+                  {!ilegible && e.status !== 'sending' && <button type="button" className={boton} onClick={() => editar(e)}>Editar y reenviar</button>}
+                  {!ilegible && e.status === 'failed' && <button type="button" className={boton} onClick={() => reintentar(e)}>Reintentar</button>}
+                  {!ilegible && (e.status === 'pending' || e.status === 'retenido') && <button type="button" className={boton} onClick={() => enviarAhora(e)}>Enviar ahora</button>}
                   {e.status !== 'sending' && <button type="button" className={`${boton} !text-[#a4262c]`} onClick={() => descartar(e)}>Descartar</button>}
                 </span>
               </div>
             </div>
-          ))}
+          ); })}
         </div>
         <p className="px-5 py-2.5 text-[11px] text-[#605e5c] border-t border-[#edebe9] dark:border-[#3a3a3a]">
-          Los correos en cola salen solos al volver la conexión. «Enviar ahora» lo intenta de inmediato; «Descartar» lo borra sin enviarlo.
+          Los correos en cola salen solos al volver la conexión. «Enviar ahora» lo intenta de inmediato; «Editar y reenviar» lo abre para corregirlo; «Descartar» lo borra sin enviarlo.
         </p>
       </div>
     </div>
