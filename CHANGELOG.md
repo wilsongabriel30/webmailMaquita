@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- Servidor: cuando una solicitud se rechaza por datos inválidos (por ejemplo, un correo que no llega a enviarse), el registro anota qué campo falló y por qué, sin guardar su contenido. La respuesta a la persona no cambia.
+
 ### Añadido
 - Buscador › «Buscar un correo»: nuevo apartado «¿Con quién fue el correo?». Se escribe el nombre o el correo de una persona y se elige qué ver: lo que se escribieron directamente (lo que le envió a usted y lo que usted le envió, sin las copias), solo lo que le envió a usted, solo lo que usted le envió, o todo donde aparece. El nombre puede llevar varias palabras en cualquier orden («Mariana López» encuentra también «López, Mariana»), y lo enviado a un alias personal de la cuenta cuenta como enviado a usted. Si hace falta mirar los enviados, la búsqueda pasa sola a «todas las carpetas».
 - Buscador: operadores `directo:`, `meenvio:`, `leenvie:` y `con:` para escribir lo mismo en la caja de búsqueda; «¿Quién iba en copia?» en «Más opciones».

@@ -41,6 +41,7 @@ from app.compliance.router import router as compliance_router
 from app.config import get_settings
 from app.contacts.routers import router as contacts_router
 from app.copiloto.router import router as copiloto_router
+from app.core import rechazo_validacion
 from app.core.logging import RequestIdMiddleware, setup_logging
 from app.cuenta.router import router as cuenta_router
 from app.database import create_db_pool, create_read_pool
@@ -651,6 +652,8 @@ async def global_exception_handler(request, exc):
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request, exc):
     """Return 400 with generic message instead of 422 with detailed validation errors."""
+    # Al cliente, texto genérico; al registro, qué campo falló (sin valores): core/rechazo_validacion.py.
+    rechazo_validacion.anotar(request, exc)
     return JSONResponse(
         status_code=400,
         content={
