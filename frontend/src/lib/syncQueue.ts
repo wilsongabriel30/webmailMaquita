@@ -6,6 +6,12 @@ import { enviarUnaVez, renovarIdentificador } from './envioUnico';
 import { getPendingActions, removeActions, getOutboxEmails, updateOutboxStatus, removeFromOutbox, rescatarRetenidos } from "./offlineStore";
 import type { OfflineAction } from "./offlineStore";
 import { esDeLaSesion } from "./sesionActual";
+import { esIlegible, TEXTO_ILEGIBLE } from "./colaSalidaLegible";
+
+/** La cola avisa por evento: quien pinta (BandejaSalida.tsx) decide cómo mostrarlo. */
+function avisarRechazo(asunto: string | undefined, mensaje: string): void {
+  window.dispatchEvent(new CustomEvent('outbox-rechazado', { detail: { asunto: asunto || '', mensaje } }));
+}
 
 let isSyncing = false;
 
@@ -71,6 +77,14 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
     // T-73: solo lo escrito con esta misma sesión; lo de otra persona espera a que ella vuelva.
     const pending = emails.filter(e => esDeLaSesion(e) && (soloId ? e.id === soloId : e.status === 'pending' || e.status === 'sending'));
     for (const email of pending) {
+      // Contenido que este equipo ya no puede abrir: enviarlo así era un correo sin destinatarios
+      // que el servidor rechazaba una y otra vez. No se envía; se marca con la explicación.
+      if (esIlegible(email)) {
+        await updateOutboxStatus(email.id, 'failed', TEXTO_ILEGIBLE); failed++;
+        avisarRechazo(email.subject, TEXTO_ILEGIBLE);
+        window.dispatchEvent(new CustomEvent('outbox-cambio'));
+        continue;
+      }
       await updateOutboxStatus(email.id, 'sending');
       window.dispatchEvent(new CustomEvent('outbox-cambio'));
       try {
@@ -88,6 +102,7 @@ export async function syncOutbox(soloId?: string): Promise<{ sent: number; faile
           await removeFromOutbox(email.id); sent++;
         } else if (fin.tipo === 'rechazado') {
           await updateOutboxStatus(email.id, 'failed', fin.mensaje); failed++;
+          avisarRechazo(email.subject, fin.mensaje);   // antes fallaba en silencio
         } else {
           await updateOutboxStatus(email.id, 'pending', fin.mensaje);
         }
