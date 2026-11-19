@@ -90,6 +90,15 @@ def test_vale_la_hora_de_guardado_si_el_reloj_del_telefono_esta_mal():
     assert e.TOLERANCIA == timedelta(minutes=5)
 
 
+def test_la_busqueda_mira_tan_atras_como_antiguo_sea_el_correo():
+    ahora = datetime(2026, 11, 23, 14, 0, tzinfo=timezone.utc)
+    viernes = datetime(2026, 11, 20, 22, 0, tzinfo=timezone.utc)
+    assert e.minutos_de_busqueda([viernes, None], ahora) == 64 * 60 + 10
+    assert e.minutos_de_busqueda([None], ahora) == 10
+    muy_viejo = datetime(1970, 1, 1, tzinfo=timezone.utc)
+    assert e.minutos_de_busqueda([muy_viejo], ahora) == e.MAXIMO_BUSQUEDA_MINUTOS
+
+
 def test_registros_une_cabeceras_plegadas_y_separa_mensajes():
     salida = (
         "hdr.message-id: <a@x>\nhdr.subject: =?ISO-8859-1?Q?uno?=\n =?ISO-8859-1?Q?dos?=\n\f\n"

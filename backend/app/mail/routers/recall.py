@@ -326,6 +326,8 @@ async def recall_message(
     db = request.app.state.db_pool
     domain_rows = await db.fetch("SELECT domain FROM domain WHERE active = true")
     local_domains = [r["domain"] for r in domain_rows if r["domain"] != "ALL"]
+    # Plazos vigentes (panel de administración; rige sin reiniciar).
+    regla = await plazo_recuperacion.regla_vigente(db)
 
     # Validar inputs
     if not _validate_message_id(body.message_id):
@@ -371,12 +373,14 @@ async def recall_message(
 
         # External domain — send recall request (like Outlook)
         if not _is_local_domain(recipient, local_domains):
-            if plazo_recuperacion.vencido(fecha_envio):
+            if plazo_recuperacion.vencido(
+                fecha_envio, minutos=regla.minutos_externos()
+            ):
                 results.append(
                     RecallResult(
                         recipient=recipient,
                         status=plazo_recuperacion.ESTADO_FUERA_DE_PLAZO,
-                        detail=plazo_recuperacion.motivo(fecha_envio),
+                        detail=plazo_recuperacion.motivo(fecha_envio, regla),
                     )
                 )
                 continue
@@ -472,13 +476,15 @@ async def recall_message(
         # Plazo máximo (11/11/2026): pasado el plazo no se toca el buzón del destinatario.
         # Sin leer se recupera siempre; ya leído, solo dentro del plazo (19/11/2026).
         if plazo_recuperacion.fuera_de_plazo(
-            info.get("received"), info.get("was_read")
+            info.get("received"), info.get("was_read"), regla=regla
         ):
             results.append(
                 RecallResult(
                     recipient=recipient,
                     status=plazo_recuperacion.ESTADO_FUERA_DE_PLAZO,
-                    detail=plazo_recuperacion.motivo(info.get("received")),
+                    detail=plazo_recuperacion.motivo(
+                        info.get("received"), regla, info.get("was_read")
+                    ),
                     was_read=bool(was_read),
                 )
             )
@@ -590,7 +596,7 @@ async def recall_message(
             "errors": sum(1 for r in results if r.status == "error"),
             "fuera_de_plazo": len(fuera_de_plazo),
         },
-        "plazo_minutos": plazo_recuperacion.minutos_maximos(),
+        "plazo_minutos": regla.minutos_externos(),
         "movido_a_borradores": bool(movido.get("movido")),
         "message": mensaje,
     }
@@ -630,6 +636,8 @@ async def check_recallable(
     db = request.app.state.db_pool
     domain_rows = await db.fetch("SELECT domain FROM domain WHERE active = true")
     local_domains = [r["domain"] for r in domain_rows if r["domain"] != "ALL"]
+    # Plazos vigentes (panel de administración; rige sin reiniciar).
+    regla = await plazo_recuperacion.regla_vigente(db)
 
     checks = []
     fecha_envio = _fecha_en_enviados(username, msg_id)
@@ -643,14 +651,16 @@ async def check_recallable(
         recipient = recipient.strip().lower()
 
         if not _is_local_domain(recipient, local_domains):
-            if plazo_recuperacion.vencido(fecha_envio):
+            if plazo_recuperacion.vencido(
+                fecha_envio, minutos=regla.minutos_externos()
+            ):
                 checks.append(
                     {
                         "recipient": recipient,
                         "can_recall": False,
                         "can_request": False,
                         "fuera_de_plazo": True,
-                        "reason": plazo_recuperacion.motivo(fecha_envio),
+                        "reason": plazo_recuperacion.motivo(fecha_envio, regla),
                         "was_read": None,
                     }
                 )
@@ -694,14 +704,16 @@ async def check_recallable(
         was_read = info.get("was_read", None)
         # Sin leer se recupera siempre; ya leído, solo dentro del plazo (19/11/2026).
         if plazo_recuperacion.fuera_de_plazo(
-            info.get("received"), info.get("was_read")
+            info.get("received"), info.get("was_read"), regla=regla
         ):
             checks.append(
                 {
                     "recipient": recipient,
                     "can_recall": False,
                     "fuera_de_plazo": True,
-                    "reason": plazo_recuperacion.motivo(info.get("received")),
+                    "reason": plazo_recuperacion.motivo(
+                        info.get("received"), regla, info.get("was_read")
+                    ),
                     "was_read": was_read,
                 }
             )
@@ -721,7 +733,7 @@ async def check_recallable(
     vencidos = [c for c in checks if c.get("fuera_de_plazo")]
     return {
         "checks": checks,
-        "plazo_minutos": plazo_recuperacion.minutos_maximos(),
+        "plazo_minutos": regla.minutos_externos(),
         # Aviso para mostrar en pantalla cuando ya no se puede recuperar a nadie por el plazo.
         "aviso": (
             vencidos[0]["reason"]

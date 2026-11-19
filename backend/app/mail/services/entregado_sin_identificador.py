@@ -35,8 +35,10 @@ logger = logging.getLogger(__name__)
 MAQUITA_SUDO = "/usr/local/sbin/maquita-sudo"
 # Margen entre la hora del correo de «Enviados» y la hora en que el servidor recibió el mensaje.
 TOLERANCIA = timedelta(minutes=5)
-# Margen añadido al plazo de recuperación al buscar en el buzón de destino.
+# Margen añadido a la antigüedad del correo al buscar en el buzón de destino.
 MARGEN_BUSQUEDA_MINUTOS = 10
+# Tope de la búsqueda hacia atrás: un correo sin leer se puede recuperar días después.
+MAXIMO_BUSQUEDA_MINUTOS = 43200
 _RE_ID_SERVIDOR = re.compile(r"^<(\d{14})\.[0-9A-Fa-f]{5,20}@([^>\s]+)>$")
 _RE_ESPACIOS = re.compile(r"\s+")
 
@@ -125,6 +127,17 @@ def elegir(
     return candidatos.pop() if len(candidatos) == 1 else None
 
 
+def minutos_de_busqueda(fechas, ahora: datetime | None = None) -> int:
+    """Cuánto hay que mirar hacia atrás en el buzón de destino: la antigüedad del correo de
+    «Enviados» más un margen, con tope (el reloj de un teléfono puede estar mal)."""
+    ahora = ahora or datetime.now(timezone.utc)
+    edades = [(ahora - f).total_seconds() / 60 for f in fechas if f is not None]
+    antiguedad = max(edades) if edades else 0
+    return int(
+        min(max(antiguedad, 0) + MARGEN_BUSQUEDA_MINUTOS, MAXIMO_BUSQUEDA_MINUTOS)
+    )
+
+
 def _doveadm_fetch(buzon: str, campos: str, *consulta: str) -> str | None:
     try:
         r = subprocess.run(
@@ -190,7 +203,7 @@ def identificador_entregado(
     )
     if not enviado:
         return None
-    minutos = plazo_recuperacion.minutos_maximos() + MARGEN_BUSQUEDA_MINUTOS
+    minutos = minutos_de_busqueda(enviado.get("fechas") or ())
     salida = _doveadm_fetch(
         destinatario,
         "hdr.message-id hdr.subject",
