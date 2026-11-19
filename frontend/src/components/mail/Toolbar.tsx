@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { guardarCintaContraida, leerCintaContraida } from '../../lib/cintaContraida';
-import { useCintaSoloIconos } from '../../hooks/useCintaSoloIconos';
+import { useCintaDeTelefono } from '../../hooks/useCintaDeTelefono';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { togglePins } from '../../lib/pins';
@@ -24,7 +24,6 @@ import { abrirAppMovil } from '../../lib/appMovil';
 import { sanitizeHtml } from '../../lib/sanitize';
 import { destinatariosResponderATodos } from '../../lib/destinatariosRespuesta';
 import type { Folder, MessageFull } from '../../types';
-import { useResponsive } from '../../hooks/useResponsive';
 import { nombreApp, useCorreoContacto } from '../../lib/marca';
 import { lineaDeVersion } from '../../lib/versionInstalada';
 import { AccionesMoverMovil } from './AccionesMoverMovil';
@@ -373,7 +372,7 @@ export function Toolbar() {
   const composeRibbonTab = useMailStore(s => s.composeRibbonTab);
   const setComposeRibbonTab = useMailStore(s => s.setComposeRibbonTab);
 
-    const { isMobile } = useResponsive();
+  const cintaDeTelefono = useCintaDeTelefono();
 
   const [activeTab, setActiveTab] = useState<'inicio' | 'vista' | 'ayuda'>('inicio');
   const [collapsed, setCollapsed] = useState(leerCintaContraida);
@@ -736,12 +735,9 @@ export function Toolbar() {
   const showComposeRibbon = hasCompose && composeRibbonTab;
 
   //  RENDER
-  // Ventana angosta: la cinta conserva todos sus iconos y esconde los nombres (hooks/useCintaSoloIconos.ts).
-  const soloIconos = useCintaSoloIconos(ribbonRef, `${activeTab}|${collapsed}|${showComposeRibbon ? 1 : 0}|${isMobile}`);
-  useEffect(() => { checkRibbonOverflow(); }, [soloIconos, checkRibbonOverflow]);
-
-  // Mobile: compact toolbar
-  if (isMobile) {
+  // Barra reducida solo en teléfonos; una ventana angosta de escritorio conserva la cinta completa,
+  // con iconos y nombres (hooks/useCintaDeTelefono.ts).
+  if (cintaDeTelefono) {
     return (
       <MobileToolbar
         onCompose={() => openCompose('new')}
@@ -905,7 +901,7 @@ export function Toolbar() {
           ) : (
             <div className="relative">
             <div ref={ribbonRef} onScroll={checkRibbonOverflow}
-              className={`flex items-center gap-0.5 px-2 py-1 overflow-x-auto ribbon-scroll${soloIconos ? ' cinta-solo-iconos' : ''}`}
+              className="flex items-center gap-0.5 px-2 py-1 overflow-x-auto ribbon-scroll"
               style={{ scrollbarWidth: 'auto', scrollbarColor: '#a19f9d #f3f2f1' }}>
               {/*  INICIO TAB  */}
               {activeTab === 'inicio' && (
