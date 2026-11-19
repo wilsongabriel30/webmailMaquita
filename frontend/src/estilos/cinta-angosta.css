@@ -1,0 +1,9 @@
+/* Cinta en ventanas angostas (pedido de Dirección, 19/11/2026): cuando los botones no caben con
+   su nombre, la cinta conserva TODOS los iconos y esconde los nombres (siguen saliendo al pasar
+   el ratón). La clase la pone hooks/useCintaSoloIconos.ts al medir que la cinta desborda.
+   Llevan !important porque lectura-compacta.css también ajusta estos botones en pantallas bajas. */
+.cinta-solo-iconos .cinta-boton-texto,
+.cinta-solo-iconos .cinta-grupo-etiqueta { display: none !important; }
+.cinta-solo-iconos .cinta-boton { flex-direction: column !important; min-width: 40px !important; padding: 6px 7px !important; }
+.cinta-solo-iconos .cinta-boton > svg { width: 24px !important; height: 24px !important; }
+.cinta-solo-iconos .cinta-separador { height: 28px !important; }

@@ -4,6 +4,7 @@ import { api } from '../../api/client';
 import type { Editor } from '@tiptap/react';
 import { showToast } from '../common/Toast';
 import { createPortal } from 'react-dom';
+import { MenuAplicaciones } from './MenuAplicaciones';
 import { GrupoParrafo } from './GrupoParrafo';
 import { GrupoAsistenteIA } from './asistente-redaccion';
 import { useIADisponible } from '../asistente-lateral/iaDisponible';
@@ -548,7 +549,7 @@ function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onIns
 
       {/* Complementos → Futuro: marketplace de complementos */}
       <RGroup label="Complementos">
-        <LargeBtn icon={<GridIcon />} label="Aplicaciones" onClick={() => onOpenApps?.()} />
+        <MenuAplicaciones editor={editor}><LargeBtn icon={<GridIcon />} label="Aplicaciones" onClick={() => {}} /></MenuAplicaciones>
       </RGroup>
       <GSep />
 
@@ -603,7 +604,7 @@ function MessageTab({ editor, onImportanceChange, importance, onSaveDraft, onIns
 }
 
 /* ========== INSERT TAB ========== */
-function InsertTab({ editor, onAttachCloud, onInsertSignature, onOpenApps }: { editor: Editor; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
+function InsertTab({ editor, onAttachCloud, onInsertSignature }: { editor: Editor; onAttachCloud?: () => void; onInsertSignature?: (html?: string) => void; onOpenApps?: () => void }) {
   const tblAnchorRef = useRef<HTMLDivElement>(null);
 
   const [tblAncla, setTblAncla] = useState<HTMLElement | null>(null);
@@ -635,7 +636,7 @@ function InsertTab({ editor, onAttachCloud, onInsertSignature, onOpenApps }: { e
       </RGroup>
       <GSep />
       <RGroup label="Complementos">
-        <LargeBtn icon={<GridIcon />} label="Aplicaciones" onClick={() => onOpenApps?.()} />
+        <MenuAplicaciones editor={editor}><LargeBtn icon={<GridIcon />} label="Aplicaciones" onClick={() => {}} /></MenuAplicaciones>
       </RGroup>
     </>
   );
