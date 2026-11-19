@@ -417,11 +417,20 @@ async def send(
                 if _sa and _sa["enabled"]:
                     import json as _json
 
+                    from app.mail.services.adjuntos_ya_analizados import (
+                        analizar_con_memoria,
+                    )
                     from app.security.router import deep_scan_attachment
 
+                    # Lo que ya salió limpio (aquí o en el filtro de Postfix) no se analiza otra vez.
+                    _redis_adj = getattr(request.app.state, "redis", None)
                     for _a in attachments:
-                        _scan = await deep_scan_attachment(
-                            _a["content"], _a["filename"], _a["content_type"]
+                        _scan = await analizar_con_memoria(
+                            _redis_adj,
+                            _a["content"],
+                            _a["filename"],
+                            _a["content_type"],
+                            deep_scan_attachment,
                         )
                         if _scan["result"] in ("malicious", "suspicious"):
                             try:
