@@ -9,6 +9,10 @@
  * 09/11/2026: Responder / Responder a todos / Reenviar abren el editor AQUÍ mismo (antes creaban la
  * redacción en el estado pero esta página no la dibujaba y parecía que los botones no hacían nada;
  * reporte de Graciela). Mientras se redacta, el editor ocupa la ventana; al enviar o descartar vuelve el correo.
+ *
+ * 19/11/2026 (pedido de Dirección): la ventana del correo trae la CINTA completa, como la del
+ * correo de escritorio (responder, eliminar, mover, clasificar, imprimir…), no solo la vista.
+ * Si desde la cinta el correo se elimina o se mueve, la ventana lo dice y ofrece cerrarse.
  */
 import { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
@@ -30,7 +34,10 @@ export function MensajeEnPestana() {
   const setFolders = useMailStore(s => s.setFolders);
   const composeWindows = useMailStore(s => s.composeWindows);
   const restoreCompose = useMailStore(s => s.restoreCompose);
+  const selectedMessage = useMailStore(s => s.selectedMessage);
+  const loadingMessage = useMailStore(s => s.loadingMessage);
   const [error, setError] = useState('');
+  const [cargado, setCargado] = useState(false);   // el correo llegó a mostrarse en esta ventana
 
   const folder = searchParams.get('folder') || 'INBOX';
   const uid = Number(searchParams.get('uid') || 0);
@@ -59,6 +66,7 @@ export function MensajeEnPestana() {
         const msg = await api.get<MessageFull>(`/mail/message/${encodeURIComponent(folder)}/${uid}`);
         if (!vigente) return;
         useMailStore.getState().setSelectedMessage(msg);
+        setCargado(true);
         if (msg?.subject) document.title = msg.subject;
       } catch {
         if (!vigente) return;
@@ -76,6 +84,8 @@ export function MensajeEnPestana() {
     if (minimizada) restoreCompose(minimizada.id);
   }, [composeWindows, restoreCompose]);
   const redaccion = composeWindows.find(w => !w.minimized);
+  // Se mostró y ya no está: se eliminó, archivó o movió desde la cinta de esta ventana.
+  const yaNoEsta = cargado && !selectedMessage && !loadingMessage && !redaccion;
 
   if (!user) {
     return (
@@ -112,7 +122,19 @@ export function MensajeEnPestana() {
                 <div className="shrink-0 relative z-[50]"><Toolbar /></div>
                 <div className="flex-1 min-h-0 overflow-auto"><ComposePanel win={redaccion} /></div>
               </>
-            ) : <MessageView />}
+            ) : (
+              <>
+                <div className="shrink-0 relative z-[50]"><Toolbar /></div>
+                {yaNoEsta ? (
+                  <div className="flex-1 flex flex-col items-center justify-center text-center px-6">
+                    <p className="text-[14px] text-[#323130]">Este correo ya no está en esta carpeta: se movió o se eliminó.</p>
+                    <button type="button" onClick={() => window.close()} className="text-[13px] mt-3 px-4 py-1.5 rounded bg-[#0078d4] text-white hover:bg-[#106ebe]">
+                      Cerrar esta ventana
+                    </button>
+                  </div>
+                ) : <MessageView />}
+              </>
+            )}
           </div>
         </div>
       )}

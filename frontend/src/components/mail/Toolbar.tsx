@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { guardarCintaContraida, leerCintaContraida } from '../../lib/cintaContraida';
+import { useCintaSoloIconos } from '../../hooks/useCintaSoloIconos';
 import ReactDOM from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { togglePins } from '../../lib/pins';
@@ -735,6 +736,10 @@ export function Toolbar() {
   const showComposeRibbon = hasCompose && composeRibbonTab;
 
   //  RENDER
+  // Ventana angosta: la cinta conserva todos sus iconos y esconde los nombres (hooks/useCintaSoloIconos.ts).
+  const soloIconos = useCintaSoloIconos(ribbonRef, `${activeTab}|${collapsed}|${showComposeRibbon ? 1 : 0}|${isMobile}`);
+  useEffect(() => { checkRibbonOverflow(); }, [soloIconos, checkRibbonOverflow]);
+
   // Mobile: compact toolbar
   if (isMobile) {
     return (
@@ -900,7 +905,7 @@ export function Toolbar() {
           ) : (
             <div className="relative">
             <div ref={ribbonRef} onScroll={checkRibbonOverflow}
-              className="flex items-center gap-0.5 px-2 py-1 overflow-x-auto ribbon-scroll"
+              className={`flex items-center gap-0.5 px-2 py-1 overflow-x-auto ribbon-scroll${soloIconos ? ' cinta-solo-iconos' : ''}`}
               style={{ scrollbarWidth: 'auto', scrollbarColor: '#a19f9d #f3f2f1' }}>
               {/*  INICIO TAB  */}
               {activeTab === 'inicio' && (

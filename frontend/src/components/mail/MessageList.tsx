@@ -30,6 +30,7 @@ import { anotarSiNoHayBuzonVirtual } from '../../lib/buzonVirtual';
 import { copiasRepetidas } from '../../lib/copiasEnTodo';
 import { AvisoCopiasOcultas } from './AvisoCopiasOcultas';
 import { useEtiquetasContextual } from '../labels/useEtiquetasContextual';
+import { quitarDeEtiquetaActual } from '../labels/quitarDeEtiqueta';
 import { EtiquetasFila } from './EtiquetasFila';
 import { AvisoErrorCarga, type MotivoErrorCarga } from './AvisoErrorCarga';
 import { esLimiteDePeticiones } from '../../api/errorApi';
@@ -955,6 +956,8 @@ export function MessageList() {
     { label: msg.seen ? 'Marcar como no leído' : 'Marcar como leído', icon: unreadIcon, onClick: () => quickAction(msg.uid, msg.seen ? 'mark_unread' : 'mark_read') },
     { label: msg.flagged ? 'Quitar marca' : 'Marcar con bandera', icon: flagIcon, onClick: () => handleFlag(msg.uid, msg.flagged) },
     etiquetasCtx.itemMenu(msg, msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []),
+    // En la vista de una etiqueta: quitársela sin borrar el correo (pedido de Dirección, 19/11/2026).
+    ...(etiquetaFiltro ? [{ label: 'Quitar de esta etiqueta', icon: 'M6 18L18 6M6 6l12 12', onClick: () => { void quitarDeEtiquetaActual([{ uid: msg.uid, folder: msg.folder }]); } }] : []),
     { label: '', icon: '', onClick: () => {}, divider: true },
     { label: 'Archivar', icon: archiveIcon, onClick: () => quickAction(msg.uid, 'archive') },
     {

@@ -160,8 +160,13 @@ export function MailSidebar() {
   }, []);
 
   // --- Folder operations ---
+  // Crear la carpeta también al hacer clic fuera del campo (pedido de Dirección, 19/11/2026).
+  // `cierreCrear` evita crearla dos veces (Intro y luego la pérdida de foco) o tras pulsar Escape.
+  const cierreCrear = useRef(false);
+  useEffect(() => { if (creating) cierreCrear.current = false; }, [creating]);
   const handleCreate = async () => {
-    if (!newName.trim()) return;
+    if (!newName.trim() || cierreCrear.current) return;
+    cierreCrear.current = true;
     const hoja = nombreHojaSeguro(newName);  // el punto partiría la carpeta (10/11/2026)
     const fullName = createParent ? `${createParent}.${hoja}` : hoja;
     try {
@@ -557,8 +562,8 @@ export function MailSidebar() {
             {creating ? (
               <div className="flex items-center gap-1 px-2 py-1 ml-3">
                 <input value={newName} onChange={e => setNewName(e.target.value)}
-                  onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { setCreating(false); setCreateParent(''); } }}
-                  onBlur={() => { if (!newName.trim()) { setCreating(false); setCreateParent(''); } }}
+                  onKeyDown={e => { if (e.key === 'Enter') handleCreate(); if (e.key === 'Escape') { cierreCrear.current = true; setCreating(false); setCreateParent(''); } }}
+                  onBlur={() => { if (cierreCrear.current) return; if (newName.trim()) void handleCreate(); else { setCreating(false); setCreateParent(''); } }}
                   placeholder={createParent ? `Subcarpeta en ${getFolderDisplayName(createParent)}` : 'Nombre de carpeta'} autoFocus
                   className="flex-1 text-[12px] px-1.5 py-0.5 border border-[#0078d4] rounded outline-none bg-white dark:bg-[#1e1e1e]" />
               </div>
