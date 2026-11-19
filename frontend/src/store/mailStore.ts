@@ -4,6 +4,7 @@ import type { Cuenta } from '../lib/cuentas';
 import { create } from 'zustand';
 import { olvidarEstadoRedaccion, olvidarTodasLasRedacciones } from '../lib/estadoRedaccion';
 import { olvidarRedaccion } from '../lib/redaccionesRecuperables';
+import { debeAbrirRedaccionEnVentana, abrirRedaccionEnVentana } from '../lib/redaccionEnVentana';
 import type { Folder, MessageSummary, MessageFull, ComposeData } from '../types';
 
 type ComposeMode = 'new' | 'reply' | 'replyAll' | 'forward' | null;
@@ -316,6 +317,11 @@ export const useMailStore = create<MailState>((set, get) => ({
 
   // Compose — multiple windows
   openCompose: (mode, data, opciones) => {
+    // Opción «redactar en ventana aparte» (app Teams Maquita): si está activa y no estamos
+    // ya dentro de una ventana de redacción, abrir una ventana propia y no redactar en la página.
+    if (mode && debeAbrirRedaccionEnVentana() && abrirRedaccionEnVentana(mode, data || null)) {
+      return;
+    }
     const alFondo = !!opciones?.alFondo && get().composeWindows.some(w => !w.minimized);
     const id = `compose-${++composeCounter}`;
     const win: DraftWindow = {

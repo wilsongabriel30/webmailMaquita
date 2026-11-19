@@ -6,10 +6,19 @@
  * no se marca como leído desde aquí ni se mueve la lista.
  */
 
-/** Ruta pública de un correo para abrirlo solo, con la base del webmail (/webmail/). */
+import { cuentaActiva } from './cuentaActiva';
+
+/** Ruta pública de un correo para abrirlo solo, con la base del webmail (/webmail/).
+ *  Lleva la CUENTA ACTIVA de esta pestaña en la URL (?cuenta=): la ventana nueva se abre en un
+ *  contexto propio (y con noopener) donde el sessionStorage no se hereda; sin esto, cuentaActiva()
+ *  salía null, la cabecera X-Cuenta-Activa iba como «propia» y el servidor resolvía el uid contra
+ *  la cuenta primaria, mostrando el correo de OTRA cuenta (bug multi-cuenta, 19/11/2026). Al
+ *  arrancar, instalarCuentaActiva() consume ?cuenta= y fija la cabecera y la cookie correctas. */
 export function urlMensajeEnPestana(folder: string, uid: number): string {
   const base = (import.meta.env.BASE_URL || '/').replace(/\/?$/, '/');
-  return `${base}mensaje?folder=${encodeURIComponent(folder)}&uid=${encodeURIComponent(String(uid))}`;
+  const cuenta = cuentaActiva();
+  const extra = cuenta ? `&cuenta=${encodeURIComponent(cuenta)}` : '';
+  return `${base}mensaje?folder=${encodeURIComponent(folder)}&uid=${encodeURIComponent(String(uid))}${extra}`;
 }
 
 export function abrirMensajeEnPestana(folder: string, uid: number): void {
