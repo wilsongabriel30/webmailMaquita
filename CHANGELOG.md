@@ -8,6 +8,7 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 ## [Sin publicar]
 
 ### Corregido
+- Recuperar correo: la comprobación previa tardaba muchos segundos con varios destinatarios porque consultaba los buzones uno tras otro; ahora los consulta a la vez (de 10 s a menos de 1 s con 8 destinatarios).
 - Recuperar correo: si un destinatario figuraba con nombre («Nombre <correo>») la recuperación fallaba con «Error al recuperar». Ahora se envían solo las direcciones, el servidor también las normaliza, y si algo falla se muestra el motivo con un botón «Reintentar».
 - Recuperar correo: un correo enviado desde otra aplicación de correo sin identificador propio (el servidor le asigna uno distinto al de «Enviados») no se podía recuperar. Ahora se localiza la copia entregada solo cuando la coincidencia es inequívoca (mismo remitente, identificador asignado por este servidor, hora y asunto, y un único candidato).
 - Bandeja de salida: un correo guardado en el equipo cuyo contenido ya no se puede leer dejaba de enviarse sin explicación y el servidor lo rechazaba en cada intento. Ahora no se envía, se marca con el motivo y se indica dónde está la copia (Borradores).
