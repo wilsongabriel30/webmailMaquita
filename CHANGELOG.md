@@ -7,6 +7,9 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Cambiado
+- Recuperar correo: mientras el destinatario no lo haya leído se puede recuperar en cualquier momento; el plazo de una hora queda solo para los correos ya leídos.
+
 ### Corregido
 - Recuperar correo: la comprobación previa tardaba muchos segundos con varios destinatarios porque consultaba los buzones uno tras otro; ahora los consulta a la vez (de 10 s a menos de 1 s con 8 destinatarios).
 - Recuperar correo: si un destinatario figuraba con nombre («Nombre <correo>») la recuperación fallaba con «Error al recuperar». Ahora se envían solo las direcciones, el servidor también las normaliza, y si algo falla se muestra el motivo con un botón «Reintentar».

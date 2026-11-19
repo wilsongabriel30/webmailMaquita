@@ -186,7 +186,10 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
                 info["subject"] = line.split(":", 1)[1].strip()
             elif line.startswith("flags:"):
                 info["flags"] = line.split(":", 1)[1].strip()
-                info["was_read"] = "\\Seen" in info["flags"]
+                # Con copias en varias carpetas basta que una esté leída.
+                info["was_read"] = (
+                    bool(info.get("was_read")) or "\\Seen" in info["flags"]
+                )
             elif line.startswith("date.received:"):
                 info["received"] = plazo_recuperacion.mas_antigua(
                     info.get("received"),
@@ -467,7 +470,10 @@ async def recall_message(
         carpetas_mensaje = list(info.get("folders") or [])
 
         # Plazo máximo (11/11/2026): pasado el plazo no se toca el buzón del destinatario.
-        if plazo_recuperacion.vencido(info.get("received")):
+        # Sin leer se recupera siempre; ya leído, solo dentro del plazo (19/11/2026).
+        if plazo_recuperacion.fuera_de_plazo(
+            info.get("received"), info.get("was_read")
+        ):
             results.append(
                 RecallResult(
                     recipient=recipient,
@@ -686,7 +692,10 @@ async def check_recallable(
             continue
 
         was_read = info.get("was_read", None)
-        if plazo_recuperacion.vencido(info.get("received")):
+        # Sin leer se recupera siempre; ya leído, solo dentro del plazo (19/11/2026).
+        if plazo_recuperacion.fuera_de_plazo(
+            info.get("received"), info.get("was_read")
+        ):
             checks.append(
                 {
                     "recipient": recipient,
