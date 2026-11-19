@@ -24,6 +24,7 @@ from app.federacion import recuperacion_cliente
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services import (
     aviso_envio_por_error,
+    consulta_en_paralelo,
     direcciones_destinatarios,
     entregado_sin_identificador,
     plazo_recuperacion,
@@ -196,6 +197,37 @@ def _doveadm_fetch_info(recipient: str, message_id: str) -> dict:
         return {}
 
 
+def _estado_en_buzon(recipient: str, msg_id: str, localizador) -> tuple[str, dict]:
+    """Con qué identificador está el correo en el buzón del destinatario y sus datos.
+
+    Una sola consulta (`doveadm fetch`): si no trae carpetas, el correo no está. Entonces se
+    mira si salió de otra aplicación sin identificador propio (19/11/2026), porque en ese caso
+    en el buzón de destino lleva el que le puso el servidor.
+    """
+    info = _doveadm_fetch_info(recipient, msg_id)
+    if info.get("folders"):
+        return msg_id, info
+    alterno = localizador.en_buzon(recipient)
+    if alterno:
+        return alterno, _doveadm_fetch_info(recipient, alterno)
+    return msg_id, info
+
+
+async def _estados_locales(
+    recipients: list[str], local_domains: list[str], msg_id: str, localizador
+) -> dict[str, tuple[str, dict]]:
+    """Consulta a la vez los buzones locales de la lista: {destinatario: (identificador, datos)}."""
+    locales = []
+    for r in recipients:
+        r = r.strip().lower()
+        if _is_local_domain(r, local_domains) and r not in locales:
+            locales.append(r)
+    resultados = await consulta_en_paralelo.en_paralelo(
+        lambda r: _estado_en_buzon(r, msg_id, localizador), locales
+    )
+    return dict(zip(locales, resultados))
+
+
 def _fecha_en_enviados(username: str, message_id: str):
     """Cuándo se guardó el correo en «Enviados» del remitente (None si no se puede saber)."""
     try:
@@ -327,6 +359,9 @@ async def recall_message(
     results = []
     fecha_envio = _fecha_en_enviados(username, msg_id)
     localizador = entregado_sin_identificador.Localizador(username, msg_id)
+    estados = await _estados_locales(
+        body.recipients, local_domains, msg_id, localizador
+    )
 
     for recipient in body.recipients:
         recipient = recipient.strip().lower()
@@ -413,15 +448,9 @@ async def recall_message(
         # (useful for self-sent test emails or CC to self)
 
         # Search for the message
-        id_local = msg_id
-        matches = _doveadm_search(recipient, msg_id)
-        if not matches:
-            # Enviado desde otra aplicación sin identificador propio (19/11/2026): en el buzón
-            # de destino el correo lleva el que le puso el servidor.
-            alterno = localizador.en_buzon(recipient)
-            if alterno:
-                id_local = alterno
-                matches = _doveadm_search(recipient, id_local)
+        # Ya consultado, todos los buzones a la vez (ver _estados_locales).
+        id_local, info = estados[recipient]
+        matches = bool(info.get("folders"))
 
         if not matches:
             results.append(
@@ -434,7 +463,6 @@ async def recall_message(
             continue
 
         # Get message info before deleting (flags y carpetas reales donde está)
-        info = _doveadm_fetch_info(recipient, id_local)
         was_read = info.get("was_read", False)
         carpetas_mensaje = list(info.get("folders") or [])
 
@@ -600,6 +628,9 @@ async def check_recallable(
     checks = []
     fecha_envio = _fecha_en_enviados(username, msg_id)
     localizador = entregado_sin_identificador.Localizador(username, msg_id)
+    estados = await _estados_locales(
+        body.recipients, local_domains, msg_id, localizador
+    )
     # Solo direcciones, igual que al recuperar: lo comprobado es lo que luego se recupera.
     body.recipients = direcciones_destinatarios.solo_direcciones(body.recipients)
     for recipient in body.recipients:
@@ -640,15 +671,9 @@ async def check_recallable(
             )
             continue
 
-        id_local = msg_id
-        matches = _doveadm_search(recipient, msg_id)
-        if not matches:
-            # Enviado desde otra aplicación sin identificador propio (19/11/2026): en el buzón
-            # de destino el correo lleva el que le puso el servidor.
-            alterno = localizador.en_buzon(recipient)
-            if alterno:
-                id_local = alterno
-                matches = _doveadm_search(recipient, id_local)
+        # Ya consultado, todos los buzones a la vez (ver _estados_locales).
+        id_local, info = estados[recipient]
+        matches = bool(info.get("folders"))
         if not matches:
             checks.append(
                 {
@@ -660,7 +685,6 @@ async def check_recallable(
             )
             continue
 
-        info = _doveadm_fetch_info(recipient, id_local)
         was_read = info.get("was_read", None)
         if plazo_recuperacion.vencido(info.get("received")):
             checks.append(
