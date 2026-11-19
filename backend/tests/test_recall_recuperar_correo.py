@@ -356,6 +356,44 @@ def test_regla_del_plazo_segun_lectura():
     assert "ya leído" in plazo.motivo(viernes)
 
 
+def test_regla_fijada_desde_el_panel():
+    ahora = datetime(2026, 11, 23, 9, 0, 0)
+    hace_90 = ahora - timedelta(minutes=90)
+    # Leídos 2 horas, sin leer 48 horas.
+    r = plazo.Regla(120, 2880)
+    assert not plazo.fuera_de_plazo(hace_90, True, ahora, r)
+    assert plazo.fuera_de_plazo(ahora - timedelta(hours=3), True, ahora, r)
+    assert not plazo.fuera_de_plazo(ahora - timedelta(hours=47), False, ahora, r)
+    assert plazo.fuera_de_plazo(ahora - timedelta(hours=49), False, ahora, r)
+    assert "48 horas" in plazo.motivo(ahora - timedelta(hours=49), r, False)
+    # Criterio estricto del Outlook clásico: lo ya leído no se recupera nunca.
+    estricta = plazo.Regla(0, 0)
+    assert plazo.fuera_de_plazo(ahora, True, ahora, estricta)
+    assert not plazo.fuera_de_plazo(hace_90, False, ahora, estricta)
+    assert "ya leído no se puede" in plazo.motivo(ahora, estricta, True)
+    assert estricta.minutos_externos() == plazo.minutos_maximos()
+    assert r.minutos_externos() == 120
+
+
+async def test_regla_vigente_lee_el_panel_y_si_no_hay_usa_la_de_siempre():
+    class Con:
+        async def fetchrow(self, _sql):
+            return {"minutos_leidos": 0, "minutos_sin_leer": 4320}
+
+    class Vacia:
+        async def fetchrow(self, _sql):
+            return None
+
+    class Rota:
+        async def fetchrow(self, _sql):
+            raise RuntimeError("la tabla no existe")
+
+    assert await plazo.regla_vigente(Con()) == plazo.Regla(0, 4320)
+    assert await plazo.regla_vigente(Vacia()) == plazo.Regla(60, 0)
+    assert await plazo.regla_vigente(Rota()) == plazo.Regla(60, 0)
+    assert await plazo.regla_vigente(object()) == plazo.Regla(60, 0)
+
+
 async def test_sin_fecha_de_entrega_no_se_recupera(entorno, monkeypatch):
     monkeypatch.setattr(
         recall, "_doveadm_fetch_info", lambda dest, mid: {"folders": ["INBOX"]}

@@ -7,6 +7,10 @@ y este proyecto sigue el [Versionado Semántico](https://semver.org/spec/v2.0.0.
 
 ## [Sin publicar]
 
+### Añadido
+- Panel de administración: «Plazo para recuperar correos» (Seguridad). Fija durante cuánto tiempo se puede recuperar un correo ya leído (o que no se pueda) y uno sin leer; rige sin reiniciar el correo. Migración `2026-11-19-recuperacion-plazo-politica.sql`.
+- Recuperar correo: un correo enviado desde otra aplicación sin identificador propio se localiza también cuando lleva días sin leer.
+
 ### Cambiado
 - Recuperar correo: mientras el destinatario no lo haya leído se puede recuperar en cualquier momento; el plazo de una hora queda solo para los correos ya leídos.
 
