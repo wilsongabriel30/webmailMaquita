@@ -3,13 +3,14 @@
  * Opens via window.open() from calendar or other sections
  * Includes Toolbar ribbon (same as main mail) + ComposePanel
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { ComposePanel } from '../compose/ComposePanel';
 import { Toolbar } from '../mail/Toolbar';
 import { ToastContainer } from '../common/ToastContainer';
 import { useMailStore } from '../../store/mailStore';
 import { useAuthStore } from '../../store/authStore';
 import { useApariencia } from '../../hooks/useApariencia';
+import { tomarDatosDeRedaccion } from '../../lib/redaccionEnVentana';
 
 export function ComposePopup() {
   useApariencia({ soloClaro: true });   // color principal elegido en Configuración → Apariencia
@@ -28,12 +29,25 @@ export function ComposePopup() {
     }
   }, []);
 
-  // Auto-open compose on mount
+  const yaInicio = useRef(false);
+  const tuvoRedaccion = useRef(false);
+
+  // Al montar: si la ventana recibió datos de redacción (handoff desde la ventana principal),
+  // abrir ESA redacción; si no, una nueva vacía. Una sola vez.
   useEffect(() => {
-    if (user && composeWindows.length === 0) {
-      openCompose('new');
-    }
+    if (!user || yaInicio.current) return;
+    yaInicio.current = true;
+    const traspaso = tomarDatosDeRedaccion();
+    openCompose(traspaso ? traspaso.mode : 'new', traspaso?.data || undefined);
   }, [user]);
+
+  // Esta página ES una ventana de redacción propia: cuando ComposePanel cierra la redacción
+  // al enviar o cancelar (composeWindows queda vacío tras haber tenido una), la ventana se
+  // cierra sola con window.close().
+  useEffect(() => {
+    if (composeWindows.length > 0) { tuvoRedaccion.current = true; return; }
+    if (tuvoRedaccion.current && user) { try { window.close(); } catch { /* vacío */ } }
+  }, [composeWindows, user]);
 
   // If minimized, auto-restore (popup has no minimized bar)
   useEffect(() => {
