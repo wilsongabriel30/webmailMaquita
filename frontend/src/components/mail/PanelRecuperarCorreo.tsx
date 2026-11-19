@@ -13,6 +13,7 @@ import { api } from '../../api/client';
 import { useMailStore } from '../../store/mailStore';
 import { showToast } from '../common/Toast';
 import type { MessageFull } from '../../types';
+import { direccionesDeCabecera } from '../../lib/direccionesDeCabecera';
 
 /** Resultado de comprobar o ejecutar la recuperación de un correo enviado. */
 interface EstadoRecuperacion {
@@ -37,10 +38,14 @@ interface RespuestaRecuperar {
 /** Palabra clave IMAP con la que el servidor marca el borrador que nació de una recuperación. */
 export const KEYWORD_RECUPERADO = '$Recuperado';
 
+/** Solo las direcciones: el servidor rechaza «Nombre <correo>» (19/11/2026). */
 function destinatariosDe(msg: MessageFull): string[] {
-  const lista = (msg.to || '').split(',').map((s) => s.trim()).filter(Boolean);
-  if (msg.cc) lista.push(...msg.cc.split(',').map((s) => s.trim()).filter(Boolean));
-  return lista;
+  return direccionesDeCabecera(msg.to, msg.cc);
+}
+
+/** Lo que respondió el servidor, para que la persona sepa qué pasó sin llamar a soporte. */
+function motivoDe(e: unknown): string {
+  return e instanceof Error && e.message ? e.message : '';
 }
 
 /** Texto por destinatario en la comprobación previa. */
@@ -76,9 +81,10 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
   const [estado, setEstado] = React.useState<'idle' | 'checking' | 'recalling' | 'done' | 'error'>('idle');
   const [info, setInfo] = React.useState<EstadoRecuperacion[]>([]);
   const [movido, setMovido] = React.useState(false);
+  const [motivo, setMotivo] = React.useState('');
 
   // Al cambiar de correo, el panel vuelve a su estado inicial.
-  React.useEffect(() => { setEstado('idle'); setInfo([]); setMovido(false); }, [msg.uid, folder]);
+  React.useEffect(() => { setEstado('idle'); setInfo([]); setMovido(false); setMotivo(''); }, [msg.uid, folder]);
 
   const comprobar = React.useCallback(async () => {
     setEstado('checking');
@@ -90,7 +96,7 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
       setEstado('idle');
       // Plazo vencido: aviso visible, no solo la letra pequeña junto al botón.
       if (res.aviso) showToast(res.aviso, undefined, { fijo: true });
-    } catch { setEstado('error'); }
+    } catch (e) { setMotivo(motivoDe(e)); setEstado('error'); }
   }, [msg]);
 
   const recuperar = React.useCallback(async () => {
@@ -111,7 +117,7 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
         useMailStore.getState().setSelectedMessage(null);
         window.dispatchEvent(new CustomEvent('refresh-messages'));
       }
-    } catch { setEstado('error'); }
+    } catch (e) { setMotivo(motivoDe(e)); setEstado('error'); }
   }, [msg]);
 
   // Borrador nacido de una recuperación: se señala al abrirlo.
@@ -136,7 +142,14 @@ export function PanelRecuperarCorreo({ msg, folder }: Props) {
           {info.map((r, i) => <div key={i}>{r.recipient}: {textoResultado(r)}</div>)}
         </div>
       ) : estado === 'error' ? (
-        <span style={{ fontSize: 12, color: '#d13438' }}>Error al recuperar</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ fontSize: 12, color: '#d13438' }}>
+            No se pudo recuperar{motivo ? `: ${motivo}` : '. Inténtelo de nuevo.'}
+          </span>
+          <button type="button" onClick={comprobar} style={{ ...estiloBoton, background: '#ca5010' }}>
+            Reintentar
+          </button>
+        </div>
       ) : info.length > 0 ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div style={{ fontSize: 11, color: '#605e5c' }}>

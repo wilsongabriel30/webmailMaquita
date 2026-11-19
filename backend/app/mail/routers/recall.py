@@ -24,6 +24,8 @@ from app.federacion import recuperacion_cliente
 from app.mail.clients.imap_pool import get_pooled_imap
 from app.mail.services import (
     aviso_envio_por_error,
+    direcciones_destinatarios,
+    entregado_sin_identificador,
     plazo_recuperacion,
     recuperar_correo,
 )
@@ -275,6 +277,8 @@ async def recall_message(
     if not body.message_id:
         raise HTTPException(status_code=400, detail="message_id es requerido")
 
+    # Solo direcciones: la interfaz pudo enviar «Nombre <correo>» (19/11/2026).
+    body.recipients = direcciones_destinatarios.solo_direcciones(body.recipients)
     if not body.recipients:
         raise HTTPException(status_code=400, detail="recipients es requerido")
 
@@ -322,6 +326,7 @@ async def recall_message(
 
     results = []
     fecha_envio = _fecha_en_enviados(username, msg_id)
+    localizador = entregado_sin_identificador.Localizador(username, msg_id)
 
     for recipient in body.recipients:
         recipient = recipient.strip().lower()
@@ -408,7 +413,15 @@ async def recall_message(
         # (useful for self-sent test emails or CC to self)
 
         # Search for the message
+        id_local = msg_id
         matches = _doveadm_search(recipient, msg_id)
+        if not matches:
+            # Enviado desde otra aplicación sin identificador propio (19/11/2026): en el buzón
+            # de destino el correo lleva el que le puso el servidor.
+            alterno = localizador.en_buzon(recipient)
+            if alterno:
+                id_local = alterno
+                matches = _doveadm_search(recipient, id_local)
 
         if not matches:
             results.append(
@@ -421,7 +434,7 @@ async def recall_message(
             continue
 
         # Get message info before deleting (flags y carpetas reales donde está)
-        info = _doveadm_fetch_info(recipient, msg_id)
+        info = _doveadm_fetch_info(recipient, id_local)
         was_read = info.get("was_read", False)
         carpetas_mensaje = list(info.get("folders") or [])
 
@@ -440,7 +453,7 @@ async def recall_message(
         # Delete the message. Decisión de la dirección (09/11/2026): se quita del buzón
         # aunque el destinatario ya lo haya leído; la lectura solo se informa.
         if body.action in ("delete", "replace"):
-            success = _doveadm_expunge(recipient, msg_id, carpetas_mensaje or None)
+            success = _doveadm_expunge(recipient, id_local, carpetas_mensaje or None)
 
             if success:
                 # Sin esto el destinatario seguía viendo el correo en su lista hasta 5 min
@@ -586,6 +599,9 @@ async def check_recallable(
 
     checks = []
     fecha_envio = _fecha_en_enviados(username, msg_id)
+    localizador = entregado_sin_identificador.Localizador(username, msg_id)
+    # Solo direcciones, igual que al recuperar: lo comprobado es lo que luego se recupera.
+    body.recipients = direcciones_destinatarios.solo_direcciones(body.recipients)
     for recipient in body.recipients:
         recipient = recipient.strip().lower()
 
@@ -624,7 +640,15 @@ async def check_recallable(
             )
             continue
 
+        id_local = msg_id
         matches = _doveadm_search(recipient, msg_id)
+        if not matches:
+            # Enviado desde otra aplicación sin identificador propio (19/11/2026): en el buzón
+            # de destino el correo lleva el que le puso el servidor.
+            alterno = localizador.en_buzon(recipient)
+            if alterno:
+                id_local = alterno
+                matches = _doveadm_search(recipient, id_local)
         if not matches:
             checks.append(
                 {
@@ -636,7 +660,7 @@ async def check_recallable(
             )
             continue
 
-        info = _doveadm_fetch_info(recipient, msg_id)
+        info = _doveadm_fetch_info(recipient, id_local)
         was_read = info.get("was_read", None)
         if plazo_recuperacion.vencido(info.get("received")):
             checks.append(
