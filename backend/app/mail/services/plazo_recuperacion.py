@@ -6,7 +6,12 @@ desaparecer constancias: instrucciones, aprobaciones, acuerdos. La recuperación
 error recién cometido, no para reescribir lo ya comunicado.
 
 Regla: solo se puede recuperar durante `RECALL_MAX_MINUTOS` (60 por defecto) desde que el correo
-llegó al buzón del destinatario. La fecha la pone el servidor al entregar (`date.received`), no
+llegó al buzón del destinatario.
+
+Ajuste del 19/11/2026 (Coordinación de TI): ese plazo vale para los correos que el destinatario
+YA LEYÓ. Mientras siga sin leer no hay constancia que proteger, así que se puede recuperar en
+cualquier momento (como el Outlook clásico): un correo enviado por error un viernes se puede
+retirar el lunes si nadie lo abrió. Ver `fuera_de_plazo`. La fecha la pone el servidor al entregar (`date.received`), no
 el remitente, así que no se puede alterar desde el cliente. Si la fecha no se puede comprobar,
 no se recupera.
 """
@@ -64,6 +69,19 @@ def vencido(recibido: datetime | None, ahora: datetime | None = None) -> bool:
     return (ahora or datetime.now()) - recibido > timedelta(minutes=minutos_maximos())
 
 
+def fuera_de_plazo(
+    recibido: datetime | None, leido: bool | None, ahora: datetime | None = None
+) -> bool:
+    """¿Ya no se puede recuperar del buzón de un destinatario local?
+
+    Sin leer (`leido` es False): siempre se puede. Leído, o sin poder saber si se leyó: vale el
+    plazo de `vencido` (y sin fecha comprobable no se recupera).
+    """
+    if leido is False:
+        return False
+    return vencido(recibido, ahora)
+
+
 def motivo(recibido: datetime | None) -> str:
     """Explicación para la persona que intenta recuperar fuera de plazo."""
     plazo = texto_plazo()
@@ -74,5 +92,6 @@ def motivo(recibido: datetime | None) -> str:
         )
     return (
         f"Fuera de plazo: se entregó el {recibido:%d/%m/%Y} a las {recibido:%H:%M}. "
-        f"Un correo solo se puede recuperar durante {plazo} después del envío."
+        f"Un correo ya leído solo se puede recuperar durante {plazo} después del envío; "
+        "mientras nadie lo haya leído se puede recuperar en cualquier momento."
     )

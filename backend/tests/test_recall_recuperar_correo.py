@@ -330,6 +330,32 @@ async def test_correo_antiguo_no_se_recupera_ni_se_toca_el_buzon(entorno, monkey
     assert entorno.db.inserciones
 
 
+async def test_correo_antiguo_sin_leer_si_se_recupera(entorno, monkeypatch):
+    # Regla del 19/11/2026: mientras nadie lo haya leído no hay plazo (viernes -> lunes).
+    viejo = datetime.now() - timedelta(days=3)
+    monkeypatch.setattr(
+        recall,
+        "_doveadm_fetch_info",
+        lambda dest, mid: {"folders": ["INBOX"], "was_read": False, "received": viejo},
+    )
+    salida = await _recuperar(entorno, ["tecnologia@example.org"])
+    assert salida["results"][0]["status"] == "recalled"
+    assert len(entorno.expunges) == 1
+
+
+def test_regla_del_plazo_segun_lectura():
+    ahora = datetime(2026, 11, 23, 9, 0, 0)
+    viernes = datetime(2026, 11, 20, 17, 0, 0)
+    assert not plazo.fuera_de_plazo(viernes, False, ahora)
+    assert plazo.fuera_de_plazo(viernes, True, ahora)
+    assert not plazo.fuera_de_plazo(ahora - timedelta(minutes=30), True, ahora)
+    # Sin saber si se leyó se trata como leído; sin fecha y leído no se recupera.
+    assert plazo.fuera_de_plazo(viernes, None, ahora)
+    assert plazo.fuera_de_plazo(None, True, ahora)
+    assert not plazo.fuera_de_plazo(None, False, ahora)
+    assert "ya leído" in plazo.motivo(viernes)
+
+
 async def test_sin_fecha_de_entrega_no_se_recupera(entorno, monkeypatch):
     monkeypatch.setattr(
         recall, "_doveadm_fetch_info", lambda dest, mid: {"folders": ["INBOX"]}
