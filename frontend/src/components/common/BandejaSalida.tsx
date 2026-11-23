@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { getOutboxEmails, removeFromOutbox, type OutboxEmail } from '../../lib/offlineStore';
 import { esDeLaSesion } from '../../lib/sesionActual';
 import { reintentarEnvio, syncOutbox, TEXTO_ESTADO, causaSinConexion, hayConexion } from '../../lib/syncQueue';
+import { esIlegible, TEXTO_ILEGIBLE } from '../../lib/colaSalidaLegible';
 import { estadoDescarga, descargarAhora, configurarDescarga, type EstadoDescarga } from '../../lib/descargaOffline';
 
 export function BandejaSalida({ onCerrar }: { onCerrar: () => void }) {
@@ -35,19 +36,21 @@ export function BandejaSalida({ onCerrar }: { onCerrar: () => void }) {
       </div>
       {!enLinea && <div style={{ background: '#fff4ce', padding: '8px 14px' }}>Ahora mismo: {causaSinConexion()}. Lo que envíes queda en cola y sale solo al volver la conexión, aunque cierres la app.</div>}
       {cola.length === 0 && <div style={{ padding: 16, color: '#605e5c' }}>No hay correos pendientes de envío.</div>}
-      {cola.map(c => (
+      {cola.map(c => { const ilegible = esIlegible(c); return (
         <div key={c.id} style={{ padding: '10px 14px', borderBottom: '1px solid #f3f2f1' }}>
           <div style={{ fontWeight: 600 }}>{c.subject || '(sin asunto)'}</div>
-          <div style={{ color: '#605e5c' }}>Para: {c.to.join(', ')} · {fecha(c.createdAt)}{c.attachments?.length ? ` · ${c.attachments.length} adjunto(s)` : ''}</div>
-          <div style={{ marginTop: 4, color: c.status === 'failed' ? '#a4262c' : c.status === 'sending' ? '#0078d4' : '#8a6d00', fontWeight: 600 }}>
-            {TEXTO_ESTADO[c.status]}{c.status !== 'sending' && c.error ? ` (${c.error})` : ''}
-          </div>
+          <div style={{ color: '#605e5c' }}>Para: {(c.to || []).join(', ') || '—'} · {fecha(c.createdAt)}{c.attachments?.length ? ` · ${c.attachments.length} adjunto(s)` : ''}</div>
+          {ilegible
+            ? <div style={{ marginTop: 4, color: '#a4262c', fontWeight: 600 }}>{TEXTO_ILEGIBLE}</div>
+            : <div style={{ marginTop: 4, color: c.status === 'failed' ? '#a4262c' : c.status === 'sending' ? '#0078d4' : '#8a6d00', fontWeight: 600 }}>
+                {TEXTO_ESTADO[c.status]}{c.status !== 'sending' && c.error ? ` (${c.error})` : ''}
+              </div>}
           <div style={{ marginTop: 6, display: 'flex', gap: 6 }}>
-            {c.status === 'failed' && <button style={btn} onClick={() => reintentarEnvio(c.id).then(cargar)}>Reintentar</button>}
+            {!ilegible && c.status === 'failed' && <button style={btn} onClick={() => reintentarEnvio(c.id).then(cargar)}>Reintentar</button>}
             <button style={{ ...btn, color: '#a4262c' }} onClick={() => { if (confirm('¿Descartar este correo? No se enviará.')) removeFromOutbox(c.id).then(cargar); }}>Descartar</button>
           </div>
         </div>
-      ))}
+      ); })}
       <div style={{ padding: '10px 14px', background: '#faf9f8', borderTop: '1px solid #edebe9' }}>
         <b>Correo sin conexión</b>
         <div style={{ color: '#605e5c', marginTop: 4 }}>

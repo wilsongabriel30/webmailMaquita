@@ -451,7 +451,12 @@ export async function getOutboxEmails(): Promise<OutboxEmail[]> {
       const emails: OutboxEmail[] = [];
       for (const c of crudos) {
         const abierto = await abrirSobre<OutboxEmail>(c);
-        emails.push(abierto || c);
+        if (abierto) { emails.push(abierto); continue; }
+        // No se pudo descifrar: se conserva para avisar y poder descartarlo, pero con valores
+        // seguros para que ningun listado reviente (p. ej. to.join sobre undefined). Mantiene
+        // `sobre`, asi esIlegible() lo sigue reconociendo como ilegible.
+        const crudo = c as Partial<OutboxEmail>;
+        emails.push({ ...(crudo as OutboxEmail), to: Array.isArray(crudo.to) ? crudo.to : [] });
       }
       emails.sort((a: OutboxEmail, b: OutboxEmail) => a.createdAt - b.createdAt);
       resolve(emails);
