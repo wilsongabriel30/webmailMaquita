@@ -172,17 +172,30 @@ const ALMACENES_BASICOS = ["messages", "actions", "folders", "outbox"];
 // lo que guarda o lee aquí: el envío esperaba a la cola de salida y los correos no salían (se quedaban
 // en Borradores), y el editor no terminaba de cargar. Los almacenes se crean al crear la base; el de
 // «tareas» solo existe en las bases creadas desde el 13/11 (quien lo usa ya tolera que falte).
-const ESPERA_BASE_MS = 4000;
+// 23/11/2026 — Subido de 4 s a 10 s y, sobre todo, se maneja `onblocked`: si otra ventana bloquea la
+// apertura o la subida de versión NO es un fallo (está por soltar su conexión vía `onversionchange`);
+// se da más margen en vez de rendirse. Antes saltaba «La base local no responde» a los 4 s en equipos
+// con varias ventanas o disco lento (678 reportes en 14 días en la telemetría).
+const ESPERA_BASE_MS = 10000;
 
 export function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME);
     let resuelta = false;
-    const reloj = setTimeout(() => {
+    function vencer() {
       if (resuelta) return;
       resuelta = true;
       reject(new Error("La base local del navegador no responde"));
-    }, ESPERA_BASE_MS);
+    }
+    let reloj = setTimeout(vencer, ESPERA_BASE_MS);
+    // Otra ventana bloquea la apertura/subida de versión: no es un fallo, está por soltar su conexión
+    // (onversionchange la cierra). Reiniciamos la espera para darle tiempo en vez de rendirnos al instante.
+    const alBloquear = () => {
+      if (resuelta) return;
+      clearTimeout(reloj);
+      reloj = setTimeout(vencer, ESPERA_BASE_MS);
+    };
+    request.onblocked = alBloquear;
     request.onupgradeneeded = () => crearAlmacenes(request.result);
     request.onsuccess = () => {
       const db = request.result;
@@ -196,6 +209,7 @@ export function openDB(): Promise<IDBDatabase> {
         const siguiente = db.version + 1;
         db.close();
         const subida = indexedDB.open(DB_NAME, siguiente);
+        subida.onblocked = alBloquear;
         subida.onupgradeneeded = () => crearAlmacenes(subida.result);
         subida.onsuccess = () => {
           const nueva = subida.result;
@@ -451,7 +465,12 @@ export async function getOutboxEmails(): Promise<OutboxEmail[]> {
       const emails: OutboxEmail[] = [];
       for (const c of crudos) {
         const abierto = await abrirSobre<OutboxEmail>(c);
-        emails.push(abierto || c);
+        if (abierto) { emails.push(abierto); continue; }
+        // No se pudo descifrar: se conserva para avisar y poder descartarlo, pero con valores
+        // seguros para que ningun listado reviente (p. ej. to.join sobre undefined). Mantiene
+        // `sobre`, asi esIlegible() lo sigue reconociendo como ilegible.
+        const crudo = c as Partial<OutboxEmail>;
+        emails.push({ ...(crudo as OutboxEmail), to: Array.isArray(crudo.to) ? crudo.to : [] });
       }
       emails.sort((a: OutboxEmail, b: OutboxEmail) => a.createdAt - b.createdAt);
       resolve(emails);
