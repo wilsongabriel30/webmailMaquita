@@ -11,7 +11,9 @@ import { useSearchParams } from "react-router-dom";
 import { useMailStore } from '../../store/mailStore';
 import { usePreferenciasVista } from '../../hooks/usePreferenciasVista';
 import { PanelProgramados } from './Programados';
-import { PanelBandejaSalida } from './BandejaSalida';   // T-117
+import { BandejaSalidaCarpeta } from './salida/BandejaSalidaCarpeta';
+import { AvisoRechazoSalida } from './salida/AvisoRechazoSalida';
+import { esCarpetaSalida } from '../../lib/carpetaSalida';
 import { api } from '../../api/client';
 import { EventoDesdeCorreo } from '../calendar/EventoDesdeCorreo';
 
@@ -285,6 +287,7 @@ export function MailView() {
   const setSelectedMessage = useMailStore(s => s.setSelectedMessage);
   const showMyDay = useMailStore(s => s.showMyDay);
   const setShowMyDay = useMailStore(s => s.setShowMyDay);
+  const currentFolder = useMailStore(s => s.currentFolder);
   const { isMobile } = useResponsive();
   const readingPane = isMobile ? "off" : storeReadingPane;
 
@@ -337,6 +340,10 @@ export function MailView() {
     <div className="flex-1 flex flex-col min-h-0 relative">
       {/* Correos a medio escribir antes de una recarga: se reabren solos */}
       <RecuperarRedacciones />
+      {esCarpetaSalida(currentFolder) ? (
+        <BandejaSalidaCarpeta />
+      ) : (
+      <>
       {/* Toolbar */}
       <div className="shrink-0 relative z-[50]">
         <Toolbar />
@@ -451,6 +458,8 @@ export function MailView() {
       {showMyDay && <MyDayPanel onClose={() => setShowMyDay(false)} />}
       <EventoDesdeCorreo />
       </div>
+      </>
+      )}
 
       {/* (compose se muestra inline dentro del panel de contenido, no flotante) */}
 
@@ -480,7 +489,7 @@ export function MailView() {
 
       <ToastContainer />
       <PanelProgramados />
-      <PanelBandejaSalida />
+      <AvisoRechazoSalida />
     </div>
   );
 }

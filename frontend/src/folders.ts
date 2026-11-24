@@ -7,6 +7,7 @@ export const SYSTEM_FOLDER_LABELS: Record<string, string> = {
   Archive: 'Archivo',
   Snoozed: 'Pospuestos',
   'Virtual.Todo': 'Todo el correo',
+  'Virtual.BandejaSalida': 'Bandeja de salida',
   // Nombres que traen otros servidores (Outlook, Thunderbird, migraciones) para las mismas carpetas.
   Spam: 'Correo no deseado',
   'Sent Items': 'Enviados',
