@@ -4,7 +4,8 @@ import { esClienteEscritorio } from '../../lib/clienteEscritorio';
 import { useState, useEffect } from "react";
 import { getPendingActions, getOutboxEmails } from "../../lib/offlineStore";
 import { esDeLaSesion } from "../../lib/sesionActual";
-import { BandejaSalida } from "./BandejaSalida";
+import { useMailStore } from "../../store/mailStore";
+import { CARPETA_SALIDA } from "../../lib/carpetaSalida";
 import { estadoConexion, textoCausa } from "../../lib/conexion";
 
 export function OfflineBanner() {
@@ -12,7 +13,6 @@ export function OfflineBanner() {
   const [causa, setCausa] = useState(textoCausa());
   const [pendingActions, setPendingActions] = useState(0);
   const [cola, setCola] = useState({ pendientes: 0, fallidos: 0 });
-  const [abierta, setAbierta] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,13 +41,14 @@ export function OfflineBanner() {
     return () => window.removeEventListener('offline-sync-complete', handler);
   }, []);
   useEffect(() => {
-    const h = () => setAbierta(v => !v);
+    const h = () => useMailStore.getState().setCurrentFolder(CARPETA_SALIDA);
     window.addEventListener('abrir-bandeja-salida', h);
     return () => window.removeEventListener('abrir-bandeja-salida', h);
   }, []);
 
-  const panel = abierta ? <BandejaSalida onCerrar={() => setAbierta(false)} /> : null;
-  const enlace = <button data-ver-bandeja onClick={() => setAbierta(v => !v)} style={{ background: 'rgba(255,255,255,.25)', border: '1px solid rgba(255,255,255,.6)', color: '#fff', borderRadius: 4, padding: '1px 8px', cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Ver bandeja de salida</button>;
+  // La bandeja de salida es ahora una carpeta: el botón lleva a ella (ya no abre una ventana).
+  const panel = null;
+  const enlace = <button data-ver-bandeja onClick={() => useMailStore.getState().setCurrentFolder(CARPETA_SALIDA)} style={{ background: 'rgba(255,255,255,.25)', border: '1px solid rgba(255,255,255,.6)', color: '#fff', borderRadius: 4, padding: '1px 8px', cursor: 'pointer', fontSize: 12, marginLeft: 8 }}>Ver bandeja de salida</button>;
 
   if (syncResult && isOnline) {
     return (<>
