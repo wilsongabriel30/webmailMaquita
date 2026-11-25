@@ -1,4 +1,5 @@
 import { MarcaReacciones } from './MarcaReacciones';
+import { MarcaHilo } from './MarcaHilo';
 import { PuntoLeido } from './PuntoLeido';
 import { EtiquetasFila } from './EtiquetasFila';
 import { memo } from 'react';
@@ -44,6 +45,8 @@ export interface FilaCorreoLineaProps {
   onLeido: (e: React.MouseEvent) => void;
   /** Chincheta: anclar arriba de la lista (07/11/2026). */
   onFijar?: (e: React.MouseEvent) => void;
+  /** Enviados/Recibidos: mostrar el signo de respondido/reenviado (25/11/2026). */
+  mostrarMarcaHilo?: boolean;
 }
 
 const flagIcon = 'M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z';
@@ -140,6 +143,7 @@ export const FilaCorreoLinea = memo(function FilaCorreoLinea(p: FilaCorreoLineaP
             <path d="M9 2a1 1 0 00-1 1v4.586L5.707 9.879A1 1 0 006.414 11.5H9V17a1 1 0 002 0v-5.5h2.586a1 1 0 00.707-1.621L12 7.586V3a1 1 0 00-1-1H9z" /></svg>
         )}
         <MarcaReacciones r={msg.reacciones} />
+        <MarcaHilo flags={msg.flags} mostrar={!!p.mostrarMarcaHilo} />
         {msg.has_attachments && (
           <svg className="w-[12px] h-[12px] text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><title>Con adjunto</title>
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" /></svg>

@@ -50,6 +50,7 @@ import { avisar } from '../../lib/avisosNavegador';   // T-53
 import { getCachedMessage } from '../../lib/offlineStore';   // W-7: leer sin conexión lo ya descargado
 import { permisoNotificacion, pedirPermisoNotificacion } from '../../lib/notificacionSegura';   // AM-10
 import { FilaCorreoLinea } from './FilaCorreoLinea';
+import { MarcaHilo } from './MarcaHilo';
 import { AvatarFoto } from '../common/AvatarFoto';
 import { PuntoLeido } from './PuntoLeido';   // clic en el puntito = leído / no leído (07/11/2026)
 import { AvisoOtrosSinLeer } from './AvisoOtrosSinLeer';   // «Otros: N sin leer» (07/11/2026)
@@ -1028,6 +1029,9 @@ export function MessageList() {
     // En Enviados y Borradores la fila dice a quién se envió, no quién lo envió (como Outlook)
     const { quien, otros } = quienMostrar(msg, currentFolder, folders);
     const nombreQuien = extractName(quien, avatarMap) + (otros > 0 ? ` y ${otros} más` : '');
+    // Signo de respondido/reenviado: solo en Recibidos (INBOX) y Enviados (25/11/2026).
+    const tipoCarpetaFila = folders.find(f => f.name === (msg.folder || currentFolder))?.type;
+    const mostrarMarcaHilo = tipoCarpetaFila ? (tipoCarpetaFila === 'inbox' || tipoCarpetaFila === 'sent') : ((msg.folder || currentFolder) === 'INBOX');
     const fecha = fmtDate(fechaMostrada({ ...msg, folder: msg.folder || currentFolder }, folders));
     if (unaLinea) {
       const spam = spamResults.find(s => s.uid === msg.uid);
@@ -1035,7 +1039,7 @@ export function MessageList() {
         <FilaCorreoLinea key={msg.uid} msg={msg} threadCount={threadCount} idx={idx} asuntoPrimero={asuntoPrimero} onDoubleClick={() => soloSeleccionar ? handleSelect(msg.uid) : abrirMensajeEnVentana(msg.folder || currentFolder, msg.uid)}
           nombre={nombreQuien} iniciales={getInitials(quien, avatarMap)} fotoUrl={avatarMap[extractEmail(quien)]?.photo_url}
           color={getColor(quien)} fecha={fecha} activo={active} marcado={checked}
-          fijado={pinnedSet.has(pinKey(currentFolder, msg.uid))} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')}
+          fijado={pinnedSet.has(pinKey(currentFolder, msg.uid))} esSpam={!!spam} motivoSpam={spam?.reasons?.join(', ')} mostrarMarcaHilo={mostrarMarcaHilo}
           etiquetas={msgLabelsMap[claveEtiquetas(msg, currentFolder)] || []}
           onClick={(e) => handleRowClick(msg.uid, idx, e)}
           onContextMenu={(e) => { e.preventDefault(); setCtxMenu({ x: e.clientX, y: e.clientY, msg }); }}
@@ -1115,6 +1119,7 @@ export function MessageList() {
                 </svg>
               )}
               <MarcaReacciones r={msg.reacciones} />
+              <MarcaHilo flags={msg.flags} mostrar={mostrarMarcaHilo} />
               {msg.has_attachments && (
                 <svg className="w-[12px] h-[12px] text-[#605e5c]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />

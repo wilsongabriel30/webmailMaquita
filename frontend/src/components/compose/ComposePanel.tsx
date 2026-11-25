@@ -6,6 +6,7 @@
 import { addToOutbox, removeFromOutbox, updateOutboxStatus } from "../../lib/offlineStore";
 import { syncOutbox } from "../../lib/syncQueue";
 import { enviarCorreo } from "../../lib/envioSegundoPlano";   // envío inmediato (06/11/2026)
+import { marcarOriginalAlEnviar } from "../../lib/marcaHilo";
 import { SelectorArchivosNube } from './SelectorArchivosNube';
 import { SelectorRemitente } from './SelectorRemitente';
 import { leerBloqueoSensibilidad, pedirMotivoSensibilidad } from './bloqueoSensibilidad';
@@ -570,7 +571,7 @@ export function ComposePanel({ win }: Props) {
             content_type: a.type || 'application/octet-stream',
           }))
         );
-        await api.post('/mail/secure/send', { to: recipients, subject, html_body: getFullHtml(), attachments: att });
+        await api.post('/mail/secure/send', { to: recipients, subject, html_body: getFullHtml(), attachments: att }); void marcarOriginalAlEnviar(win.mode, win.data);
         showToast('Mensaje seguro enviado \uD83D\uDD12');
         window.dispatchEvent(new CustomEvent('refresh-messages'));
         closeCompose(win.id);
@@ -736,7 +737,7 @@ export function ComposePanel({ win }: Props) {
       }
       pendingSendMap.delete(winId); dismissToast(toastId);
       // Sin aviso de «Mensaje enviado»: para la persona ya estaba enviado; solo se avisa si algo falla.
-      try { await enviarCorreo(sendPayload, idEnvio); retirarEnvioReciente(idReciente, 1500); window.dispatchEvent(new CustomEvent('refresh-messages'));
+      try { await enviarCorreo(sendPayload, idEnvio); retirarEnvioReciente(idReciente, 1500); window.dispatchEvent(new CustomEvent('refresh-messages')); void marcarOriginalAlEnviar(win.mode, win.data);
       } catch (err: unknown) {
         const errMsg = err instanceof Error ? err.message : 'Error al enviar';
         const bloqueo = leerBloqueoSensibilidad(errMsg);
@@ -744,7 +745,7 @@ export function ComposePanel({ win }: Props) {
           const motivo = pedirMotivoSensibilidad(bloqueo);
           if (motivo) {
             try {
-              await enviarCorreo({ ...sendPayload, dlp_override: true, dlp_reason: motivo });
+              await enviarCorreo({ ...sendPayload, dlp_override: true, dlp_reason: motivo }); void marcarOriginalAlEnviar(win.mode, win.data);
               retirarEnvioReciente(idReciente, 1500); window.dispatchEvent(new CustomEvent('refresh-messages'));
               return;
             } catch (err2: unknown) {
