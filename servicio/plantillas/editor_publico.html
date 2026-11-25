@@ -118,13 +118,51 @@
     input.focus();
   }
 
+
+  // Telemetría de sesión del editor (25/11/2026): solo estado técnico, nunca contenido.
+  function telemetria(evento, extra) {
+    try {
+      fetch('/api/almacen/telemetria-editor', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, keepalive: true,
+        body: JSON.stringify(Object.assign({ evento: evento, ruta: 'enlace:' + token + (sub ? ':' + sub : '') }, extra || {}))
+      });
+    } catch (e) { /* nunca estorba al editor */ }
+  }
+
+  // La versión cambió con la pestaña abierta (25/11/2026). El Document Server cierra
+  // y guarda la sala cuando la persona se queda sola y desconectada (1 h sin actividad,
+  // equipo suspendido, corte de red). Antes salía «La versión ha cambiado» y se
+  // recargaba la página entera; lo escrito en ese momento se perdía. Ahora se pide la
+  // configuración con la clave nueva y el editor recarga el documento en su sitio.
+  // El guardado del cierre puede tardar (36 s el 24/11/2026): se espera la clave nueva.
+  async function refrescarDocumento(editor, config, pedirConfig) {
+    const claveVieja = config.document.key;
+    telemetria('refresco_pedido', { clave_vieja: claveVieja });
+    for (let intento = 1; intento <= 24; intento++) {
+      try {
+        const d = await pedirConfig();
+        const nueva = d && d.success && d.config && d.config.document && d.config.document.key;
+        if (nueva && nueva !== claveVieja) {
+          config.document.key = nueva;
+          editor.refreshFile(d.config);
+          telemetria('refresco_hecho', { clave_vieja: claveVieja, clave_nueva: nueva, detalle: 'intento ' + intento });
+          return;
+        }
+      } catch (e) { /* se reintenta */ }
+      await new Promise(function (listo) { setTimeout(listo, 5000); });
+    }
+    telemetria('refresco_fallido', { clave_vieja: claveVieja, detalle: 'sin clave nueva en 2 min; se recarga la pagina' });
+    location.reload();
+  }
+
   async function cargar() {
     contenedor.innerHTML = '<div id="estado">Cargando el documento&hellip;</div><div id="editor"></div>';
     const est = document.getElementById('estado');
     // 1. Configuración firmada por el token del enlace (sin sesión FARO)
     let data;
+    let url;
     try {
-      const url = '/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(token) +
+      url = '/api/almacen/onlyoffice/config-public?token=' + encodeURIComponent(token) +
                   (sub ? '&sub=' + encodeURIComponent(sub) : '') +
                   (clave ? '&clave=' + encodeURIComponent(clave) : '');
       const r = await fetch(url);
@@ -151,9 +189,18 @@
     const config = data.config;
     config.events = {
       onAppReady: function () { const e = document.getElementById('estado'); if (e) e.style.display = 'none'; },
-      onError: function (e) { est.innerHTML = '<b>Error del editor:</b> ' + JSON.stringify(e && e.data); }
+      onError: function (e) {
+        telemetria('error_editor', { detalle: e && e.data });
+        est.innerHTML = '<b>Error del editor:</b> ' + JSON.stringify(e && e.data);
+      },
+      onRequestRefreshFile: function () {
+        refrescarDocumento(editor, config, async function () {
+          const r = await fetch(url, { cache: 'no-store' });
+          return r.json();
+        });
+      }
     };
-    new DocsAPI.DocEditor('editor', config);
+    const editor = new DocsAPI.DocEditor('editor', config);
   }
 
   if (!token) { return fallo('Enlace inválido (falta el identificador).'); }
