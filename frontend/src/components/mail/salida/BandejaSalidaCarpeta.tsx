@@ -10,6 +10,7 @@ import { useState } from 'react';
 import { useResponsive } from '../../../hooks/useResponsive';
 import { useMailStore } from '../../../store/mailStore';
 import { ComposePanel } from '../../compose/ComposePanel';
+import { ListResizeHandle } from '../ListResizeHandle';
 import { useColaSalida } from './useColaSalida';
 import { ListaBandejaSalida } from './ListaBandejaSalida';
 import { LecturaBandejaSalida } from './LecturaBandejaSalida';
@@ -19,6 +20,7 @@ export function BandejaSalidaCarpeta() {
   const [seleccionadoId, setSeleccionadoId] = useState<string | null>(null);
   const { isMobile } = useResponsive();
   const composeWindows = useMailStore(s => s.composeWindows);
+  const messageListWidth = useMailStore(s => s.messageListWidth);
   const activeCompose = composeWindows.find(w => !w.minimized);
 
   // Si el correo abierto salió de la cola (enviado o descartado, aquí o en otra pestaña), `find`
@@ -65,9 +67,11 @@ export function BandejaSalidaCarpeta() {
   // Escritorio: lista a la izquierda + lectura/redacción a la derecha, en tarjetas como el resto del correo.
   return (
     <div className="flex-1 flex overflow-hidden min-h-0 bg-[#f3f2f1] dark:bg-[#141414]">
-      <div className="flex min-h-0 my-2 ml-2 rounded-lg overflow-hidden bg-white dark:bg-[#1f1f1f] shadow-[0_1px_4px_rgba(0,0,0,0.13)] w-[360px] shrink-0">
+      <div style={{ width: messageListWidth }}
+        className="flex min-h-0 my-2 ml-2 rounded-lg overflow-hidden bg-white dark:bg-[#1f1f1f] shadow-[0_1px_4px_rgba(0,0,0,0.13)] shrink-0">
         <ListaBandejaSalida lista={lista} cargando={cargando} seleccionadoId={seleccionadoId} onSelect={(e) => setSeleccionadoId(e.id)} />
       </div>
+      <ListResizeHandle />
       <div className="flex-1 min-w-0 flex flex-col my-2 mr-2 rounded-lg overflow-hidden bg-white dark:bg-[#1f1f1f] shadow-[0_1px_4px_rgba(0,0,0,0.13)]">
         {lectura}
       </div>
