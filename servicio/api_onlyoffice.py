@@ -754,7 +754,13 @@ def onlyoffice_callback():
         nombre = ruta.rsplit('/', 1)[-1]
         try:
             # nucleo.subir = versionado del contenido anterior + dedup + escritura atómica
-            nucleo.subir(usuario, carpeta, nombre, io.BytesIO(contenido))
+            # Autoguardado cada 10 min: versión solo si la última tiene 30 min
+            # o más (versiones_autoguardado.py, 26/11/2026).
+            import versiones_autoguardado
+            versionar = (not versiones_autoguardado.es_autoguardado(cuerpo)
+                         or versiones_autoguardado.debe_versionar(usuario, ruta))
+            nucleo.subir(usuario, carpeta, nombre, io.BytesIO(contenido),
+                         versionar=versionar)
         except Exception as excepcion:
             log.error('OnlyOffice: fallo guardando %s: %s', ruta, excepcion)
             return jsonify({'error': 1})
