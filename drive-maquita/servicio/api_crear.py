@@ -53,7 +53,16 @@ def crear_documento():
     if not _permiso_unidad(usuario, carpeta, escritura=True):
         return error('No tienes permiso para crear aquí. Pide edición de esta '
                      'carpeta a quien administra la unidad.', 403)
-    ext = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else TIPO_EXT.get(tipo, '')
+    # Con un tipo conocido, el nombre SIEMPRE termina en su extensión (26/11/2026): un nombre con puntos
+    # («E11.R2A2.Calidad…») se tomaba como si ya tuviera extensión, el archivo quedaba sin ella, vacío, no abría
+    # en el editor y chocaba con una carpeta del mismo nombre. Carpeta «X» y archivo «X.docx» pueden convivir.
+    if tipo in TIPO_EXT:
+        ext = TIPO_EXT[tipo]
+        if not nombre.lower().endswith('.' + ext):
+            nombre = nombre.strip() + '.' + ext
+            ruta = (carpeta.rstrip('/') + '/' + nombre)
+    else:
+        ext = nombre.rsplit('.', 1)[-1].lower() if '.' in nombre else ''
     # «Crear» nunca pisa un archivo que ya existe (16/11/2026): crear otra encuesta con el mismo nombre
     # sobrescribía la anterior y dejaba varios registros de encuesta con la misma ruta.
     try:

@@ -123,6 +123,10 @@ def listar():
         # 02/10/2026: propietario real (unidades y espacio compartido), ver propietarios.py.
         from propietarios import anotar as _anotar_propietarios
         _anotar_propietarios(carpetas + archivos, usuario)
+        if ruta.startswith('/unidades/'):   # «Sin acceso a esta carpeta» (26/11/2026)
+            from bloqueos_carpeta import filtrar_items as _sin_bloqueados
+            carpetas = _sin_bloqueados(usuario, carpetas)
+            archivos = _sin_bloqueados(usuario, archivos)
     except RutaInvalida as excepcion:
         return error(str(excepcion), excepcion.codigo)
     except FileNotFoundError:

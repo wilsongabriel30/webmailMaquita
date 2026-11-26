@@ -63,9 +63,11 @@ def rol_efectivo(usuario_id, unidad_id, sub_ruta):
     from roles_unidad import rol_en_unidad
     de_unidad = rol_en_unidad(usuario_id, unidad_id)
     de_carpeta = rol_en_carpeta(usuario_id, unidad_id, sub_ruta)
-    if rango(de_carpeta) > rango(de_unidad):
-        return de_carpeta
-    return de_unidad
+    rol = de_carpeta if rango(de_carpeta) > rango(de_unidad) else de_unidad
+    # «Sin acceso a esta carpeta» (26/11/2026): el bloqueo por persona manda, salvo para
+    # administradores de la unidad; falla cerrado. Ver bloqueos_carpeta.py.
+    from bloqueos_carpeta import aplicar
+    return aplicar(usuario_id, unidad_id, sub_ruta, rol, de_unidad)
 
 
 def conceder(unidad_id, ruta, usuario_id, rol, creado_por=None):
@@ -80,6 +82,12 @@ def conceder(unidad_id, ruta, usuario_id, rol, creado_por=None):
         "rol = EXCLUDED.rol, creado_por = EXCLUDED.creado_por, creado_en = NOW()",
         (int(unidad_id), ruta, int(usuario_id), rol,
          int(creado_por) if creado_por else None))
+    # Conceder en una carpeta bloqueada para esa persona le devuelve el acceso (26/11/2026).
+    try:
+        from bloqueos_carpeta import quitar_por_concesion
+        quitar_por_concesion(unidad_id, ruta, usuario_id)
+    except Exception as excepcion:
+        log.warning('No se pudo quitar el bloqueo al conceder %s: %s', ruta, excepcion)
     return {'unidad_id': int(unidad_id), 'ruta': ruta,
             'usuario_id': int(usuario_id), 'rol': rol}
 

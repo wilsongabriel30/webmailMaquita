@@ -116,10 +116,20 @@ def _espacios_de_unidades(usuario_id: int) -> list:
         log.warning('espacios: no se pudieron leer las unidades de %s: %s',
                     usuario_id, excepcion)
         return []
-    return [{'espacio': ESPACIO_UNIDADES,
-             'prefijo': '/unidades/%d/' % int(fila['id']),
-             'visible': ''}
-            for fila in filas]
+    salida = []
+    for fila in filas:
+        # Carpetas con «Sin acceso» para esta persona (26/11/2026). Si no se puede
+        # comprobar, la unidad no sale en la búsqueda (cerrado).
+        try:
+            from bloqueos_carpeta import rutas_excluidas
+            excluir = rutas_excluidas(usuario_id, int(fila['id']))
+        except Exception as excepcion:
+            log.warning('espacios: bloqueos de la unidad %s: %s', fila['id'], excepcion)
+            continue
+        salida.append({'espacio': ESPACIO_UNIDADES,
+                       'prefijo': '/unidades/%d/' % int(fila['id']),
+                       'visible': '', 'excluir': excluir})
+    return salida
 
 
 def _espacios_compartidos(usuario_id: int) -> list:
@@ -173,8 +183,12 @@ def condicion_sql(espacios: list):
             parametros.append(int(uno['espacio']))
         else:
             limpio = prefijo.rstrip('/')
-            trozos.append('(usuario_id = %s AND (ruta = %s OR ruta LIKE %s))')
+            trozo = '(usuario_id = %s AND (ruta = %s OR ruta LIKE %s)'
             parametros.extend([int(uno['espacio']), limpio, limpio + '/%'])
+            for fuera in uno.get('excluir') or []:   # «Sin acceso a esta carpeta»
+                trozo += ' AND NOT (ruta = %s OR ruta LIKE %s)'
+                parametros.extend([fuera.rstrip('/'), fuera.rstrip('/') + '/%'])
+            trozos.append(trozo + ')')
     if not trozos:
         return '(false)', []
     return '(' + ' OR '.join(trozos) + ')', parametros
