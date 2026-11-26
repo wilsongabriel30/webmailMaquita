@@ -11,21 +11,35 @@ contra la URL pública, en vez de copiar a mano.
 
 Tras publicar comprueba la descarga real: tamaño y sha256 de lo que sirve
 https://nube.example.org/static/ deben coincidir con lo declarado.
+
+Cada archivo se escribe en un temporal de la misma carpeta y se pone en su sitio
+con un renombrado (atómico). Escribir encima del mismo archivo hacía que nginx,
+que guarda el descriptor y el tamaño hasta 60 s (`open_file_cache`), sirviera
+durante ese minuto una mezcla del instalador viejo y el nuevo (R-52, 26/11/2026).
+Con el renombrado, quien descarga recibe el viejo entero o el nuevo entero. El
+json va al final, cuando los instaladores ya están en su sitio.
 """
 import argparse
 import datetime as dt
+import grp
 import hashlib
 import json
 import os
+import pwd
 import shutil
 import subprocess
 import sys
+import tempfile
+import time
 
 ESTATICOS = '/home/sistemas/Maquita/interfaces/web/estaticos'
 NOMBRE_EXE = 'ConectarDriveMaquita-Setup.exe'
 NOMBRE_JSON = 'drive-windows-version.json'
 URL_BASE = os.getenv('ALMACEN_URL_LINKS', 'https://nube.example.org').rstrip('/') + '/static'
 MINIMO_BYTES = 50 * 1024 * 1024        # un Setup real ronda los 85-90 MB
+# nginx puede seguir sirviendo el archivo anterior hasta 60 s tras el renombrado.
+ESPERA_VERIFICAR_S = 90
+PAUSA_VERIFICAR_S = 15
 
 
 def sha256(ruta):
@@ -34,6 +48,43 @@ def sha256(ruta):
         for trozo in iter(lambda: f.read(1024 * 1024), b''):
             h.update(trozo)
     return h.hexdigest()
+
+
+def _permisos(ruta):
+    """644, dueño `sistemas` y grupo `www-data` (si existen y hay permiso)."""
+    os.chmod(ruta, 0o644)
+    try:
+        os.chown(ruta, pwd.getpwnam('sistemas').pw_uid, grp.getgrnam('www-data').gr_gid)
+    except (KeyError, PermissionError, OSError):
+        pass
+
+
+def colocar(destino, origen=None, texto=None):
+    """Deja `destino` con el contenido de `origen` (archivo) o de `texto`.
+
+    Escribe en un temporal oculto de la misma carpeta (mismo disco, para que el
+    renombrado sea atómico), le pone los permisos y lo renombra sobre `destino`.
+    Si algo falla a medias, borra el temporal y `destino` queda como estaba.
+    """
+    carpeta = os.path.dirname(destino)
+    fd, tmp = tempfile.mkstemp(dir=carpeta, prefix=f'.{os.path.basename(destino)}.', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'wb') as f:
+            if origen is not None:
+                with open(origen, 'rb') as o:
+                    shutil.copyfileobj(o, f, 1024 * 1024)
+            else:
+                f.write(texto.encode('utf-8'))
+            f.flush()
+            os.fsync(f.fileno())
+        if origen is not None:
+            shutil.copystat(origen, tmp)
+        _permisos(tmp)
+        os.replace(tmp, destino)
+    except BaseException:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+        raise
 
 
 def _curl(url, salida=None):
@@ -86,13 +137,19 @@ def publicar(origen, version, notas):
             shutil.copy2(ruta, f'{ruta}.bak.{marca}')
             print(f'respaldo: {ruta}.bak.{marca}')
 
-    shutil.copy2(origen, exe)
-    huella = sha256(exe)
     # Copia CON LA VERSIÓN EN EL NOMBRE: quien la baja sabe qué está bajando, y
     # queda claro en Descargas cuál es cuál. El nombre fijo se mantiene porque
     # hay enlaces que apuntan a él; el json manda a la copia con versión.
     exe_ver = os.path.join(ESTATICOS, f'ConectarDriveMaquita-Setup-{version}.exe')
-    shutil.copy2(origen, exe_ver)
+    # Si ya existe (se republica la misma versión, p. ej. firmada), también se respalda.
+    if os.path.exists(exe_ver):
+        shutil.copy2(exe_ver, f'{exe_ver}.bak.{marca}')
+        print(f'respaldo: {exe_ver}.bak.{marca}')
+    colocar(exe_ver, origen=origen)
+    colocar(exe, origen=origen)
+    huella = sha256(exe)
+    if huella != sha256(exe_ver):
+        sys.exit('Las dos copias del instalador no coinciden: el json NO se ha tocado. Revisar el disco.')
     datos = {
         'version': version,
         'url': f'{URL_BASE}/ConectarDriveMaquita-Setup-{version}.exe',
@@ -101,22 +158,28 @@ def publicar(origen, version, notas):
         'fecha': dt.date.today().isoformat(),
         'notas': notas,
     }
-    with open(js, 'w', encoding='utf-8') as f:
-        json.dump(datos, f, ensure_ascii=False, indent=2)
-
-    for ruta in (exe, exe_ver, js):
-        os.chmod(ruta, 0o644)
-        try:
-            import grp
-            import pwd
-            os.chown(ruta, pwd.getpwnam('sistemas').pw_uid, grp.getgrnam('www-data').gr_gid)
-        except (KeyError, PermissionError, OSError):
-            pass
+    # El json, el último: así nunca anuncia un instalador que aún no está en su sitio.
+    colocar(js, texto=json.dumps(datos, ensure_ascii=False, indent=2))
 
     print(f'publicada v{version} ({datos["tamano"]} bytes, sha256 {huella})')
     print(f'con versión en el nombre: {os.path.basename(exe_ver)}')
-    print('--- verificación contra la URL pública ---')
-    return verificar()
+    return verificar_con_espera()
+
+
+def verificar_con_espera():
+    """Tras publicar: nginx puede servir el archivo anterior (entero) hasta 60 s;
+    se repite la verificación hasta que cuadre o pasen ESPERA_VERIFICAR_S."""
+    limite = time.monotonic() + ESPERA_VERIFICAR_S
+    intento = 1
+    while True:
+        print(f'--- verificación contra la URL pública (intento {intento}) ---')
+        if verificar() == 0:
+            return 0
+        if time.monotonic() + PAUSA_VERIFICAR_S > limite:
+            return 1
+        print(f'(nginx puede tardar hasta 60 s en ver el archivo nuevo; reintento en {PAUSA_VERIFICAR_S} s)')
+        time.sleep(PAUSA_VERIFICAR_S)
+        intento += 1
 
 
 def main():
