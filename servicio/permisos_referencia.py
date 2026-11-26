@@ -45,12 +45,13 @@ def puede_referenciar(usuario_id, dueno_id, ruta):
         dueno_id = int(dueno_id)
 
         # 1) Unidad compartida: manda la membresía, no el dueño del fileKey.
-        unidad_id, _ = unidad_de_ruta(ruta)
+        unidad_id, _sub = unidad_de_ruta(ruta)
         if unidad_id is not None:
-            from api_unidades import rol_en_unidad
-            if rol_en_unidad(usuario_id, unidad_id) is not None:
-                return True, 'miembro de la unidad'
-            return False, 'no es miembro de la unidad'
+            # Rol efectivo (unidad + carpeta + «Sin acceso a esta carpeta», 26/11/2026).
+            from permisos_unidad_carpeta import rol_efectivo
+            if rol_efectivo(usuario_id, unidad_id, _sub) is not None:
+                return True, 'tiene acceso en la unidad'
+            return False, 'sin acceso a esa carpeta de la unidad'
 
         # 2) Su propio espacio.
         if usuario_id == dueno_id:

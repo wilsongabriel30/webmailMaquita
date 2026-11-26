@@ -1014,6 +1014,7 @@ def registrar_almacen(app):
         from api_diagnostico_editor import bp_diag_editor
         # Telemetría de sesiones del editor: refrescos de versión (25/11/2026).
         from api_telemetria_editor import bp_telemetria_editor
+        from api_bloqueos_carpeta import bp_bloqueos_carpeta   # «Sin acceso a esta carpeta» (26/11/2026)
         from arreglos_editor import registrar as registrar_arreglos_editor
         # Carpetas cuya dirección interna se envió como si fuera el enlace público.
         from ruta_publicada import registrar as registrar_ruta_publicada
@@ -1031,13 +1032,15 @@ def registrar_almacen(app):
             asegurar_esquema_contenido()
             asegurar_esquema_vinculos()
             asegurar_esquema_encuestas()
+            from bloqueos_carpeta import asegurar_esquema as _esquema_bloqueos
+            _esquema_bloqueos()
         except Exception as _exc_esquema:
             log.error('Almacen: no se pudo asegurar el esquema, se continua igual '
                       'para no dejar la API sin rutas: %s', _exc_esquema)
 
         # API del motor bajo /api/almacen (NO choca con /api/nextcloud)
         for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor, bp_descomprimir, bp_formulario_libro, bp_vinculos_vivo, bp_encuestas_vivo,
-                   bp_consolidados_latido, bp_asistente_hojas, bp_poc_latinium, bp_telemetria_editor):
+                   bp_consolidados_latido, bp_asistente_hojas, bp_poc_latinium, bp_telemetria_editor, bp_bloqueos_carpeta):
             app.register_blueprint(bp, url_prefix='/api/almacen')
         # Página del explorador en modo Almacén
         app.register_blueprint(bp_almacen_web)

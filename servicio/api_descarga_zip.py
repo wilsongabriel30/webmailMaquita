@@ -43,6 +43,14 @@ def _resolver(usuario, rutas):
             continue
         if not _api._permiso_unidad(usuario, ruta, escritura=False):
             raise PermissionError('No tienes acceso a «%s»' % os.path.basename(ruta))
+        try:   # «Sin acceso a esta carpeta» (26/11/2026); ante error, se niega
+            from bloqueos_carpeta import hay_bloqueo_debajo
+            _bloqueo = hay_bloqueo_debajo(usuario, ruta)
+        except Exception:
+            _bloqueo = True
+        if _bloqueo:
+            raise PermissionError('«%s» contiene elementos a los que usted no tiene acceso; '
+                                  'descargue por separado lo que sí puede ver.' % os.path.basename(ruta))
         usuario_ef, ruta_ef = _api._efectivo(usuario, ruta)
         fisica = ruta_fisica(usuario_ef, ruta_ef)
         if not os.path.exists(fisica):

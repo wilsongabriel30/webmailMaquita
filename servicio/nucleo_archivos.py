@@ -666,6 +666,8 @@ def renombrar(usuario_id: int, ruta_virtual: str, nuevo_nombre: str,
     _reubicar_enlaces(origen, destino)   # los enlaces compartidos siguen al archivo (14/10/2026)
     if os.path.isdir(destino):
         _ec.reubicar(usuario_id, ruta_virtual, ruta_nueva)   # el color sigue a la carpeta
+        import bloqueos_carpeta   # el «Sin acceso» sigue a la carpeta (26/11/2026)
+        bloqueos_carpeta.reubicar(ruta_virtual, ruta_nueva)
     contenido.olvidar(usuario_id, ruta_virtual)
     contenido.encolar(usuario_id, ruta_nueva)
     return ruta_nueva
@@ -676,6 +678,8 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
     """Mueve archivo/carpeta a otra ruta virtual (renombrar entre carpetas)."""
     import candado_unidad
     candado_unidad.exigir_abierta(normalizar_ruta_virtual(ruta_origen), 'mover')
+    import bloqueos_carpeta
+    bloqueos_carpeta.exigir_sin_bloqueo_debajo(usuario_id, normalizar_ruta_virtual(ruta_origen), 'mover')
     origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen), escritura=True)
     destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino), escritura=True)
     if not os.path.exists(origen):
@@ -700,6 +704,7 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
     _reubicar_enlaces(origen, destino)   # los enlaces compartidos siguen al archivo (14/10/2026)
     if os.path.isdir(destino):
         _ec.reubicar(usuario_id, normalizar_ruta_virtual(ruta_origen), ruta_final)
+        bloqueos_carpeta.reubicar(normalizar_ruta_virtual(ruta_origen), ruta_final)
     contenido.olvidar(usuario_id, normalizar_ruta_virtual(ruta_origen))
     contenido.encolar(usuario_id, ruta_final)
     return ruta_final
@@ -707,6 +712,8 @@ def mover(usuario_id: int, ruta_origen: str, ruta_destino: str,
 
 def copiar(usuario_id: int, ruta_origen: str, ruta_destino: str) -> None:
     """Copia archivo (o carpeta completa) a otra ruta virtual."""
+    import bloqueos_carpeta
+    bloqueos_carpeta.exigir_sin_bloqueo_debajo(usuario_id, normalizar_ruta_virtual(ruta_origen), 'copiar')
     origen = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_origen))
     destino = ruta_fisica(usuario_id, normalizar_ruta_virtual(ruta_destino), escritura=True)
     if not os.path.exists(origen):
@@ -756,6 +763,8 @@ def enviar_a_papelera(usuario_id: int, ruta_virtual: str) -> str:
     ruta_virtual = normalizar_ruta_virtual(ruta_virtual)
     import candado_unidad
     candado_unidad.exigir_abierta(ruta_virtual, 'enviar a la papelera')
+    import bloqueos_carpeta
+    bloqueos_carpeta.exigir_sin_bloqueo_debajo(usuario_id, ruta_virtual, 'enviar a la papelera')
     origen = ruta_fisica(usuario_id, ruta_virtual, escritura=True)
     if not os.path.exists(origen):
         raise FileNotFoundError(ruta_virtual)

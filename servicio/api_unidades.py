@@ -423,6 +423,9 @@ def papelera_unidad(unidad_id):
     if rol_en_unidad(usuario, unidad_id) is None:
         return error('No eres miembro de esta unidad', 403)
     carpetas, archivos = nucleo.listar_papelera_unidad(unidad_id)
+    from bloqueos_carpeta import filtrar_items as _sin_bloqueados   # 26/11/2026
+    carpetas = _sin_bloqueados(usuario, carpetas, clave='ruta_original')
+    archivos = _sin_bloqueados(usuario, archivos, clave='ruta_original')
     # Nombre de quien borro cada elemento (importante para saber a quien preguntar).
     _items = carpetas + archivos
     _ids = tuple({int(i['usuario_id']) for i in _items if i.get('usuario_id')})
@@ -458,9 +461,12 @@ def ver_papelera_unidad(unidad_id):
     if (not nombre_fisico) or ('/' in nombre_fisico) or ('\\' in nombre_fisico) or ('..' in nombre_fisico):
         return error('Elemento invalido', 400)
     filas = consultar(
-        "SELECT nombre, es_carpeta FROM papelera WHERE unidad_id = %s AND nombre_fisico = %s",
+        "SELECT nombre, es_carpeta, ruta_original FROM papelera WHERE unidad_id = %s AND nombre_fisico = %s",
         (unidad_id, nombre_fisico))
     if not filas:
+        return error('No esta en la papelera', 404)
+    from bloqueos_carpeta import puede_ver as _puede_ver   # «Sin acceso a esta carpeta»
+    if not _puede_ver(usuario, filas[0]['ruta_original'] or ''):
         return error('No esta en la papelera', 404)
     if filas[0]['es_carpeta']:
         return error('No se puede previsualizar una carpeta', 400)
