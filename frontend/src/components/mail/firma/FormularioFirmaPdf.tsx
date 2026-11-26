@@ -263,7 +263,9 @@ export function FormularioFirmaPdf({ nombreArchivo, folder, uid, partNumber, fir
         <p role="alert" className="text-[13px] text-[#a4262c] bg-[#fde7e9] border border-[#f1707b] rounded px-3 py-2">{error}</p>
       )}
 
-      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-1">
+      {/* Pie fijo: los botones se ven siempre, aunque la vista previa del PDF sea alta
+          (antes quedaban abajo del todo y parecia que no habia nada; 26/11/2026). */}
+      <div className="flex flex-col-reverse sm:flex-row sm:justify-end gap-2 sticky bottom-0 z-10 -mx-4 px-4 py-3 bg-white dark:bg-[#2d2d2d] border-t border-[#edebe9] dark:border-[#444]">
         <button type="button" onClick={onCancelar} disabled={firmando}
           className="h-[40px] px-4 rounded border border-[#8a8886] text-[13px] text-[#323130] dark:text-[#e0e0e0] bg-white dark:bg-[#1e1e1e]">
           Cancelar
