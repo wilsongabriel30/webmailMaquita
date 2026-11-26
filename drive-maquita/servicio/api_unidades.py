@@ -525,6 +525,9 @@ def eliminar_unidad(unidad_id):
     RESTAURAR tal cual durante DIAS_RETENCION días desde la papelera de unidades.
     Un timer purga definitivamente lo que pase de ese plazo. Si no se puede
     archivar, se ABORTA sin borrar nada."""
+    import candado_unidad                    # unidad con candado: no se elimina (16/11/2026)
+    if unidad_id in candado_unidad.cerradas():
+        return error(candado_unidad.MENSAJE, 403)
     usuario = usuario_actual()
     if not es_master(usuario):
         return error('Solo un administrador general (master) puede eliminar '

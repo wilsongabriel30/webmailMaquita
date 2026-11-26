@@ -315,6 +315,17 @@ def subir():
             # que venga pegada al nombre no se hace ningun caso.
             nombre = (almacenado.filename or '').replace('\\', '/').split('/')[-1].strip()
             _usuario_ef, _carpeta_ef = _efectivo(usuario, carpeta)
+            # Candado de unidad (16/11/2026): subir algo NUEVO sí; reemplazar lo que ya existe, no.
+            import candado_unidad
+            if candado_unidad.unidad_cerrada(carpeta) is not None and nombre and '/' not in nombre:
+                _ya = (_carpeta_ef.rstrip('/') or '') + '/' + nombre
+                try:
+                    if os.path.exists(ruta_fisica(_usuario_ef, _ya)):
+                        candado_unidad.exigir_abierta(_ya, 'reemplazar al subir')
+                except RutaInvalida:
+                    raise
+                except Exception:
+                    pass
             r = nucleo.subir(_usuario_ef, _carpeta_ef, nombre, almacenado.stream)
             _arreglar_formato_de_google(_usuario_ef, r)
             _arreglar_graficos_de_google(_usuario_ef, r)
@@ -324,6 +335,10 @@ def subir():
                 reprefijar_item(r, _pref)
             subidos.append(r)
             registrar_actividad(usuario, 'subio', r['ruta'], r.get('tamano_humano', ''))
+            # Formato antiguo (.xls/.doc/.ppt/.xlsb): se convierte solo en segundo
+            # plano para que abra al instante (conversion_automatica, 20/10/2026).
+            import conversion_automatica
+            conversion_automatica.encolar(_usuario_ef, r['ruta'])
             # Si el archivo subido es ORIGEN de vínculos de datos, sus destinos
             # deben actualizarse. Hasta ahora el refresco SOLO se disparaba al
             # guardar desde OnlyOffice (api_onlyoffice.py, callback), así que

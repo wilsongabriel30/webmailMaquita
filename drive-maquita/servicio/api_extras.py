@@ -144,6 +144,7 @@ def info_publico(token):
     """GET /publico-info/<token>?clave= — datos del enlace para la página
     pública (sin sesión). Si el enlace tiene clave, los detalles del archivo
     solo se entregan con la clave correcta."""
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     filas = consultar("""
         SELECT propietario_id, ruta, expira_en, clave_hash, permite_descarga, puede_editar
         FROM compartidos WHERE token = %s
@@ -190,6 +191,7 @@ def descargar_publico(token):
     La página web /archivos/s/<token> (que sirve el frontend) apunta aquí.
     Valida token, expiración y (si tiene) clave.
     """
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     filas = consultar("""
         SELECT propietario_id, ruta, expira_en, clave_hash, permite_descarga
         FROM compartidos WHERE token = %s AND tipo = 3

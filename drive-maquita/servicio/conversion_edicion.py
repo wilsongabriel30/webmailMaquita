@@ -69,6 +69,22 @@ def _retirar_original(usuario_id: int, ruta_virtual: str) -> None:
         log.warning('No se pudo retirar el original %s: %s', ruta_virtual, excepcion)
 
 
+def _seguir_enlaces(usuario_id: int, fisica_antigua: str, ruta_nueva: str, fisica_nueva: str) -> None:
+    """Los enlaces cortos (/a/<código>) y los compartidos que apuntaban al formato
+    antiguo pasan al moderno; si no, el enlace moría al irse el original a la
+    papelera (20/10/2026). FAIL-SILENT."""
+    try:
+        import enlaces_cortos
+        enlaces_cortos.reubicar(fisica_antigua, fisica_nueva, usuario_id, ruta_nueva)
+    except Exception as excepcion:
+        log.warning('enlaces cortos no reubicados a %s: %s', ruta_nueva, excepcion)
+    try:
+        import enlaces_siguen_archivo
+        enlaces_siguen_archivo.reubicar(fisica_antigua, fisica_nueva)
+    except Exception as excepcion:
+        log.warning('enlaces compartidos no reubicados a %s: %s', ruta_nueva, excepcion)
+
+
 def preparar_para_editar(usuario_id: int, ruta_virtual: str, fisica_original: str):
     """Devuelve (ruta_a_abrir, convertido_ahora).
 
@@ -85,6 +101,7 @@ def preparar_para_editar(usuario_id: int, ruta_virtual: str, fisica_original: st
         fisica_nueva = ruta_fisica(usuario_id, ruta_nueva)
         if (os.path.isfile(fisica_nueva)
                 and os.path.getmtime(fisica_nueva) >= os.path.getmtime(fisica_original)):
+            _seguir_enlaces(usuario_id, fisica_original, ruta_nueva, fisica_nueva)
             _retirar_original(usuario_id, ruta_virtual)
             return ruta_nueva, False          # ya hay copia moderna vigente
 
@@ -108,6 +125,7 @@ def preparar_para_editar(usuario_id: int, ruta_virtual: str, fisica_original: st
             except OSError:
                 pass
 
+        _seguir_enlaces(usuario_id, fisica_original, ruta_nueva, fisica_nueva)
         _retirar_original(usuario_id, ruta_virtual)
         try:
             from registro import registrar_actividad

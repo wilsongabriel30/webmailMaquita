@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20260930-dominios1'
+VERSION = '20261023-pastilla-alto'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
@@ -82,6 +82,11 @@ ARREGLOS = (
     '<!-- Listas de «Personas con acceso» (nómina): hoja oculta + intervalo, y el panel que las rellena (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-lista-personas.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-lista-panel-personas.js?v={v}"></script>\n'
+    '<!-- Colores por opción en las listas de un intervalo, como Google (14/10/2026). -->\n'
+    '<script src="/static/js/almacen/editor-lista-panel-intervalo.js?v={v}"></script>\n'
+    '<!-- Paleta de las listas con los colores de Google y cuadro de color personalizado (14/10/2026). -->\n'
+    '<script src="/static/js/almacen/editor-selector-color.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-lista-colores-google.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-formato-celda.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-formato-panel.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-vista-filtro.js?v={v}"></script>\n'
@@ -112,6 +117,8 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-desplegable-aspecto.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-pastillas-todas.js?v={v}"></script>\n'
     '<!-- La pastilla dibujada EN EL LIENZO del editor, parte de la celda (03/09/2026). -->\n'
+    '<!-- Desplegables con flechita en los libros que en Google la usan (marca _MaqDesplegable, 14/10/2026). -->\n'
+    '<script src="/static/js/almacen/editor-desplegable-flecha.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-pastilla-lienzo.js?v={v}"></script>\n'
     '<!-- Un solo botón para abrir la lista: el del editor, apagado (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-boton-nativo-lista.js?v={v}"></script>\n'
@@ -141,6 +148,10 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-funcion-query.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-funciones-motor.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-query-derrame.js?v={v}"></script>\n'
+    '<!-- En el resultado de un buscador con desplegable, la barra de fórmulas muestra el dato, como Google (12/10/2026). -->\n'
+    '<script src="/static/js/almacen/editor-barra-resultado-buscador.js?v={v}"></script>\n'
+    '<!-- Al cambiar el desplegable de un buscador, las filas del resultado toman su alto, como en Google (12/10/2026). -->\n'
+    '<script src="/static/js/almacen/editor-buscador-alto-filas.js?v={v}"></script>\n'
     '<!-- El editor conectado con el Drive: menciones, enlace a un rango, guardar copia,\n'
     '     imagen del Drive, vínculos externos, compartir, renombrar, nuevo/plantillas/recientes (23/09/2026). -->\n'
     '<!-- Gráficos: combinado por serie, descargar (PNG/PDF/Drive) y mapa de provincias del Ecuador (23/09/2026). -->\n'

@@ -1,0 +1,947 @@
+{
+ "hoy": "2026-11-10",
+ "casos": [
+  {
+   "nombre": "multiplicar cantidad por precio",
+   "regla": {
+    "op": "*",
+    "args": [
+     {
+      "ref": "c"
+     },
+     {
+      "ref": "p"
+     }
+    ]
+   },
+   "valores": {
+    "c": "12",
+    "p": "2.5"
+   },
+   "esperado": 30.0
+  },
+  {
+   "nombre": "aritmética con vacío da vacío",
+   "regla": {
+    "op": "*",
+    "args": [
+     {
+      "ref": "c"
+     },
+     {
+      "ref": "p"
+     }
+    ]
+   },
+   "valores": {
+    "c": "12"
+   },
+   "esperado": null
+  },
+  {
+   "nombre": "vacío cuenta como 0 (ODK)",
+   "regla": {
+    "op": "+",
+    "args": [
+     {
+      "fn": "numero",
+      "args": [
+       {
+        "ref": "a"
+       },
+       {
+        "num": 0
+       }
+      ]
+     },
+     {
+      "fn": "numero",
+      "args": [
+       {
+        "ref": "b"
+       },
+       {
+        "num": 0
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {
+    "a": "10.5"
+   },
+   "esperado": 10.5
+  },
+  {
+   "nombre": "suma ignora vacíos",
+   "regla": {
+    "fn": "suma",
+    "args": [
+     {
+      "ref": "a"
+     },
+     {
+      "ref": "b"
+     },
+     {
+      "ref": "c"
+     }
+    ]
+   },
+   "valores": {
+    "a": "1",
+    "c": "2.25"
+   },
+   "esperado": 3.25
+  },
+  {
+   "nombre": "suma de nada es 0",
+   "regla": {
+    "fn": "suma",
+    "args": [
+     {
+      "ref": "a"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 0.0
+  },
+  {
+   "nombre": "promedio",
+   "regla": {
+    "fn": "promedio",
+    "args": [
+     {
+      "ref": "a"
+     },
+     {
+      "ref": "b"
+     }
+    ]
+   },
+   "valores": {
+    "a": "3",
+    "b": "4"
+   },
+   "esperado": 3.5
+  },
+  {
+   "nombre": "promedio de nada es vacío",
+   "regla": {
+    "fn": "promedio",
+    "args": [
+     {
+      "ref": "a"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": null
+  },
+  {
+   "nombre": "restar",
+   "regla": {
+    "op": "-",
+    "args": [
+     {
+      "ref": "i"
+     },
+     {
+      "ref": "c"
+     }
+    ]
+   },
+   "valores": {
+    "i": "100",
+    "c": "35.5"
+   },
+   "esperado": 64.5
+  },
+  {
+   "nombre": "dividir",
+   "regla": {
+    "op": "/",
+    "args": [
+     {
+      "num": 1
+     },
+     {
+      "num": 4
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 0.25
+  },
+  {
+   "nombre": "dividir entre 0 da vacío",
+   "regla": {
+    "op": "/",
+    "args": [
+     {
+      "num": 1
+     },
+     {
+      "num": 0
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": null
+  },
+  {
+   "nombre": "decimales como ODK (0.1+0.2)",
+   "regla": {
+    "op": "+",
+    "args": [
+     {
+      "num": 0.1
+     },
+     {
+      "num": 0.2
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 0.30000000000000004
+  },
+  {
+   "nombre": "mod",
+   "regla": {
+    "op": "mod",
+    "args": [
+     {
+      "num": 7
+     },
+     {
+      "num": 3
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 1.0
+  },
+  {
+   "nombre": "igual a texto",
+   "regla": {
+    "op": "=",
+    "args": [
+     {
+      "ref": "produce"
+     },
+     {
+      "txt": "si"
+     }
+    ]
+   },
+   "valores": {
+    "produce": "si"
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "distinto",
+   "regla": {
+    "op": "!=",
+    "args": [
+     {
+      "ref": "x"
+     },
+     {
+      "txt": "no_participa"
+     }
+    ]
+   },
+   "valores": {
+    "x": "participa"
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "distinto con vacío",
+   "regla": {
+    "op": "!=",
+    "args": [
+     {
+      "ref": "x"
+     },
+     {
+      "txt": "no_participa"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true
+  },
+  {
+   "nombre": "igual a vacío",
+   "regla": {
+    "op": "=",
+    "args": [
+     {
+      "ref": "x"
+     },
+     {
+      "txt": ""
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true
+  },
+  {
+   "nombre": "números como texto se comparan como números",
+   "regla": {
+    "op": "=",
+    "args": [
+     {
+      "ref": "x"
+     },
+     {
+      "num": 5
+     }
+    ]
+   },
+   "valores": {
+    "x": "5.0"
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "mayor o igual que 0",
+   "regla": {
+    "op": ">=",
+    "args": [
+     {
+      "ref": "."
+     },
+     {
+      "num": 0
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": false
+  },
+  {
+   "nombre": "rango 10 a 120",
+   "regla": {
+    "op": "y",
+    "args": [
+     {
+      "op": ">=",
+      "args": [
+       {
+        "ref": "."
+       },
+       {
+        "num": 10
+       }
+      ]
+     },
+     {
+      "op": "<=",
+      "args": [
+       {
+        "ref": "."
+       },
+       {
+        "num": 120
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true,
+   "actual": "45"
+  },
+  {
+   "nombre": "rango fuera",
+   "regla": {
+    "op": "y",
+    "args": [
+     {
+      "op": ">=",
+      "args": [
+       {
+        "ref": "."
+       },
+       {
+        "num": 10
+       }
+      ]
+     },
+     {
+      "op": "<=",
+      "args": [
+       {
+        "ref": "."
+       },
+       {
+        "num": 120
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": false,
+   "actual": "130"
+  },
+  {
+   "nombre": "mayor con vacío es falso",
+   "regla": {
+    "op": ">",
+    "args": [
+     {
+      "ref": "x"
+     },
+     {
+      "num": 0
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": false
+  },
+  {
+   "nombre": "texto mayor",
+   "regla": {
+    "op": ">",
+    "args": [
+     {
+      "txt": "b"
+     },
+     {
+      "txt": "a"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true
+  },
+  {
+   "nombre": "o",
+   "regla": {
+    "op": "o",
+    "args": [
+     {
+      "op": "=",
+      "args": [
+       {
+        "ref": "a"
+       },
+       {
+        "txt": "1"
+       }
+      ]
+     },
+     {
+      "op": "=",
+      "args": [
+       {
+        "ref": "b"
+       },
+       {
+        "txt": "1"
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {
+    "b": "1"
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "no",
+   "regla": {
+    "op": "no",
+    "args": [
+     {
+      "op": "=",
+      "args": [
+       {
+        "ref": "a"
+       },
+       {
+        "txt": "1"
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {
+    "a": "1"
+   },
+   "esperado": false
+  },
+  {
+   "nombre": "incluye en lista",
+   "regla": {
+    "fn": "incluye",
+    "args": [
+     {
+      "ref": "m"
+     },
+     {
+      "txt": "otro"
+     }
+    ]
+   },
+   "valores": {
+    "m": [
+     "maiz",
+     "otro"
+    ]
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "incluye en texto con espacios (ODK)",
+   "regla": {
+    "fn": "incluye",
+    "args": [
+     {
+      "ref": "m"
+     },
+     {
+      "txt": "otro"
+     }
+    ]
+   },
+   "valores": {
+    "m": "maiz otro"
+   },
+   "esperado": true
+  },
+  {
+   "nombre": "no incluye",
+   "regla": {
+    "fn": "incluye",
+    "args": [
+     {
+      "ref": "m"
+     },
+     {
+      "txt": "otro"
+     }
+    ]
+   },
+   "valores": {
+    "m": "maiz otros"
+   },
+   "esperado": false
+  },
+  {
+   "nombre": "cuántos marcados",
+   "regla": {
+    "fn": "cuantos",
+    "args": [
+     {
+      "ref": "m"
+     }
+    ]
+   },
+   "valores": {
+    "m": [
+     "a",
+     "b",
+     "c"
+    ]
+   },
+   "esperado": 3.0
+  },
+  {
+   "nombre": "si entonces",
+   "regla": {
+    "fn": "si",
+    "args": [
+     {
+      "op": ">",
+      "args": [
+       {
+        "ref": "x"
+       },
+       {
+        "num": 0
+       }
+      ]
+     },
+     {
+      "txt": "positivo"
+     },
+     {
+      "txt": "no"
+     }
+    ]
+   },
+   "valores": {
+    "x": "3"
+   },
+   "esperado": "positivo"
+  },
+  {
+   "nombre": "si con vacío",
+   "regla": {
+    "fn": "si",
+    "args": [
+     {
+      "fn": "lleno",
+      "args": [
+       {
+        "ref": "x"
+       }
+      ]
+     },
+     {
+      "fn": "numero",
+      "args": [
+       {
+        "ref": "x"
+       }
+      ]
+     },
+     {
+      "num": 0
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 0.0
+  },
+  {
+   "nombre": "redondear mitad hacia arriba",
+   "regla": {
+    "fn": "redondear",
+    "args": [
+     {
+      "num": 2.675
+     },
+     {
+      "num": 2
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 2.68
+  },
+  {
+   "nombre": "redondear negativo",
+   "regla": {
+    "fn": "redondear",
+    "args": [
+     {
+      "num": -2.5
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": -2.0
+  },
+  {
+   "nombre": "entero",
+   "regla": {
+    "fn": "entero",
+    "args": [
+     {
+      "num": -3.7
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": -3.0
+  },
+  {
+   "nombre": "concatenar número entero",
+   "regla": {
+    "fn": "concatenar",
+    "args": [
+     {
+      "txt": "Lote "
+     },
+     {
+      "num": 3
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": "Lote 3"
+  },
+  {
+   "nombre": "concatenar decimal",
+   "regla": {
+    "fn": "concatenar",
+    "args": [
+     {
+      "num": 2.5
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": "2.5"
+  },
+  {
+   "nombre": "longitud",
+   "regla": {
+    "fn": "longitud",
+    "args": [
+     {
+      "ref": "x"
+     }
+    ]
+   },
+   "valores": {
+    "x": "Peña"
+   },
+   "esperado": 4.0
+  },
+  {
+   "nombre": "patrón cédula 10 dígitos",
+   "regla": {
+    "fn": "patron",
+    "args": [
+     {
+      "ref": "."
+     },
+     {
+      "txt": "^[0-9]{10}$"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true,
+   "actual": "1712345678"
+  },
+  {
+   "nombre": "patrón falla",
+   "regla": {
+    "fn": "patron",
+    "args": [
+     {
+      "ref": "."
+     },
+     {
+      "txt": "^[0-9]{10}$"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": false,
+   "actual": "17123"
+  },
+  {
+   "nombre": "cédula válida",
+   "regla": {
+    "fn": "cedula_valida",
+    "args": [
+     {
+      "txt": "1700000001"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true
+  },
+  {
+   "nombre": "cédula con verificador malo",
+   "regla": {
+    "fn": "cedula_valida",
+    "args": [
+     {
+      "txt": "1700000002"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": false
+  },
+  {
+   "nombre": "cédula provincia 30",
+   "regla": {
+    "fn": "cedula_valida",
+    "args": [
+     {
+      "txt": "3000000004"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": true
+  },
+  {
+   "nombre": "días entre fechas",
+   "regla": {
+    "fn": "dias_entre",
+    "args": [
+     {
+      "txt": "2026-01-31"
+     },
+     {
+      "txt": "2026-03-01"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 29.0
+  },
+  {
+   "nombre": "edad",
+   "regla": {
+    "fn": "edad",
+    "args": [
+     {
+      "txt": "1990-11-11"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 35.0
+  },
+  {
+   "nombre": "edad cumpleaños hoy",
+   "regla": {
+    "fn": "edad",
+    "args": [
+     {
+      "txt": "1990-11-10"
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 36.0
+  },
+  {
+   "nombre": "hoy",
+   "regla": {
+    "fn": "hoy",
+    "args": []
+   },
+   "valores": {},
+   "esperado": "2026-11-10"
+  },
+  {
+   "nombre": "primero lleno",
+   "regla": {
+    "fn": "primero_lleno",
+    "args": [
+     {
+      "ref": "a"
+     },
+     {
+      "ref": "b"
+     },
+     {
+      "txt": "ninguno"
+     }
+    ]
+   },
+   "valores": {
+    "b": "x"
+   },
+   "esperado": "x"
+  },
+  {
+   "nombre": "contar llenos",
+   "regla": {
+    "fn": "contar",
+    "args": [
+     {
+      "ref": "a"
+     },
+     {
+      "ref": "b"
+     },
+     {
+      "ref": "c"
+     }
+    ]
+   },
+   "valores": {
+    "a": "0",
+    "c": "x"
+   },
+   "esperado": 2.0
+  },
+  {
+   "nombre": "mínimo y máximo",
+   "regla": {
+    "op": "-",
+    "args": [
+     {
+      "fn": "maximo",
+      "args": [
+       {
+        "num": 3
+       },
+       {
+        "ref": "a"
+       },
+       {
+        "num": 9
+       }
+      ]
+     },
+     {
+      "fn": "minimo",
+      "args": [
+       {
+        "num": 3
+       },
+       {
+        "ref": "a"
+       },
+       {
+        "num": 9
+       }
+      ]
+     }
+    ]
+   },
+   "valores": {
+    "a": "1"
+   },
+   "esperado": 8.0
+  },
+  {
+   "nombre": "sí/no como número",
+   "regla": {
+    "op": "+",
+    "args": [
+     {
+      "bool": true
+     },
+     {
+      "num": 1
+     }
+    ]
+   },
+   "valores": {},
+   "esperado": 2.0
+  },
+  {
+   "nombre": "comparación encadenada",
+   "regla": {
+    "op": "<",
+    "args": [
+     {
+      "num": 1
+     },
+     {
+      "ref": "x"
+     },
+     {
+      "num": 10
+     }
+    ]
+   },
+   "valores": {
+    "x": "5"
+   },
+   "esperado": true
+  }
+ ]
+}

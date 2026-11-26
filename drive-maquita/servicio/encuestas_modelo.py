@@ -9,7 +9,7 @@ aquí, y la API se queda solo con las rutas.
 Un `.forma` versión 2 tiene una lista de ELEMENTOS, no solo de preguntas:
 
     {"version": 2, "id": ..., "titulo": ..., "descripcion": ...,
-     "tema": {"color": "#5b2d8e"},
+     "tema": {"color": "#0061a1"},
      "elementos": [
         {"clase": "pregunta", "tipo": "opcion_unica", ...},
         {"clase": "titulo",   "titulo": ..., "descripcion": ...},
@@ -28,12 +28,17 @@ import re
 
 import encuestas_texto as texto_rico
 import encuestas_validacion as validacion_mod
+import encuestas_modelo_reglas as modelo_reglas
+import encuestas_filtro_opciones as filtro_opciones
+import encuestas_tipos_campo as tipos_campo
 import uuid
 
 VERSION = 2
 
-LIMITE_ELEMENTOS = 200
-LIMITE_OPCIONES = 60
+# 10/11/2026: más amplio que ODK y Kobo para las encuestas de campo (la línea base IFA tiene 656 filas).
+# Pasarse ya no recorta en silencio: se rechaza con un mensaje (antes se perdía lo que sobraba).
+LIMITE_ELEMENTOS = 3000
+LIMITE_OPCIONES = 1500      # listas largas: cantones, parroquias, comunidades (10/11/2026; antes 60)
 
 TIPOS_PREGUNTA = ('texto_corto', 'parrafo', 'opcion_unica', 'casillas',
                   'desplegable', 'archivo', 'escala', 'calificacion',
@@ -42,7 +47,16 @@ TIPOS_PREGUNTA = ('texto_corto', 'parrafo', 'opcion_unica', 'casillas',
                   # «Colaborador» (28/09/2026): se elige a una persona de la
                   # nómina y sus datos de trabajo se rellenan solos. Todo lo
                   # suyo vive en `encuestas_colaboradores.py`.
-                  'colaborador')
+                  'colaborador',
+                  # Trabajo de campo (10/11/2026): número, cédula, nota, cálculo y
+                  # GPS. Todo lo suyo vive en `encuestas_tipos_campo.py`.
+                  'numero', 'cedula', 'nota', 'calculo', 'gps',
+                  # Lista desde archivo (cascada) y Repetición: encuestas_listas.py
+                  # y encuestas_repeticion.py (10/11/2026).
+                  'lista', 'repeticion',
+                  # Video con recorrido / solo recorrido, desde la app (11/11/2026):
+                  # encuestas_tipo_recorrido.py.
+                  'recorrido')
 
 # «Subir archivos» (08/09/2026). Su respuesta es una lista de FICHAS
 # —`[{id, nombre, tamano, ruta}]`—, no de textos: el archivo en sí acaba en el
@@ -67,8 +81,8 @@ GRUPOS_ARCHIVO = ('documento', 'hoja', 'presentacion', 'pdf', 'imagen',
 # significando lo mismo. `texto_de()` es quien sabe volcar eso a una línea para
 # la hoja de cálculo y el correo, que no pueden pintar una tabla.
 TIPOS_CUADRICULA = ('cuadricula_opciones', 'cuadricula_casillas')
-LIMITE_FILAS = 40
-LIMITE_COLUMNAS = 20
+LIMITE_FILAS = 100          # 10/11/2026; antes 40
+LIMITE_COLUMNAS = 30        # 10/11/2026; antes 20
 
 # Calificación: de 1 a N iconos. El mínimo es 2 porque una calificación de un
 # solo nivel no distingue nada; el máximo, 10, es el de la escala lineal.
@@ -107,13 +121,15 @@ CLASES = ('pregunta', 'titulo', 'seccion', 'imagen', 'video')
 # mano acabe incrustando un iframe de cualquier sitio.
 _YOUTUBE = re.compile(r'^[A-Za-z0-9_-]{11}$')
 
-COLOR_POR_DEFECTO = '#5b2d8e'                       # morado institucional
+COLOR_POR_DEFECTO = '#0061a1'                       # azul institucional
 
-# Paleta sugerida (12, como el panel «Tema» de Google Forms). No es una lista
+# Paleta sugerida (12, como el panel «Tema» de Google Forms). Abre con la gama
+# institucional de Maquita: azul, azul tono bajo, naranja, naranja medio, verde
+# y rojo; sin morados (02/10/2026). No es una lista
 # cerrada: el editor admite además cualquier color propio, por eso la validación
 # comprueba la FORMA del color y no su pertenencia a esta tupla.
-COLORES_TEMA = ('#d93025', '#5b2d8e', '#3f51b5', '#1a73e8', '#00acc1', '#00bcd4',
-                '#f4511e', '#f09300', '#188038', '#00897b', '#455a64', '#5f6368')
+COLORES_TEMA = ('#0061a1', '#1a72b3', '#eb6018', '#ea580c', '#16a34a', '#dc2626',
+                '#1a73e8', '#00acc1', '#00897b', '#f09300', '#455a64', '#5f6368')
 
 # Fondo: en vez de un color suelto se guarda cuál de los cuatro tonos derivados
 # del color del tema se eligió, para que fondo y color nunca se descuadren.
@@ -369,7 +385,11 @@ def _limpiar_pregunta(bruto):
 
     if tipo in TIPOS_CON_OPCIONES:
         opciones = [_texto(o, 300) for o in (bruto.get('opciones') or [])]
-        pregunta['opciones'] = [o for o in opciones if o][:LIMITE_OPCIONES]
+        opciones = [o for o in opciones if o]
+        if len(opciones) > LIMITE_OPCIONES:
+            raise ValueError(f'Una pregunta tiene {len(opciones)} opciones; el máximo es {LIMITE_OPCIONES}. '
+                             'Para listas más largas usa una lista desde archivo.')
+        pregunta['opciones'] = opciones
         if not pregunta['opciones']:
             pregunta['opciones'] = ['Opción 1']
         pregunta['barajar'] = bool(bruto.get('barajar'))
@@ -427,6 +447,9 @@ def _limpiar_pregunta(bruto):
         except (TypeError, ValueError):
             maximo = 5
         pregunta['escala_max'] = min(max(maximo, 2), 10)
+        # «0 hasta 10», como Google (30/10/2026): la pregunta de recomendación
+        # (NPS) va de 0 a 10. Solo 0 o 1; lo demás, 1, que es lo de siempre.
+        pregunta['escala_min'] = 0 if bruto.get('escala_min') in (0, '0') else 1
         pregunta['escala_min_etiqueta'] = _texto(bruto.get('escala_min_etiqueta'), 60)
         pregunta['escala_max_etiqueta'] = _texto(bruto.get('escala_max_etiqueta'), 60)
 
@@ -460,6 +483,9 @@ def _limpiar_pregunta(bruto):
             # filas por definición.
             pregunta['una_por_columna'] = bool(bruto.get('una_por_columna'))
 
+    elif tipo in tipos_campo.TIPOS:
+        tipos_campo.completar(pregunta, bruto)
+
     elif tipo == 'colaborador':
         import encuestas_colaboradores
         encuestas_colaboradores.completar(pregunta, bruto, _texto)
@@ -481,6 +507,11 @@ def _limpiar_pregunta(bruto):
         grupos = grupos if isinstance(grupos, list) else []
         pregunta['archivo_tipos'] = [g for g in [_texto(v, 20) for v in grupos]
                                      if g in GRUPOS_ARCHIVO]
+        # «Foto» (10/11/2026): la misma subida, con la cámara y la foto reducida
+        # en el teléfono (encuesta-foto.js). Solo admite imágenes.
+        pregunta['archivo_foto'] = bool(bruto.get('archivo_foto'))
+        if pregunta['archivo_foto']:
+            pregunta['archivo_tipos'] = ['imagen']
 
     return pregunta
 
@@ -633,7 +664,10 @@ def _limpiar_elemento(bruto):
         return None
     clase = bruto.get('clase') or 'pregunta'
     if clase == 'pregunta':
-        return _limpiar_pregunta(bruto)
+        pregunta = _limpiar_pregunta(bruto)
+        # Nombre de variable y reglas (mostrar si, cálculo…): ver encuestas_modelo_reglas.py.
+        # Nombre de variable y reglas, y listas que dependen de otra respuesta (encuestas_filtro_opciones.py).
+        return filtro_opciones.limpiar(modelo_reglas.completar(pregunta, bruto), bruto) if pregunta else None
     if clase in ('titulo', 'seccion'):
         return _limpiar_bloque(bruto, clase)
     if clase == 'imagen':
@@ -694,8 +728,11 @@ def limpiar(bruto, id_previo=None):
         crudos = [dict(p, clase='pregunta')
                   for p in (bruto.get('preguntas') or []) if isinstance(p, dict)]
 
+    if len(crudos) > LIMITE_ELEMENTOS:
+        raise ValueError(f'El formulario tiene {len(crudos)} elementos; el máximo es {LIMITE_ELEMENTOS}. '
+                         'Divídelo en dos formularios.')
     elementos = []
-    for crudo in crudos[:LIMITE_ELEMENTOS]:
+    for crudo in crudos:
         limpio = _limpiar_elemento(crudo)
         if limpio:
             elementos.append(limpio)
@@ -706,8 +743,11 @@ def limpiar(bruto, id_previo=None):
     # Los saltos se comprueban cuando ya están TODOS los elementos: hasta aquí no
     # se sabe qué secciones existen de verdad.
     elementos = _saltos_coherentes(elementos)
+    # Nombres únicos y reglas que solo citan preguntas existentes, sin cálculos en círculo.
+    modelo_reglas.coherencia(elementos)
+    filtro_opciones.coherencia(elementos)
 
-    return {
+    limpio = {
         'version': VERSION,
         'id': _id(bruto.get('id')) if bruto.get('id') else (id_previo or nuevo_id()),
         'titulo': _rico(bruto.get('titulo'), 300) or 'Formulario sin título',
@@ -722,6 +762,13 @@ def limpiar(bruto, id_previo=None):
         'destino_inicio': _destino_valido(bruto.get('destino_inicio'), elementos),
         'elementos': elementos,
     }
+    # Varios idiomas (30/10/2026): solo se guarda si hay al menos dos, para no
+    # cambiar los `.forma` de siempre. Import tardío: el módulo usa este.
+    import encuestas_idiomas
+    idiomas = encuestas_idiomas.limpiar(bruto.get('idiomas'), elementos)
+    if idiomas:
+        limpio['idiomas'] = idiomas
+    return limpio
 
 
 # ---------------------------------------------------------------------------
@@ -738,6 +785,9 @@ def texto_de(pregunta, valor):
     """
     if valor is None or valor == '' or valor == [] or valor == {}:
         return ''
+
+    if pregunta.get('tipo') in ('repeticion', 'recorrido'):
+        return tipos_campo.texto(pregunta, valor)
 
     if pregunta.get('tipo') == 'colaborador':
         import encuestas_colaboradores

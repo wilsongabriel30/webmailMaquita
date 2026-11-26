@@ -31,6 +31,12 @@ import vivo  # noqa: E402
 
 
 def main():
+    # (06/10/2026) Mientras Google manda (hasta el 31/12/2026), los consolidados
+    # se publican tal cual llegan de Google: rehacerlos aquí daba cifras distintas.
+    # Quitar el archivo de marca para volver a consolidar en el Drive Maquita.
+    if os.path.exists('/mnt/almacen/_sincronizacion-asc/ESPEJO-GOOGLE') and '--sandbox' not in sys.argv:
+        log.info('consolidación en pausa: los consolidados vienen de Google (ESPEJO-GOOGLE)')
+        return 0
     argumentos = [a for a in sys.argv[1:] if not a.startswith('--')]
     if not argumentos:
         log.error('uso: consolidar_rapido.py <ruta virtual de la matriz> [--sandbox]')

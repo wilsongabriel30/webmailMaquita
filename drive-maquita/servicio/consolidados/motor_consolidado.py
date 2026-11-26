@@ -7,11 +7,15 @@ VALORES calculados de cada fuente y se escriben como valores en el destino,
 igual que hace `api_vinculos.py` con un solo origen: sin fórmulas externas no
 hay aviso de «actualizar vínculos» al abrir, y el dato siempre está fresco.
 """
+import datetime
 import logging
 import os
 
 import openpyxl
 from openpyxl.utils.cell import range_boundaries, coordinate_to_tuple
+
+import codigo_fecha
+import estilo_heredado
 
 log = logging.getLogger(__name__)
 
@@ -22,6 +26,17 @@ ERRORES_EXCEL = ('#DIV/0!', '#N/A', '#VALUE!', '#REF!', '#NAME?', '#NUM!', '#NUL
 
 def _es_error(valor):
     return isinstance(valor, str) and valor.strip().upper() in ERRORES_EXCEL
+
+
+def _leido(celda):
+    valor = celda.value
+    if valor is None:
+        return None
+    if _es_error(valor):
+        return None
+    if isinstance(valor, (datetime.datetime, datetime.date)):
+        return codigo_fecha.texto_visible(valor, celda.number_format) or valor
+    return valor
 
 
 class LectorFuentes:
@@ -55,12 +70,13 @@ class LectorFuentes:
         col_min, fila_min, col_max, fila_max = range_boundaries(rango)
         pagina = libro[hoja]
         filas = pagina.iter_rows(min_row=fila_min, max_row=fila_max,
-                                 min_col=col_min, max_col=col_max,
-                                 values_only=True)
+                                 min_col=col_min, max_col=col_max)
         # Los errores de las fórmulas de la matriz (`=Q5/P5` con lo planificado
         # vacío → #DIV/0!) llegaban al consolidado como texto «#DIV/0!» y lo
         # llenaban de errores que no son suyos. Van como celda vacía (11/09/2026).
-        return [[None if _es_error(c) else c for c in fila] for fila in filas]
+        # Se leen las celdas (no solo el valor) para poder devolver como texto
+        # los códigos que la matriz guarda como fecha (05/10/2026).
+        return [[_leido(c) for c in fila] for fila in filas]
 
     def cerrar(self):
         for libro in self._libros.values():
@@ -106,5 +122,7 @@ def pegar(pagina, celda, matriz, filas_a_limpiar=0):
     for i in range(max(len(matriz), filas_a_limpiar)):
         origen = matriz[i] if i < len(matriz) else []
         for j in range(ancho):
-            pagina.cell(row=fila0 + i, column=col0 + j).value = (
-                origen[j] if j < len(origen) else None)
+            valor = origen[j] if j < len(origen) else None
+            pagina.cell(row=fila0 + i, column=col0 + j).value = valor
+            if valor is not None and i:
+                estilo_heredado.heredar(pagina, fila0 + i, col0 + j)

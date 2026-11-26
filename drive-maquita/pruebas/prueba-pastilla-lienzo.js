@@ -41,7 +41,9 @@ function WorksheetView() {
                 return { hasFill: () => !!col, bg: () => col || null };
             }
         }),
-        getMergedByCell: (r, c) => (c === 2 ? { r1: r, c1: c } : null)
+        // La columna 2 es la SEGUNDA celda de un bloque combinado (08/10/2026: solo la primera
+        // celda de un bloque lleva pastilla; las demás no).
+        getMergedByCell: (r, c) => (c === 2 ? { r1: r, c1: 1, r2: r, c2: 2 } : null)
     };
 }
 // Como en el SDK 9.4: los fondos y, al final de la misma función, el texto de cada celda.
@@ -131,6 +133,37 @@ bien(iCapsula0 >= 0 && iCapsula0 < iTexto0, 'la pastilla se pinta antes del text
     bien(ws.settings.cells.padding === 2, 'y el margen del editor vuelve a 2 px al terminar cada celda');
 }
 
+// Celda combinada con lista (08/10/2026, A1:I1 de los buscadores): una sola pastilla, desde la
+// primera celda y con el ancho de TODO el bloque; las otras celdas del bloque no llevan.
+{
+    ops.length = 0;
+    const mergeAntes = ws.model.getMergedByCell;
+    validadas['5,0'] = TIPOS.List; validadas['6,0'] = TIPOS.List; validadas['7,0'] = TIPOS.List;
+    ws.model.getMergedByCell = (r, c) => (c >= 5 && c <= 7 ? { r1: 0, c1: 5, r2: 0, c2: 7 } : null);
+    ws._drawRowBG(null, 0, 5, 7, 0, 0, {}, null, null);
+    const bl = ops.filter(o => o[0] === 'rect' && o[1] === '255,255,255');
+    bien(bl.length === 1 && bl[0][2] === 349 && bl[0][4] === 193,
+         'en un bloque combinado se pinta UNA pastilla, desde la primera celda y con el ancho del bloque: '
+         + bl.map(o => o.slice(2).join(',')).join(' | '));
+    const margenes = ops.filter(o => o[0] === 'texto').map(o => o[1] + ':' + o[3]).join(' ');
+    bien(margenes === '5:12 6:2 7:2', 'y solo la primera celda del bloque lleva el margen de la pastilla: ' + margenes);
+    ws.model.getMergedByCell = mergeAntes;
+    delete validadas['5,0']; delete validadas['6,0']; delete validadas['7,0'];
+}
+
+// Fila alta (23/10/2026, encuesta: texto de tres líneas al lado, 54 px): la pastilla NO crece
+// con la fila; mide lo de una fila normal (13 px) y va centrada en vertical, como en Google.
+{
+    ops.length = 0;
+    const altoAntes = WorksheetView.prototype._getRowHeight;
+    WorksheetView.prototype._getRowHeight = () => 54;
+    ws._drawRowBG(null, 0, 0, 0, 0, 0, {}, null, null);
+    const c = ops.filter(o => o[0] === 'arc');
+    bien(c.length === 2 && c[0][4] === 6.5 && c[0][3] === 100 + 20 + 6.5,
+         'en una fila de 54 px la cápsula sigue midiendo 13 px y queda centrada: ' + (c[0] || []).slice(2).join(','));
+    WorksheetView.prototype._getRowHeight = altoAntes;
+}
+
 // Al imprimir (drawingCtx propio) no se pinta nada
 ops.length = 0;
 ws._drawRowBG({ propio: true }, 0, 0, 4, 0, 0, {}, null, null);
@@ -147,10 +180,10 @@ bien(ops.some(o => o[0] === 'texto') && L._estado.error === 'explotó a propósi
 const otro = { Asc: { editor: { wb: { getWorksheet: () => ({ model: {} }) } } } };
 bien(L.enganchar(otro) === null, 'si el editor no trae _drawCellText, no se engancha nada (quedan las capas HTML)');
 
-// Al buzón, cuando la hoja termina de pintarse: cuántas vio, cuántas pintó y el error
+// Al buzón, cuando la hoja termina de pintarse: cuántas vio, cuántas pintó y el error (5: las 3 de la fila + la combinada + la de la fila alta, 23/10/2026)
 setTimeout(function () {
     const aviso = buzon.filter(b => b[0] === 'pastilla lienzo' && b[1]['celdas con lista']).pop();
-    bien(!!aviso && aviso[1]['celdas con lista'] === '3' && aviso[1].pintadas === '3'
+    bien(!!aviso && aviso[1]['celdas con lista'] === '5' && aviso[1].pintadas === '5'
          && aviso[1].error === 'explotó a propósito',
          'al terminar de pintar deja en el buzón cuántas celdas con lista vio, cuántas pintó y el error: '
          + JSON.stringify(aviso && aviso[1]));

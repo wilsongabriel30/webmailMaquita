@@ -243,6 +243,14 @@ def limita(definicion):
                for e in (definicion or {}).get('elementos') or [])
 
 
+def tiene(definicion):
+    """¿El formulario lleva alguna pregunta «Colaborador (nómina)»? Entonces
+    quien responde elige su nombre de nómina a la vista y la respuesta sale a
+    su nombre: no se le puede anunciar como anónima (30/09/2026)."""
+    return any(e.get('clase') == 'pregunta' and e.get('tipo') == TIPO
+               for e in (definicion or {}).get('elementos') or [])
+
+
 def ya_respondio(encuesta_id, pregunta_id, trabajador_id, excepto=None):
     """¿Hay ya una respuesta de este formulario con esa persona elegida en esa
     pregunta? `excepto`: id de la respuesta que se está modificando. Las
@@ -296,6 +304,9 @@ def desplegar(listado):
     columnas: la suya (el nombre) y una por campo."""
     salida = []
     for pregunta in listado:
+        # Una «Nota» solo se lee: no tiene respuesta ni columna en la hoja (10/11/2026).
+        if pregunta.get('tipo') == 'nota':
+            continue
         if pregunta.get('tipo') != TIPO:
             salida.append(pregunta)
             continue

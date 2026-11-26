@@ -273,6 +273,7 @@ def _compartido(token):
     documento se arrastra a veces un espacio o un salto de linea al final, y
     eso hacia que un enlace perfectamente valido respondiera «no existe».
     """
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     from almacen_bd import consultar
     token = (token or '').strip()
     filas = consultar("""
@@ -335,7 +336,14 @@ def _entregar_sin_macros(comp, destino, subruta='', adjunto=True):
                 pass
         ruta, temporal = _compatible, _compatible
 
-    respuesta = send_file(ruta, as_attachment=adjunto, download_name=nombre_final)
+    # (21/10/2026) conditional=True: el navegador puede pedir el archivo por
+    # trozos (Range → 206). Sin esto, el visor de PDF del enlace tenía que bajar
+    # el archivo ENTERO antes de mostrar la primera página (los informes
+    # financieros traen PDF de 300 a 1500 MB y el externo veía el visor en
+    # blanco minutos). Solo para el archivo original: una copia temporal se
+    # borra al cerrar la respuesta y no sirve para varias peticiones.
+    respuesta = send_file(ruta, as_attachment=adjunto, download_name=nombre_final,
+                          conditional=not temporal)
     if temporal:
         # La copia limpia se genera al vuelo: ni se guarda ni se cachea.
         respuesta.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate'
@@ -665,6 +673,10 @@ def enlace_corto_vista(token, subruta=''):
 def enlace_corto_editar(token):
     """Enlace CORTO de EDICIÓN externa (nube.example.org/e/<token>)."""
     from flask import redirect
+    from visor_propio_publico import redireccion_visor_propio  # PDF e imágenes: visor propio del Drive (14/10/2026)
+    _visor = redireccion_visor_propio(token)
+    if _visor is not None:
+        return _visor
     return redirect(f'/archivos-almacen/editar-publico?t={token}', 302)
 
 
@@ -754,7 +766,8 @@ def acceso_compartido(token, subruta=''):
                 'puede_editar': False,
             }
             return render_template('nextcloud/compartido_archivo_visor.html',
-                                   share=share, base_s='/almacen-s/')
+                                   share=share, base_s='/almacen-s/',
+                                   tipo_visor='pdf' if ext == 'pdf' else 'imagen')  # sin esto la plantilla no dibujaba nada (14/10/2026)
         return _entregar_sin_macros(comp, destino, subruta,
                                     bool(comp['permite_descarga']))
 
@@ -778,7 +791,7 @@ def acceso_compartido(token, subruta=''):
         'propietario': propietario,
         'permisos': 1,
         'puede_editar': False,
-        'puede_crear': False,
+        'puede_crear': __import__('subida_por_enlace').permite_subir(token),  # subida por enlace público (15/10/2026)
         'puede_eliminar': False,
     }
     return render_template('nextcloud/compartido_carpeta.html',
@@ -824,6 +837,12 @@ def descargar_compartido(token, ruta):
     modo = req.path.split('/')[3]  # archivo | ver | thumb | previa
     ext = destino.rsplit('.', 1)[-1].lower() if '.' in destino else ''
     if modo in ('thumb', 'previa'):
+        # PDF y Office: primera página como miniatura (12/10/2026). Antes daban
+        # 404 y cada vista de una carpeta con PDF sumaba errores que CrowdSec
+        # tomaba por rastreo (baneó a contrapartes de España el 09/10).
+        if modo == 'thumb' and ext not in _EXT_IMAGEN:
+            from compartido_medios import entregar_miniatura_documento
+            return entregar_miniatura_documento(comp, ruta, destino, ext)
         # Foto reducida (cuadrícula y visor), no la original de varios MB.
         if ext not in _EXT_IMAGEN:
             abort(404)
@@ -964,6 +983,9 @@ def registrar_almacen(app):
         from api_crear import bp_crear
         from api_descomprimir import bp_descomprimir
         from api_oo_drive import bp_oo_drive
+        # Aviso a Tecnología cuando el editor no puede abrir un archivo (20/10/2026).
+        # Cuelga sus rutas de bp_onlyoffice: basta importarlo antes de registrarlo.
+        import api_editor_errores          # noqa: F401
         from api_acceso_externo import bp_acceso_externo
         from api_cad import bp_cad, bp_cad_web
         from api_orto import bp_orto
@@ -971,6 +993,10 @@ def registrar_almacen(app):
         from api_vinculos_vivo import bp_vinculos_vivo   # respuestas en vivo (11/09/2026)
         from api_encuestas_vivo import bp_encuestas_vivo  # filas en vivo (21/09/2026)
         from api_consolidados_latido import bp_consolidados_latido   # matrices ASC (11/09/2026)
+        # Panel «¿Cómo hago…?» del editor de hojas: puente con IA Maquita (05/10/2026).
+        from api_asistente_hojas import bp_asistente_hojas
+        # Botón «Actualizar ahora» de la prueba de concepto Latinium → Drive (28/10/2026).
+        from api_poc_latinium import bp_poc_latinium
         from api_monitor import bp_monitor
         from api_encuestas import bp_encuestas, bp_encuestas_web
         # Cuelga sus rutas del mismo bp_encuestas: basta con importarlo ANTES
@@ -986,6 +1012,8 @@ def registrar_almacen(app):
         from api_enlace_info import bp_enlace_info
         # Buzón de diagnóstico del editor (temporal, 02/09/2026).
         from api_diagnostico_editor import bp_diag_editor
+        # Telemetría de sesiones del editor: refrescos de versión (25/11/2026).
+        from api_telemetria_editor import bp_telemetria_editor
         from arreglos_editor import registrar as registrar_arreglos_editor
         # Carpetas cuya dirección interna se envió como si fuera el enlace público.
         from ruta_publicada import registrar as registrar_ruta_publicada
@@ -1009,7 +1037,7 @@ def registrar_almacen(app):
 
         # API del motor bajo /api/almacen (NO choca con /api/nextcloud)
         for bp in (bp_archivos, bp_compartir, bp_extras, bp_admin, bp_versiones, bp_almacenamiento, bp_actividad, bp_unidades, bp_onlyoffice, bp_drawio, bp_crear, bp_oo_drive, bp_acceso_externo, bp_cad, bp_orto, bp_vinculos, bp_monitor, bp_macros, bp_menciones, bp_dav, bp_dav_compartir, bp_dav_equipo, bp_encuestas, bp_busqueda_rapida, bp_enlace_info, bp_diag_editor, bp_descomprimir, bp_formulario_libro, bp_vinculos_vivo, bp_encuestas_vivo,
-                   bp_consolidados_latido):
+                   bp_consolidados_latido, bp_asistente_hojas, bp_poc_latinium, bp_telemetria_editor):
             app.register_blueprint(bp, url_prefix='/api/almacen')
         # Página del explorador en modo Almacén
         app.register_blueprint(bp_almacen_web)
@@ -1035,6 +1063,9 @@ def registrar_almacen(app):
             log.warning('No se pudo eximir bp_almacen_web de CSRF: %s', _exc)
         # Página del editor OnlyOffice del Almacén (/archivos-almacen/editar)
         app.register_blueprint(bp_onlyoffice_web)
+        # Enlaces cortos /a/<código> (06/10/2026): sin la ruta del archivo a la vista.
+        from enlaces_cortos import bp_enlaces_cortos
+        app.register_blueprint(bp_enlaces_cortos)
         app.register_blueprint(bp_drawio_web)
         app.register_blueprint(bp_cad_web)
         # Formularios (.forma): el editor va bajo /archivos-almacen (candado),
@@ -1042,6 +1073,14 @@ def registrar_almacen(app):
         # abre gente SIN sesión y su llave es el token del enlace.
         app.register_blueprint(bp_encuestas_web)
         app.register_blueprint(bp_encuestas_publico)
+        from subida_por_enlace import registrar as registrar_subida_enlace; registrar_subida_enlace(app)  # subida por enlace público (15/10/2026)
+        from subida_externa import registrar as registrar_subida_externa; registrar_subida_externa(app)  # pedir archivos a personas de fuera (15/10/2026)
+        # Documentos propios para IA Maquita, solo lectura (04/11/2026). Aislado:
+        # si fallara, el resto del Almacén se monta igual.
+        try:
+            from api_servicio_ia import registrar as registrar_servicio_ia; registrar_servicio_ia(app)
+        except Exception as _exc_servicio_ia:
+            log.error('Servicio de documentos para IA Maquita no activo: %s', _exc_servicio_ia)
         try:
             _csrf = app.extensions.get('csrf')
             if _csrf:
@@ -1050,6 +1089,8 @@ def registrar_almacen(app):
                 # editor por fetch, sin token CSRF. Solo escribe estado
                 # tecnico en un registro (temporal, 02/09/2026).
                 _csrf.exempt(bp_diag_editor)
+                # Telemetría del editor: la llama la página del editor por fetch (25/11/2026).
+                _csrf.exempt(bp_telemetria_editor)
                 # El botón del editor llama sin token CSRF, como el resto de la
                 # API del Almacén.
                 _csrf.exempt(bp_formulario_libro)
@@ -1058,6 +1099,7 @@ def registrar_almacen(app):
                 _csrf.exempt(bp_vinculos_vivo)
                 _csrf.exempt(bp_encuestas_vivo)
                 _csrf.exempt(bp_consolidados_latido)
+                _csrf.exempt(bp_asistente_hojas)   # lo llama el complemento desde el marco del editor
         except Exception as _exc_enc:
             log.warning('No se pudo eximir los formularios públicos de CSRF: %s',
                         _exc_enc)
@@ -1087,7 +1129,9 @@ def registrar_almacen(app):
         _SIN_SESION_TOKEN = ('/api/almacen/dav/compartir',
                              '/api/almacen/dav/revocar',
                              '/api/almacen/dav/log-cliente',
-                             '/api/almacen/dav/uso')
+                             '/api/almacen/dav/uso',
+                             # IA Maquita (VM 170): token de servicio + IP, solo lectura (04/11/2026).
+                             '/api/almacen/servicio-ia/')
 
         # Va ANTES del candado: quien llega sin sesión a una carpeta anotada como
         # pública tiene que abrirla sin pasar por el login (29/09/2026).

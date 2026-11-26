@@ -80,10 +80,16 @@ def mencion():
     # `actionLink` que el editor entiende y usa para posicionarse. Se arma
     # sobre URL_LINKS (siempre nube.example.org) porque la notificación
     # puede abrirse desde cualquier sitio, incluido el correo.
-    destino = '%s/archivos-almacen/editar?ruta=%s' % (URL_LINKS, quote(ruta))
+    # (06/10/2026) Enlace corto /a/<código>: el correo no enseña la ruta.
+    try:
+        import enlaces_cortos
+        destino = enlaces_cortos.url_de(enlaces_cortos.codigo_de(usuario_actual(), ruta)) + '?'
+    except Exception:
+        destino = '%s/archivos-almacen/editar?ruta=%s&' % (URL_LINKS, quote(ruta))
     enlace_accion = datos.get('enlace')
     if enlace_accion:
-        destino += '&enlace=' + quote(str(enlace_accion))
+        destino += 'enlace=' + quote(str(enlace_accion))
+    destino = destino.rstrip('?&')
 
     filas = consultar(
         "SELECT id, COALESCE(email, '') AS email FROM usuarios "

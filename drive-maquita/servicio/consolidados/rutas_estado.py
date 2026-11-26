@@ -6,7 +6,7 @@ sin cargar el consolidador entero (que configura el registro y abre libros).
 """
 ESTADO_DIR = '/mnt/almacen/_sincronizacion-asc/estado-consolidados'
 ESTADO_DIR_SANDBOX = '/mnt/almacen/_sincronizacion-asc/estado-consolidados-sandbox'
-PREFIJO_SANDBOX = '/PRUEBAS FORMULARIOS/ASC/'
+PREFIJO_SANDBOX = '/unidades/12/Pruebas de concepto/Caja de arena/'
 
 
 def estado_dir_de(ruta_virtual):

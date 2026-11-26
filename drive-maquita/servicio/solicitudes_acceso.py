@@ -30,6 +30,7 @@ def _valido(email):
 def compartido_de_token(token):
     """El compartido al que apunta el token, AUNQUE esté caducado. None si el
     token no existe: en ese caso no sabemos a quién avisar."""
+    from enlaces_siguen_archivo import reparar_por_token as _reparar_enlace; _reparar_enlace(token)  # el enlace sigue al documento (14/10/2026)
     filas = consultar(
         'SELECT id, propietario_id, ruta, email FROM compartidos WHERE token = %s',
         (token,))

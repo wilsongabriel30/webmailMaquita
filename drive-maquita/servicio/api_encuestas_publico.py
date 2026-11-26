@@ -32,12 +32,16 @@ import almacen_bd as bd
 import encuestas_ajustes as ajustes_mod
 import encuestas_bd as ebd
 import encuestas_calificar as calificar
+import encuestas_colaboradores as colaboradores_mod
 import encuestas_correo as correo_mod
+import encuestas_idiomas as idiomas_mod
 import encuestas_imagenes as imagenes
 import encuestas_archivos as archivos_mod
 import encuestas_modelo as modelo
 import encuestas_recorrido as recorrido_mod
 import encuestas_validacion as validacion_mod
+import encuestas_tipos_campo as tipos_campo
+import encuestas_reglas_respuestas as reglas_resp
 from api_encuestas import _leer_definicion, _limpiar_definicion
 
 log = logging.getLogger('almacen.encuestas.publico')
@@ -137,7 +141,16 @@ def _cargar_publico(token):
         return None, _fallo('Este enlace ya no corresponde a ningún '
                             'formulario. Pide el enlace actual a quien te lo '
                             'compartió.', 404)
-    return (fila, _limpiar_definicion(definicion)), None
+    # Encuesta de campo: se responde con la VERSIÓN PUBLICADA, no con lo último
+    # guardado, y sin caducidad no se sirve (encuestas_versiones.py, 10/11/2026).
+    import encuestas_versiones
+    definicion, motivo = encuestas_versiones.para_responder(fila, definicion)
+    if motivo:
+        return None, _fallo(motivo, 403)
+    limpia = _limpiar_definicion(definicion)
+    if definicion.get('_version'):
+        limpia['_version'] = definicion['_version']
+    return (fila, limpia), None
 
 
 # ---------------------------------------------------------------------------
@@ -207,6 +220,8 @@ def definicion_publica(token):
     if fallo:
         return fallo
     fila, definicion = datos
+    # En el idioma que eligió quien responde (?idioma=en); sin él, el base.
+    definicion = idiomas_mod.traducir(definicion, request.args.get('idioma'))
     return jsonify({'success': True,
                     'formulario': carga_publica(fila, definicion, _usuario_faro())})
 
@@ -233,6 +248,8 @@ def carga_publica(fila, definicion, usuario):
         paginas = _barajar(paginas, definicion['id'])
 
     return {
+        # Encuesta de campo: con qué versión publicada se responde (None si no lo es).
+        'version': definicion.get('_version'),
         'titulo': definicion['titulo'],
         'descripcion': definicion['descripcion'],
         'mensaje_final': definicion['mensaje_final'],
@@ -254,10 +271,14 @@ def carga_publica(fila, definicion, usuario):
         'ver_resumen': ajustes['ver_resumen'],
         'sin_autoguardado': ajustes['sin_autoguardado'],
         'permitir_editar': ajustes['permitir_editar'],
-        'anonimo': ajustes['anonimo'],
+        # Con pregunta de nómina no se anuncia «Encuesta anónima»: la respuesta
+        # sale a nombre del colaborador elegido (30/09/2026).
+        'anonimo': ajustes['anonimo'] and not colaboradores_mod.tiene(definicion),
         'cuestionario': ajustes['cuestionario'],
         'puntos_totales': (calificar.total_posible(definicion)
                            if ajustes['cuestionario'] else 0),
+        # Varios idiomas: cuáles hay, cuál se muestra y qué pregunta los elige.
+        'idiomas': idiomas_mod.para_publico(definicion),
     }
 
 
@@ -371,9 +392,13 @@ def _valor_limpio(pregunta, bruto):
         techo = int(pregunta.get('calificacion_max')
                     or modelo.CALIFICACION_DEFECTO) if tipo == 'calificacion' \
             else int(pregunta.get('escala_max') or 5)
-        if not 1 <= numero <= techo:
+        piso = 0 if tipo == 'escala' and pregunta.get('escala_min') == 0 else 1
+        if not piso <= numero <= techo:
             return None, 'Valor fuera de rango en «%s»' % modelo.plano(pregunta['titulo'])
         return numero, None
+
+    if tipo in tipos_campo.TIPOS:
+        return tipos_campo.valor_limpio(pregunta, bruto)
 
     if tipo == 'colaborador':
         # Del navegador solo se cree el id: los datos se leen de nómina ahora.
@@ -466,22 +491,35 @@ def _respuestas_limpias(definicion, enviado):
     # llegue de esas secciones —una rama que abrió y luego abandonó con
     # «Atrás»— se descarta, como hace Google.
     visibles = recorrido_mod.preguntas_visibles(definicion, enviado)
+    # Reglas de cada pregunta (mostrar si, obligatoria si, validar, cálculo),
+    # decididas con lo que llegó: ver encuestas_reglas_respuestas.py (10/11/2026).
+    ev = reglas_resp.Evaluacion(definicion, enviado)
     for pregunta in modelo.preguntas(definicion):
-        if pregunta['id'] not in visibles:
+        if pregunta['id'] not in visibles or not ev.visible(pregunta):
             continue
         # De qué formulario es. Lo necesita «Subir archivos» para comprobar que
         # los adjuntos declarados son pendientes suyos y no de otro formulario.
         pregunta['_encuesta_id'] = definicion['id']
-        valor, problema = _valor_limpio(pregunta, enviado.get(pregunta['id']))
+        if pregunta['tipo'] == 'calculo':
+            valor, problema = ev.calculado(pregunta), None
+        elif pregunta['tipo'] in tipos_campo.CON_CONTEXTO:
+            # «Lista desde archivo»: lo elegido tiene que estar en el archivo
+            # del dueño, con lo respondido en las preguntas que la filtran.
+            import encuestas_listas
+            dueno = (ebd.obtener(definicion['id']) or {}).get('propietario')
+            valor, problema = encuestas_listas.valor_limpio(
+                pregunta, enviado.get(pregunta['id']), ev.padres(pregunta), dueno)
+        else:
+            valor, problema = _valor_limpio(pregunta, enviado.get(pregunta['id']))
         if problema:
             return None, _fallo(problema, 400)
-        if valor is None and pregunta['obligatoria']:
+        if valor is None and ev.obligatoria(pregunta):
             return None, _fallo('Falta responder «%s».'
                                 % modelo.plano(pregunta['titulo']), 400)
         # La validación de la pregunta se comprueba AQUÍ, aunque el
         # navegador ya avise: quien responde puede mandar lo que quiera
         # saltándose la página.
-        malo = validacion_mod.comprobar(pregunta, valor)
+        malo = validacion_mod.comprobar(pregunta, valor) or ev.problema(pregunta, valor)
         if malo:
             return None, _fallo('«%s»: %s'
                                 % (modelo.plano(pregunta['titulo']), malo), 400)
@@ -517,6 +555,11 @@ def enviar_respuesta(token):
         return _fallo('No se recibió ninguna respuesta.', 400)
 
     ajustes = ajustes_mod.limpiar(fila.get('ajustes'))
+
+    # Varios idiomas: lo elegido se pasa al idioma base ANTES de validar, para
+    # que todas las respuestas caigan en las mismas columnas.
+    idioma = idiomas_mod.codigo_de_respuestas(definicion, enviado)
+    enviado = idiomas_mod.al_base(definicion, enviado)
 
     # El correo, si el formulario lo pide. «Verificado» no se fía de lo que
     # mande el navegador: se toma de la sesión.
@@ -577,7 +620,8 @@ def enviar_respuesta(token):
                               json.dumps(limpias, ensure_ascii=False),
                               usuario_id=usuario, correo=correo or None,
                               token_edicion=token_edicion,
-                              calificacion=calificacion)
+                              calificacion=calificacion,
+                              version=definicion.get('_version'))
     except Exception as excepcion:
         log.error('respuesta de %s: %s', definicion['id'], excepcion)
         return _fallo('No se pudo registrar tu respuesta. Inténtalo de nuevo.',
@@ -599,8 +643,10 @@ def enviar_respuesta(token):
     _quiza_enviar_copia(ajustes, cuerpo, correo, definicion, limpias,
                         enlace_edicion)
 
+    if enlace_edicion and idioma:
+        enlace_edicion += '&idioma=' + idioma
     respuesta = {'success': True,
-                 'mensaje_final': definicion['mensaje_final'],
+                 'mensaje_final': idiomas_mod.traducir(definicion, idioma)['mensaje_final'],
                  'enlace_edicion': enlace_edicion}
 
     if calificacion:
@@ -676,7 +722,9 @@ def editar_respuesta(token, edicion):
         return _fallo('Ese enlace de modificación ya no es válido.', 404)
 
     if request.method == 'GET':
-        return jsonify({'success': True, 'respuestas': respuesta['datos'] or {}})
+        # En el idioma en que se está mostrando el formulario.
+        return jsonify({'success': True, 'respuestas': idiomas_mod.al_idioma(
+            definicion, request.args.get('idioma'), respuesta['datos'] or {})})
 
     if not fila.get('abierta'):
         return _fallo('Este formulario ya no acepta cambios.', 403)
@@ -684,6 +732,7 @@ def editar_respuesta(token, edicion):
     enviado = (request.get_json(silent=True) or {}).get('respuestas')
     if not isinstance(enviado, dict):
         return _fallo('No se recibió ninguna respuesta.', 400)
+    enviado = idiomas_mod.al_base(definicion, enviado)
 
     limpias, problema = _respuestas_limpias(definicion, enviado)
     if problema:
@@ -811,6 +860,8 @@ def subir_archivo_publico(token):
         log.error('adjunto de %s: %s', definicion['id'], excepcion)
         return _fallo('No se pudo guardar el archivo. Inténtalo otra vez.', 500)
 
+    import encuestas_medios_datos          # lo que la foto o el video dice de sí mismo (ubicación, fecha…)
+    ficha = encuestas_medios_datos.anotar(definicion['id'], ficha)
     return jsonify({'success': True, 'archivo': ficha})
 
 
@@ -983,3 +1034,11 @@ def _pagina_de_aviso(motivo, codigo):
 # El buscador de la pregunta «Colaborador» cuelga sus rutas de este blueprint y
 # del de los formularios (28/09/2026). Va al final: necesita lo de arriba.
 import api_encuestas_colaboradores  # noqa: E402,F401
+# Sugerencias de «Lista desde archivo» (10/11/2026).
+import api_encuestas_listas  # noqa: E402,F401
+# Encuestas de campo: versiones publicadas y caducidad (10/11/2026).
+import api_encuestas_versiones  # noqa: E402,F401
+# Importar un Excel de ODK o Kobo (XLSForm) en el editor (10/11/2026).
+import api_encuestas_importar_xlsform  # noqa: E402,F401
+# Una sola persona edita a la vez (17/11/2026).
+import api_encuestas_edicion  # noqa: E402,F401

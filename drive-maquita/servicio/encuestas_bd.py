@@ -311,12 +311,27 @@ def ajustar(encuesta_id: str, abierta=None, solo_internos=None,
 # Respuestas
 # ---------------------------------------------------------------------------
 def guardar_respuesta(encuesta_id: str, datos: str, usuario_id=None,
-                      correo=None, token_edicion=None, calificacion=None):
+                      correo=None, token_edicion=None, calificacion=None,
+                      version=None):
     """Inserta una respuesta. `datos` ya viene serializado como JSON.
 
     Devuelve el id y el token de edición, que es lo que necesita la página
     pública para ofrecer «modificar tu respuesta».
     """
+    if version is not None:
+        # Encuesta de campo (10/11/2026): con qué versión publicada se respondió.
+        # La columna la crea encuestas_versiones antes de servir una versión.
+        filas = bd.consultar(
+            'INSERT INTO encuesta_respuestas '
+            '(encuesta_id, usuario_id, datos, correo, token_edicion, '
+            ' puntos, puntos_max, calificacion, version) '
+            'VALUES (%s, %s, %s::jsonb, %s, %s, %s, %s, %s::jsonb, %s) RETURNING id',
+            (encuesta_id, usuario_id, datos, correo, token_edicion,
+             (calificacion or {}).get('puntos'),
+             (calificacion or {}).get('puntos_max'),
+             json.dumps(calificacion, ensure_ascii=False) if calificacion else None,
+             int(version)))
+        return filas[0]['id'] if filas else None
     filas = bd.consultar(
         'INSERT INTO encuesta_respuestas '
         '(encuesta_id, usuario_id, datos, correo, token_edicion, '

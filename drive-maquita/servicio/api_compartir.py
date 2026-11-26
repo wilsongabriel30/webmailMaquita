@@ -109,28 +109,31 @@ def crear_compartido(usuario, datos):
         'email': datos.get('email'),
         'destinatario': datos.get('con_quien') or datos.get('shareWith') or datos.get('destinatario'),
     }) is not None
+    # 04/11/2026 (decisión de la dirección: compartir sin frenar el trabajo).
+    # Ya NO se bloquea crear el enlace: la protección está en la ENTREGA, que
+    # nunca saca la macro (integracion_faro._entregar_sin_macros →
+    # compartir_macros.entrega_segura: copia limpia, o nada si no se puede
+    # limpiar; y el editor del enlace no deja descargar ni imprimir el
+    # original). Aquí solo se avisa a quien comparte.
+    aviso_macros = None
     try:
         fisica_origen = ruta_fisica(usuario, ruta)
         nombre_origen = ruta.rsplit('/', 1)[-1]
         if (not para_la_casa and os.path.isfile(fisica_origen)
                 and macros.tiene_macros(fisica_origen, nombre_origen)):
-            return error(
-                'Este archivo tiene macros: se puede compartir con personal de '
-                'Maquita (por su correo institucional), pero no con un enlace '
-                'abierto ni con personas externas. Para alguien de fuera, '
-                'descargá la copia sin macros («%s»): conserva los datos, las '
-                'fórmulas y el formato.'
-                % macros.nombre_copia_limpia(nombre_origen), 409)
+            aviso_macros = (
+                'Este archivo tiene macros. Las personas de fuera de Maquita '
+                'pueden verlo y trabajarlo en línea, pero al descargarlo '
+                'reciben la copia sin macros («%s»), con los mismos datos, '
+                'fórmulas y formato.' % macros.nombre_copia_limpia(nombre_origen))
     except Exception as excepcion:
-        # Fallar CERRADO: si no se puede comprobar, no se comparte.
+        # La entrega vuelve a comprobarlo y falla cerrado por su cuenta.
         log.warning('No se pudo comprobar macros de %s: %s',
                     ruta, excepcion)
-        return error('No se pudo verificar el archivo antes de compartirlo. '
-                     'Intentá de nuevo; si sigue, avisá a Tecnología.', 503)
 
     tipo = int(datos.get('tipo', TIPO_ENLACE))
     permisos = int(datos.get('permisos', 1))
-    destinatario = (datos.get('con_quien') or datos.get('shareWith') or datos.get('destinatario') or '').strip() or None
+    destinatario = (datos.get('con_quien') or datos.get('shareWith') or datos.get('destinatario') or '').strip().strip(',; ') or None  # sin la coma del buscador (15/10/2026)
     if tipo in (TIPO_USUARIO, TIPO_GRUPO) and not destinatario:
         return error('Falta el destinatario', 400)
 
@@ -155,7 +158,7 @@ def crear_compartido(usuario, datos):
 
     # Compartir con una PERSONA por correo (interno o externo) con rol lector/editor.
     # Genera SIEMPRE un token (el enlace es la credencial de acceso; puede llevar clave).
-    email = (datos.get('email') or '').strip().lower()[:255] or None
+    email = (datos.get('email') or '').strip().strip(',; ').lower()[:255] or None  # sin la coma del buscador (15/10/2026)
     rol = (datos.get('rol') or '').strip()   # 'lector' | 'editor'
 
     # ── P-13: CÓMO se abre el enlace (descargar / ver / editar) ─────────────
@@ -228,6 +231,7 @@ def crear_compartido(usuario, datos):
         'requiere_otp': requiere_otp,
         'creado_en': fila['creado_en'].isoformat(),
     }
+    from subida_externa import ajustar_externo_editor; ajustar_externo_editor(usuario, compartido, datos)  # externo Editor de carpeta: sube con código (15/10/2026)
     # Fase B: invitación por correo a la persona (best-effort: si el correo
     # falla, el compartir NO falla). Emisor único: email_service de FARO.
     if email:
@@ -237,8 +241,11 @@ def crear_compartido(usuario, datos):
         except Exception as _exc:
             log.warning('Invitación por correo falló: %s', _exc)
 
-    log.info('Compartido id=%s ruta=%s tipo=%s por usuario %s',
-             fila['id'], ruta, tipo, usuario)
+    if aviso_macros:
+        compartido['aviso_macros'] = aviso_macros
+    log.info('Compartido id=%s ruta=%s tipo=%s por usuario %s%s',
+             fila['id'], ruta, tipo, usuario,
+             ' (con macros: se entrega copia limpia)' if aviso_macros else '')
     return jsonify({'success': True, 'compartido': compartido}), 201
 
 
