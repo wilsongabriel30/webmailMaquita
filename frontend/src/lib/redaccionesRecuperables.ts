@@ -165,7 +165,11 @@ export function tomarRedaccionesHuerfanas(yaAbiertas: Array<number | null> = [],
       if (!reserva || typeof reserva.latido !== 'number' || !reserva.todas) { localStorage.removeItem(k); continue; }
       const edad = ahora - reserva.latido;
       if (edad > CADUCA_RESERVA_MS) { localStorage.removeItem(k); continue; }
-      if (edad < (reserva.despedida ? ESPERA_DESPEDIDA_MS : ESPERA_SIN_LATIDO_MS)) continue;
+      // Si los candados del navegador confirman que la pestaña ya no existe (vivas != null y no la
+      // incluye), se recupera YA. El margen de espera solo hace falta cuando NO se puede saber si la
+      // pestaña sigue viva pero congelada (navegador sin candados): así un webview caído/reconstruido
+      // devuelve de inmediato lo que se estaba escribiendo, en vez de esperar 90 s (25/11/2026).
+      if (vivas === null && edad < (reserva.despedida ? ESPERA_DESPEDIDA_MS : ESPERA_SIN_LATIDO_MS)) continue;
       localStorage.removeItem(k);
       for (const r of Object.values(reserva.todas)) {
         if (vacia(r)) continue;
