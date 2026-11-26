@@ -236,10 +236,19 @@ export function openDB(): Promise<IDBDatabase> {
   });
 }
 
+// Red de seguridad (26/11/2026): si la base local no responde (WebView con la IndexedDB trabada),
+// NO se rompe ni se desvia la vista. Las lecturas devuelven vacio y las escrituras de cache se
+// saltan, asi Correo se ve igual (desde el servidor) y se trabaja sin copia local hasta que la
+// base vuelva. Las escrituras del buzon de salida NO usan esto (ver nota de addToOutbox).
+async function abrirBase(): Promise<IDBDatabase | null> {
+  try { return await openDB(); } catch { return null; }
+}
+
 // === MESSAGES ===
 
 export async function cacheMessageList(folder: string, messages: OfflineMessage[]) {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   // Se prepara TODO antes de abrir la transaccion de escritura: cifrar exige esperar, y
   // una transaccion de IndexedDB no sobrevive a una espera (ver la nota de addToOutbox).
   const preparados: Record<string, unknown>[] = [];
@@ -306,7 +315,8 @@ export async function cacheMessageList(folder: string, messages: OfflineMessage[
 }
 
 export async function cacheFullMessage(folder: string, msg: OfflineMessage) {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   const tx = db.transaction("messages", "readwrite");
   const store = tx.objectStore("messages");
   const id = `${claveDeCuenta()}${folder}:${msg.uid}`;
@@ -317,7 +327,8 @@ export async function cacheFullMessage(folder: string, msg: OfflineMessage) {
 }
 
 export async function getCachedMessages(folder: string): Promise<OfflineMessage[]> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return [];
   const tx = db.transaction("messages", "readonly");
   const idx = tx.objectStore("messages").index("folder");
   return new Promise((resolve) => {
@@ -340,7 +351,8 @@ export async function getCachedMessages(folder: string): Promise<OfflineMessage[
 }
 
 export async function getCachedMessage(folder: string, uid: number): Promise<OfflineMessage | null> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return null;
   const tx = db.transaction("messages", "readonly");
   const store = tx.objectStore("messages");
   return new Promise((resolve) => {
@@ -354,7 +366,8 @@ export async function getCachedMessage(folder: string, uid: number): Promise<Off
 // === FOLDERS ===
 
 export async function cacheFolders(folders: { name: string; unseen: number }[]) {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   const tx = db.transaction("folders", "readwrite");
   const store = tx.objectStore("folders");
   store.clear();
@@ -364,7 +377,8 @@ export async function cacheFolders(folders: { name: string; unseen: number }[]) 
 }
 
 export async function getCachedFolders(): Promise<{ name: string; unseen: number }[]> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return [];
   const tx = db.transaction("folders", "readonly");
   return new Promise((resolve) => {
     const req = tx.objectStore("folders").getAll();
@@ -376,7 +390,8 @@ export async function getCachedFolders(): Promise<{ name: string; unseen: number
 // === ACTIONS QUEUE ===
 
 export async function queueAction(action: Omit<OfflineAction, "id" | "createdAt">) {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   const tx = db.transaction("actions", "readwrite");
   tx.objectStore("actions").put({
     cuenta: cuentaActiva(),
@@ -387,7 +402,8 @@ export async function queueAction(action: Omit<OfflineAction, "id" | "createdAt"
 }
 
 export async function getPendingActions(): Promise<OfflineAction[]> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return [];
   const tx = db.transaction("actions", "readonly");
   return new Promise((resolve) => {
     const req = tx.objectStore("actions").getAll();
@@ -397,14 +413,16 @@ export async function getPendingActions(): Promise<OfflineAction[]> {
 }
 
 export async function clearActions() {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   const tx = db.transaction("actions", "readwrite");
   tx.objectStore("actions").clear();
 }
 
 export async function removeActions(ids: string[]) {
   if (ids.length === 0) return;
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return;
   const tx = db.transaction("actions", "readwrite");
   const store = tx.objectStore("actions");
   for (const id of ids) store.delete(id);
@@ -453,7 +471,8 @@ export async function addToOutbox(
 }
 
 export async function getOutboxEmails(): Promise<OutboxEmail[]> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return [];
   const tx = db.transaction("outbox", "readonly");
   return new Promise((resolve) => {
     const req = tx.objectStore("outbox").getAll();
@@ -505,7 +524,8 @@ export async function removeFromOutbox(id: string) {
 }
 
 export async function getOutboxCount(): Promise<number> {
-  const db = await openDB();
+  const db = await abrirBase();
+  if (!db) return 0;
   const tx = db.transaction("outbox", "readonly");
   return new Promise((resolve) => {
     const req = tx.objectStore("outbox").count();
