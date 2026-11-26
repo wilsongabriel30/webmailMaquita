@@ -353,7 +353,8 @@ def _purgar_versiones(usuario_id: int, ruta_virtual: str, incluir_hijos: bool = 
         ejecutar('DELETE FROM versiones WHERE id = %s', (fila['id'],))
 
 
-def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
+def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo,
+          versionar: bool = True) -> dict:
     """
     Guarda un archivo por STREAMING (nunca se carga completo a memoria),
     calculando su hash SHA-256 al vuelo para DEDUPLICAR.
@@ -378,8 +379,11 @@ def subir(usuario_id: int, ruta_carpeta: str, nombre: str, flujo) -> dict:
 
     # Si ya existe un archivo en esa ruta, su contenido actual pasa a ser una
     # VERSIÓN antes de sobrescribir (historial estilo Google Drive).
+    # versionar=False: autoguardado del editor con una versión reciente
+    # (versiones_autoguardado.py, 26/11/2026).
     if os.path.isfile(fisica):
-        _guardar_version(usuario_id, ruta_final, fisica, en_sitio=True)
+        if versionar:
+            _guardar_version(usuario_id, ruta_final, fisica, en_sitio=True)
     else:
         # Archivo NUEVO: si quedaron versiones de un archivo anterior ya
         # eliminado en esta misma ruta (el file_id es hash de la ruta), se
