@@ -52,6 +52,14 @@ CUENTAS_SISTEMA = ("postmaster", "abuse", "noreply", "no-reply", "root", "admin"
                    "webmaster", "hostmaster", "dmarc", "sistemas", "soporte", "info",
                    "usuario", "user", "prueba", "test", "ejemplo")
 
+# Numeros de diez cifras que pasan el verificador pero NO son cedulas de nadie.
+# Cada uno con su motivo (26/11/2026). No anadir cedulas reales aqui.
+NO_SON_CEDULAS = {
+    "1700000001": "drive-maquita/pruebas: cedula sintetica (secuencia cero, no emitida)",
+    "3000000004": "drive-maquita/pruebas: cedula sintetica provincia 30 (secuencia cero)",
+    "1619987231": "drive-maquita/servicio/graficos_definiciones.py: identificador de grafico",
+}
+
 RE_CORREO = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 RE_TELEFONO = re.compile(r"(?<!\d)(?:\+593\s?9\d{8}|09\d{8}|0[2-7]\d{7})(?!\d)")
 RE_CEDULA = re.compile(r"(?<!\d)(\d{10})(?!\d)")
@@ -100,7 +108,7 @@ def analizar(ruta, contenido):
     telefonos = set(RE_TELEFONO.findall(contenido))
     if len(telefonos) >= UMBRAL_TELEFONOS:
         motivos.append(f"{len(telefonos)} telefonos distintos")
-    cedulas = {c for c in RE_CEDULA.findall(contenido) if cedula_valida(c)}
+    cedulas = {c for c in RE_CEDULA.findall(contenido) if cedula_valida(c) and c not in NO_SON_CEDULAS}
     if cedulas:
         motivos.append(f"{len(cedulas)} cedula(s) con verificador valido")
     pares = [(c, n) for c, n in RE_PAR_JSON.findall(contenido) + RE_PAR_CSV.findall(contenido)
