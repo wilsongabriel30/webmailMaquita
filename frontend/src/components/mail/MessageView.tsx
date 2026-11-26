@@ -34,6 +34,7 @@ import { confirmarInforme, enviarInforme } from './informarCorreo';
 import { PanelRecuperarCorreo } from './PanelRecuperarCorreo';
 import { BotonCerrarCorreo, FlechasCorreo } from './NavegacionCorreo';
 import { AttachmentPreview } from './AttachmentPreview';
+import { DialogoFirmarVarios } from './firma/DialogoFirmarVarios';
 import ListaAdjuntos from './ListaAdjuntos';
 // Aviso de enlaces con rastreo de terceros (componente aparte:
 // MessageView ya supera las 1500 lineas y no debe crecer mas).
@@ -676,6 +677,7 @@ const MessageView: React.FC = () => {
   const abortResumen = React.useRef<AbortController | null>(null);
 
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [firmarVariosOpen, setFirmarVariosOpen] = useState(false);
   const [previewAttIdx, setPreviewAttIdx] = useState(0);
   // Cabecera que se pliega al desplazar el cuerpo (aprovecha pantallas bajas).
   const cabecera = useCabeceraPlegable(msg?.uid);
@@ -897,6 +899,29 @@ const MessageView: React.FC = () => {
       references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
       html_body: quoteHtml,
       prefill_body: `<p>${saludo}</p><p>Adjunto el documento firmado que solicitó.</p><p>Saludos,</p>`,
+    });
+  }, [msg, openCompose]);
+  // Firmar varios (26/11/2026): responde el correo con TODOS los PDF firmados adjuntos.
+  const responderConArchivos = useCallback((archivos: File[]) => {
+    if (!msg || !openCompose || !archivos.length) return;
+    dejarArchivosParaRedaccion(archivos); setPreviewOpen(false);
+    const nombre = extractName(msg.from) || '';
+    const saludo = nombre ? `Estimado/a ${escapeHtml(nombre)},` : 'Estimado/a,';
+    const formattedDate = msg.date ? format(new Date(msg.date), "d 'de' MMMM 'de' yyyy, HH:mm", { locale: es }) : '';
+    const quoteHtml = buildQuoteHtml(
+      msg.from, formattedDate, msg.to, msg.cc, msg.subject,
+      msg.html_body || `<pre style="white-space:pre-wrap">${msg.text_body}</pre>`,
+      false,
+    );
+    const cuantos = archivos.length === 1 ? 'el documento firmado' : `los ${archivos.length} documentos firmados`;
+    openCompose('reply', {
+      to: [extractEmail(msg.from)],
+      subject: msg.subject.startsWith('Re:') ? msg.subject : `Re: ${msg.subject}`,
+      text_body: '',
+      in_reply_to: msg.message_id || '',
+      references: msg.references ? `${msg.references} ${msg.message_id}` : (msg.message_id || ''),
+      html_body: quoteHtml,
+      prefill_body: `<p>${saludo}</p><p>Adjunto ${cuantos} que solicitó.</p><p>Saludos,</p>`,
     });
   }, [msg, openCompose]);
   const reenviarConArchivo = useCallback((archivo: File) => {
@@ -1362,10 +1387,27 @@ const MessageView: React.FC = () => {
 
       {/* Attachments (dos filas como mucho; «Ver los N adjuntos» despliega el resto) */}
       {msg.attachments && msg.attachments.some(a => !a.is_inline) && (
+        <>
         <div className="lectura-adjuntos" style={{ padding: '10px 24px', borderBottom: '1px solid #edebe9', flexShrink: 0 }}>
           <ListaAdjuntos folder={msg.folder} uid={msg.uid} attachments={msg.attachments}
             onAbrir={i => openAttachmentPreview(msg.folder, msg.uid, msg.attachments, i)} />
+          {(() => {
+            const pdfs = (msg.attachments || []).filter(a => !a.is_inline && (/pdf/i.test(a.content_type || '') || /\.pdf$/i.test(a.filename || '')));
+            if (pdfs.length < 2) return null;
+            return (
+              <button type="button" onClick={() => setFirmarVariosOpen(true)}
+                className="mt-2 inline-flex items-center gap-1.5 h-[32px] px-3 rounded border border-[#0078d4] text-[#0078d4] text-[12px] font-medium hover:bg-[#eff6fc]">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.6} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M4 21h16" /></svg>
+                Firmar los {pdfs.length} PDF
+              </button>
+            );
+          })()}
         </div>
+        <DialogoFirmarVarios open={firmarVariosOpen} onClose={() => setFirmarVariosOpen(false)}
+          folder={msg.folder} uid={msg.uid}
+          documentos={(msg.attachments || []).filter(a => !a.is_inline && (/pdf/i.test(a.content_type || '') || /\.pdf$/i.test(a.filename || ''))).map(a => ({ partNumber: a.part_number, filename: a.filename }))}
+          onResponderCon={responderConArchivos} />
+        </>
       )}
 
       {/* Body (scrollable; la invitación va DENTRO para poder verla completa) */}
