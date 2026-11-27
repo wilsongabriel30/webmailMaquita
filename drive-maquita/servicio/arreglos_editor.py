@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20261127-una-flecha'
+VERSION = '20261127-proteger-nombres'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
@@ -139,6 +139,7 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-pastilla-lienzo.js?v={v}"></script>\n'
     '<!-- Un solo botón para abrir la lista: el del editor, apagado (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-boton-nativo-lista.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-pastilla-lienzo-oo10.js?v={v}"></script>\n'
     '<!-- «Descargar como → Excel» sale por el Drive: guarda primero y traduce listas y colores (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-descarga-drive.js?v={v}"></script>\n'
     '<!-- La pastilla DE COLOR en HTML: respaldo si el editor no admite el lienzo. -->\n'
