@@ -170,8 +170,12 @@ def renombrar(usuario_id: int, origen: str, destino: str) -> None:
 # ---------------------------------------------------------------------------
 # Reconstrucción completa
 # ---------------------------------------------------------------------------
-def _indexar_arbol(usuario_id: int, fisica_base: str, ruta_base: str) -> int:
-    """Inserta todo lo que cuelga de una carpeta física. Devuelve cuántos elementos."""
+def _indexar_arbol(usuario_id: int, fisica_base: str, ruta_base: str,
+                   rutas_vistas: set = None) -> int:
+    """Inserta todo lo que cuelga de una carpeta física. Devuelve cuántos elementos.
+
+    Si se pasa rutas_vistas, se le añaden las rutas indexadas: sirve para borrar
+    después solo lo que ya no existe, sin vaciar antes el índice (27/11/2026)."""
     filas = []
     for carpeta, subcarpetas, archivos in os.walk(fisica_base):
         subcarpetas[:] = [c for c in subcarpetas if not c.startswith('.')]
@@ -186,6 +190,8 @@ def _indexar_arbol(usuario_id: int, fisica_base: str, ruta_base: str) -> int:
             filas.append((usuario_id, ruta, nombre, normalizar(nombre),
                           es_carpeta, extension, tamano, modificado,
                           normalizar(titulo) or None, titulo or None, inodo))
+            if rutas_vistas is not None:
+                rutas_vistas.add(ruta)
     if not filas:
         return 0
     # Inserción por lotes en UNA sola conexión: reindexar un usuario con miles de
@@ -237,7 +243,12 @@ def reindexar_unidades() -> int:
     nocturno o a mano, nunca dentro de una petición web."""
     from config_almacen import raiz_datos
     base = os.path.join(raiz_datos(), '_unidades')
-    ejecutar("DELETE FROM indice_nombres WHERE usuario_id = %s", (USUARIO_UNIDADES,))
+    # 27/11/2026: antes se vaciaba el índice de TODAS las unidades al empezar y se
+    # rellenaba durante horas (recorrer el NFS de madrugada terminaba pasadas las
+    # 08:00): mientras tanto la búsqueda no encontraba nada de las unidades
+    # compartidas. Ahora se actualiza encima de lo que hay y al final se borra solo
+    # lo que ya no existe en el disco.
+    vistas = set()
     total = 0
     if os.path.isdir(base):
         for nombre in sorted(os.listdir(base)):
@@ -247,7 +258,10 @@ def reindexar_unidades() -> int:
             # «archivos» (papelera y versiones no se indexan).
             fisica = os.path.join(base, nombre, 'archivos')
             if os.path.isdir(fisica):
-                total += _indexar_arbol(USUARIO_UNIDADES, fisica, '/unidades/' + nombre)
+                total += _indexar_arbol(USUARIO_UNIDADES, fisica, '/unidades/' + nombre,
+                                        rutas_vistas=vistas)
+    if vistas:   # si el disco no respondió no se borra nada
+        _borrar_no_vistas(USUARIO_UNIDADES, vistas)
     ejecutar("""
         INSERT INTO indice_estado (usuario_id, elementos, reindexado_en)
         VALUES (%s, %s, now())
@@ -256,6 +270,22 @@ def reindexar_unidades() -> int:
     """, (USUARIO_UNIDADES, total))
     log.info('indice: unidades compartidas reindexadas (%d elementos)', total)
     return total
+
+
+def _borrar_no_vistas(usuario_id: int, vistas: set) -> None:
+    """Quita del índice lo que ya no está en el disco (lo no visto al recorrerlo)."""
+    with conexion() as con:
+        with con.cursor() as cur:
+            cur.execute("CREATE TEMP TABLE _vistas (ruta TEXT PRIMARY KEY) ON COMMIT DROP")
+            from psycopg2.extras import execute_values
+            execute_values(cur, "INSERT INTO _vistas (ruta) VALUES %s ON CONFLICT DO NOTHING",
+                           [(r,) for r in vistas], page_size=2000)
+            cur.execute("""DELETE FROM indice_nombres i
+                           WHERE i.usuario_id = %s
+                             AND NOT EXISTS (SELECT 1 FROM _vistas v WHERE v.ruta = i.ruta)""",
+                        (usuario_id,))
+            log.info('indice: %d elementos que ya no existen quitados del espacio %s',
+                     cur.rowcount, usuario_id)
 
 
 def usuario_indexado(usuario_id: int) -> bool:
