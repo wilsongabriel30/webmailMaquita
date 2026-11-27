@@ -23,7 +23,7 @@ global.setInterval = () => 1;
 const buzon = [];
 window.MaquitaDiagnostico = { contar: (m, d) => buzon.push([m, d]) };
 window.MaquitaPastillaLienzo = { activo: true };
-const B = '/home/sistemas/Maquita/interfaces/web/estaticos/js/almacen/';
+const B = process.env.MODULOS || '/home/sistemas/Maquita/interfaces/web/estaticos/js/almacen/';
 require(B + 'editor-ventanas.js');
 require(B + 'editor-boton-nativo-lista.js');
 
@@ -61,3 +61,16 @@ bien(pintados.length === 5, 'si algo nuestro falla, el editor pinta el suyo (nun
 const otro = { Asc: { editor: { wb: { getWorksheet: () => ({ model: {} }) } } } };
 bien(M.enganchar(otro) === null, 'un editor sin drawOverlayButtons no se toca');
 console.log();
+
+/* OnlyOffice 10 (27/11/2026): nombres minificados. La función del botón se
+   reconoce por su forma y la lista se pregunta al modelo con los nombres que
+   ella misma usa. Fuente real de la 10.0 (réplica del editor). */
+const QFJ = 'function(J,V,sa){if(this.Aa.di()){var N=this.model.getSelection().Zg;if(J.B5a(N)){J=(J=this.model.SZd(N.La,N.Fa))&&J.Tof();var ba;J&&(ba=this.model.AB(N.Fa,N.La));(J||this.model.Mdh(N.La,N.Fa))&&this.UNe(V,sa,{hnd:!0,Flc:null,Clc:!1,Fa:J&&ba?ba.r1:N.Fa,La:J&&ba?ba.sa:N.La});return!1}return!0}}';
+const NB = window.MaquitaBotonNativoLista;
+bien(NB._forma.test(QFJ), 'OnlyOffice 10: se reconoce la función que pinta el botón de la celda');
+bien(!NB._forma.test('function(J){var V=this.model.getSelection();return V}'), 'una función cualquiera no se confunde');
+const leer = NB._lector(QFJ);
+const vista = (conLista) => ({ model: { getSelection: () => ({ Zg: { La: 2, Fa: 7 } }),
+    SZd: (c, f) => (c === 2 && f === 7 ? { Tof: () => conLista } : null) } });
+bien(!!leer && leer(vista(true)) === true, 'se pregunta al modelo: celda con lista');
+bien(!!leer && leer(vista(false)) === false, 'se pregunta al modelo: validación que no es lista');
