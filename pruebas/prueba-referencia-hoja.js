@@ -64,6 +64,9 @@ bien(C._escribir({ Asc: { editor: {} } }, new Date()) === false, 'sin esa API, a
 
 // 27/11/2026 (2): «Hasta la fila 8 / Hasta la columna V» con la API pública (sin api.wb).
 require(B + 'editor-inmovilizar.js');
-const celdaCon = (n) => window.MaquitaInmovilizar.celdaActiva({ Asc: { editor: { asc_getCellInfo: () => ({ asc_getName: () => n }) } } });
+// En OnlyOffice 10 sale de asc_getActiveRangeStr (la información de la celda ya no trae asc_getName).
+const celdaCon = (n) => window.MaquitaInmovilizar.celdaActiva({ Asc: { referenceType: { A: 'A' }, editor: {
+    asc_getCellInfo: () => ({}), asc_getActiveRangeStr: () => n } } });
 bien(JSON.stringify(celdaCon('V8')) === '{"fila":7,"col":21}', 'la celda activa V8 se lee sin api.wb (fila 8, columna V)');
 bien(JSON.stringify(celdaCon('$AB$120')) === '{"fila":119,"col":27}', 'también con $ y dos letras');
+bien(JSON.stringify(celdaCon('$H$9:$J$12')) === '{"fila":8,"col":7}', 'con varias celdas marcadas, la primera');
