@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20261127-pastillas-recorte'
+VERSION = '20261127-proteger-nombres'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
