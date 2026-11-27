@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20261127-replica-oo10'
+VERSION = '20261127-lista-oculta'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
@@ -60,6 +60,7 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-lista-valores-intervalo.js?v={v}"></script>\n'
     '<!-- Tras cambiar el origen de una lista se comprueba cómo quedó; si se daña, se deshace (27/11/2026). -->\n'
     '<script src="/static/js/almacen/editor-lista-verificar-intervalo.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-lista-mostrar-oculta.js?v={v}"></script>\n'
     '<!-- El globo del gráfico al pasar el cursor, como en Google (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-grafico-globo.js?v={v}"></script>\n'
     '<!-- El panel «Editar gráfico», con las mismas opciones que el de Google (07/09/2026). -->\n'
