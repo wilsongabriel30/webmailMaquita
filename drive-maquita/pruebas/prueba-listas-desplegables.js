@@ -154,8 +154,12 @@ bien(recibido.guardada === '"ENERO,FEBRERO,MARZO"',
    va dentro, asi que se veian las dos (video de Wilson).
    Asi lo usa el propio editor. Antes se pedia true y se estaba
    ESCONDIENDO el triangulito (02/09/2026). */
-bien(recibido.validacion.flechita === true,
-     'se esconde la flechita del editor: la pastilla dibuja la suya DENTRO');
+/* 27/11/2026: en OnlyOffice 10, con ShowDropDown=true el editor NO ofrece
+   los valores de la regla y muestra en su lugar los de la columna («TOTAL
+   PROMEDIOS / TOTALES», documento de Karen Armas). Se deja SIEMPRE en false;
+   comprobado en la réplica del editor. */
+bien(recibido.validacion.flechita === false,
+     'la lista queda visible para el editor (ShowDropDown=false, OnlyOffice 10)');
 bien(recibido.validacion.enBlanco === true, 'se puede dejar la celda vacia');
 
 bien(recibido.reglas.length === 3, 'sale una regla de color por valor');
@@ -225,21 +229,21 @@ bien(recibido.validacion.muestraAyuda === true
      'el texto de ayuda queda guardado en la celda');
 bien(recibido.validacion.estiloError === 'avisa',
      'con «mostrar una advertencia», el dato malo solo avisa');
-bien(recibido.validacion.flechita === true,
-     'con «texto sin formato» tampoco sale la flechita del editor');
+bien(recibido.validacion.flechita === false,
+     'con «texto sin formato» la lista también queda visible para el editor');
 
 r = L.aplicar(ventanaEditor, [{ valor: 'ENERO', color: '#fce8b2' }], {
     siNoVale: 'rechazar', estilo: 'flecha'
 });
 bien(recibido.validacion.estiloError === 'rechaza',
      'con «rechazar», el dato que no esta en la lista no entra');
-bien(recibido.validacion.flechita === true,
-     'con «flecha» se pinta la pastilla y se esconde la del editor');
+bien(recibido.validacion.flechita === false,
+     'con «flecha» la lista también queda visible para el editor');
 bien(recibido.validacion.muestraAyuda === false, 'sin texto de ayuda, no se pone');
 
 // Sin ajustes se comporta como antes.
 r = L.aplicar(ventanaEditor, [{ valor: 'ENERO', color: '#fce8b2' }]);
-bien(r.ok === true && recibido.validacion.flechita === true,
+bien(r.ok === true && recibido.validacion.flechita === false,
      'sin tocar nada, la lista sale con la flecha dentro de la pastilla');
 
 

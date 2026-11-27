@@ -48,3 +48,25 @@ const C = window.MaquitaCalendarioFecha;
 bien(C._serie(new Date(2025, 6, 14)) === 45852, 'el 14/07/2025 se escribe como 45852 (serie de Excel)');
 bien(C._fechaDeTexto('14/07/2025').getMonth() === 6, 'se lee la fecha de la celda en día/mes/año');
 bien(C._fechaDeTexto('texto') === null, 'si la celda no tiene fecha, se abre en el mes actual');
+
+// 27/11/2026 (2): OnlyOffice 10 no expone `api.wb` ni `g_oRangeCache`.
+bien(H._piezas({}, ["'1. BD Aplicación Destrezas'!$B$5:$D$9"]).join() === 'A1:XFD4,A10:XFD1048576,A5:A9,E5:XFD9',
+     'excepciones sin g_oRangeCache (analizador propio, con hoja y $)');
+bien(H._piezas({}, ['C:C']).join() === 'A1:B1048576,D1:XFD1048576', 'excepción de una columna entera');
+const hecho = [];
+const vCal = { Asc: { c_oAscPopUpSelectorType: { None: 'ninguno' }, editor: {
+    asc_closeCellEditor: (c) => hecho.push('cerrar:' + c),
+    asc_insertInCell: (t, tipo, auto) => hecho.push('escribir:' + t + ':' + tipo + ':' + auto) } } };
+bien(C._escribir(vCal, new Date(2025, 6, 14)) === true
+     && hecho.join() === 'cerrar:true,escribir:45852:ninguno:false',
+     'el calendario cierra la celda y escribe con la API pública (asc_insertInCell), sin api.wb');
+bien(C._escribir({ Asc: { editor: {} } }, new Date()) === false, 'sin esa API, avisa en vez de romperse');
+
+// 27/11/2026 (2): «Hasta la fila 8 / Hasta la columna V» con la API pública (sin api.wb).
+require(B + 'editor-inmovilizar.js');
+// En OnlyOffice 10 sale de asc_getActiveRangeStr (la información de la celda ya no trae asc_getName).
+const celdaCon = (n) => window.MaquitaInmovilizar.celdaActiva({ Asc: { referenceType: { A: 'A' }, editor: {
+    asc_getCellInfo: () => ({}), asc_getActiveRangeStr: () => n } } });
+bien(JSON.stringify(celdaCon('V8')) === '{"fila":7,"col":21}', 'la celda activa V8 se lee sin api.wb (fila 8, columna V)');
+bien(JSON.stringify(celdaCon('$AB$120')) === '{"fila":119,"col":27}', 'también con $ y dos letras');
+bien(JSON.stringify(celdaCon('$H$9:$J$12')) === '{"fila":8,"col":7}', 'con varias celdas marcadas, la primera');
