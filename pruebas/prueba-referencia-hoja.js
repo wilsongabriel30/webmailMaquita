@@ -61,3 +61,9 @@ bien(C._escribir(vCal, new Date(2025, 6, 14)) === true
      && hecho.join() === 'cerrar:true,escribir:45852:ninguno:false',
      'el calendario cierra la celda y escribe con la API pública (asc_insertInCell), sin api.wb');
 bien(C._escribir({ Asc: { editor: {} } }, new Date()) === false, 'sin esa API, avisa en vez de romperse');
+
+// 27/11/2026 (2): «Hasta la fila 8 / Hasta la columna V» con la API pública (sin api.wb).
+require(B + 'editor-inmovilizar.js');
+const celdaCon = (n) => window.MaquitaInmovilizar.celdaActiva({ Asc: { editor: { asc_getCellInfo: () => ({ asc_getName: () => n }) } } });
+bien(JSON.stringify(celdaCon('V8')) === '{"fila":7,"col":21}', 'la celda activa V8 se lee sin api.wb (fila 8, columna V)');
+bien(JSON.stringify(celdaCon('$AB$120')) === '{"fila":119,"col":27}', 'también con $ y dos letras');
