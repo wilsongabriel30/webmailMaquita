@@ -27,7 +27,9 @@ log = logging.getLogger(__name__)
 bp_telemetria_editor = Blueprint('almacen_telemetria_editor', __name__)
 
 ARCHIVO = '/home/sistemas/almacen-maquita/registros/telemetria-editor.log'
-EVENTOS = {'refresco_pedido', 'refresco_hecho', 'refresco_fallido', 'error_editor'}
+EVENTOS = {'refresco_pedido', 'refresco_hecho', 'refresco_fallido', 'error_editor',
+           # Funciones de hojas de cálculo: uso y fallos (editor-telemetria-hojas.js, 27/11/2026).
+           'uso_hojas', 'fallo_hojas'}
 TOPE_TEXTO = 300
 
 
