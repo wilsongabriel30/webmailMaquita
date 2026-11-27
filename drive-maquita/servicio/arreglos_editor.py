@@ -23,7 +23,7 @@ import logging
 
 log = logging.getLogger('almacen.arreglos_editor')
 
-VERSION = '20261023-pastilla-alto'
+VERSION = '20261127-ajustes-karen'
 
 # Arreglos que van SIEMPRE.
 #   editor-ventanas  → la base: alcanza la ventana del editor y avisa al resto.
@@ -44,6 +44,10 @@ ARREGLOS = (
     ' como en Google Sheets (01/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-menu-cerrar.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-rango-a1.js?v={v}"></script>\n'
+    '<!-- Referencias a otra hoja escritas a mano (Datos!E4:E119) y telemetría de las funciones\n'
+    '     de hojas (Ajustes Drive Maquita – Excel, Karen Armas, 27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-referencia-hoja.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-telemetria-hojas.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-contraste.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-lista-colores-cf.js?v={v}"></script>\n'
     '<!-- Los colores de las reglas que aplican a ESTA celda, para el desplegable (04/09/2026). -->\n'
@@ -54,6 +58,8 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-lista-criterios.js?v={v}"></script>\n'
     '<!-- Los valores de una lista por intervalo, leídos de sus celdas (también en hojas ocultas) (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-lista-valores-intervalo.js?v={v}"></script>\n'
+    '<!-- Tras cambiar el origen de una lista se comprueba cómo quedó; si se daña, se deshace (27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-lista-verificar-intervalo.js?v={v}"></script>\n'
     '<!-- El globo del gráfico al pasar el cursor, como en Google (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-grafico-globo.js?v={v}"></script>\n'
     '<!-- El panel «Editar gráfico», con las mismas opciones que el de Google (07/09/2026). -->\n'
@@ -78,6 +84,8 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-grafico-panel.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-grafico-boton.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-elegir-rango.js?v={v}"></script>\n'
+    '<!-- La cuadrícula para marcar con el ratón el origen de una lista, también en otra hoja (27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-lista-origen-cuadricula.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-lista-panel.js?v={v}"></script>\n'
     '<!-- Listas de «Personas con acceso» (nómina): hoja oculta + intervalo, y el panel que las rellena (04/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-lista-personas.js?v={v}"></script>\n'
@@ -103,6 +111,8 @@ ARREGLOS = (
     '<script src="/static/js/almacen/editor-borrar-lista.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-arroba-personas.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-proteger-permisos.js?v={v}"></script>\n'
+    '<!-- La hoja entera también con permisos por persona; nunca cerrada al propietario (27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-proteger-hoja-rangos.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-proteger-panel.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-hoja-protegida-candado.js?v={v}"></script>\n'
     '<!-- Solo la pestaña de la hoja abierta, en los libros que lo piden (nombre DRIVE_SOLO_PESTANA_ACTIVA):\n'
@@ -114,6 +124,12 @@ ARREGLOS = (
     '<!-- Inmovilizar filas y columnas desde el clic derecho, como en Google (10/09/2026). -->\n'
     '<script src="/static/js/almacen/editor-inmovilizar.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-inmovilizar-menu.js?v={v}"></script>\n'
+    '<!-- Y en la pestaña Vista → Inmovilizar paneles, donde lo busca quien viene de Google (27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-inmovilizar-vista.js?v={v}"></script>\n'
+    '<!-- Calendario al hacer doble clic en una celda de fecha; ajustar al texto todas las columnas\n'
+    '     o filas seleccionadas (doble clic en el borde o clic derecho) (27/11/2026). -->\n'
+    '<script src="/static/js/almacen/editor-calendario-fecha.js?v={v}"></script>\n'
+    '<script src="/static/js/almacen/editor-ajuste-todo.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-desplegable-aspecto.js?v={v}"></script>\n'
     '<script src="/static/js/almacen/editor-pastillas-todas.js?v={v}"></script>\n'
     '<!-- La pastilla dibujada EN EL LIENZO del editor, parte de la celda (03/09/2026). -->\n'

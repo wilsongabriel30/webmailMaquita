@@ -101,8 +101,9 @@ bien(r.ok === true, 'el intervalo se protege');
 bien(recibido.anadido.nombre === 'Cifras del cierre', 'lleva la descripcion escrita');
 bien(recibido.anadido.ref === "'Ejec. Tec. 2026'!J45:J95",
      'el rango va con el nombre de la hoja: ' + recibido.anadido.ref);
-bien(recibido.anadido.tipo === TIPOS.notView,
-     'los demas no pueden tocarlo (restringido)');
+// 27/11/2026: como en Google, restringir deja a los demas VER sin editar (antes: notView, se les escondia).
+bien(recibido.anadido.tipo === TIPOS.view,
+     'los demas solo pueden verlo (restringido, como en Google)');
 bien(recibido.anadido.usuarios.length === 2, 'viajan las dos personas');
 bien(recibido.anadido.usuarios[0].id === '17' && recibido.anadido.usuarios[0].tipo === TIPOS.edit,
      'la primera puede editar, con SU identificador');
