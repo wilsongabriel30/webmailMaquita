@@ -14,7 +14,9 @@ function editorCon(opciones) {
         asc_registerCallback: function (nombre, fn) {
             if (opciones.noEscucha) throw new Error('no escucho');
             pasado.registrados.push(nombre);
-            editor.avisar = fn;                 // para simular que se marca
+            // para simular que se marca: la selección normal y el aviso del modo
+            if (nombre === 'asc_onSelectionChanged') editor.avisar = fn;
+            if (nombre === 'asc_onSelectionRangeChanged') editor.avisarModo = fn;
         },
         asc_unregisterCallback: function (nombre) { pasado.quitados.push(nombre); },
         asc_getActiveRangeStr: function () { return rangoEnLaHoja; }
@@ -66,10 +68,28 @@ editor.avisar();
 bien(marcado.join(' > ') === "'Ejec. Tec. 2026'!B2:D20 > 'Ejec. Tec. 2026'!B2:D40",
      'cada cambio llega segun se marca, con el nombre de la hoja');
 
+// ── 27/11/2026: CON el modo puesto, OnlyOffice 10 avisa por OTRO lado ───
+// (asc_onSelectionRangeChanged, con el intervalo en el texto) y la selección
+// normal no se mueve. Era lo que fallaba al marcar el origen de una lista.
+bien(pasado.registrados.indexOf('asc_onSelectionRangeChanged') >= 0,
+     'tambien se escucha el aviso del modo de elegir rango');
+marcado = [];
+rangoEnLaHoja = 'A1';                         // la seleccion normal, quieta
+editor.avisarModo('Datos!$E$4:$E$119');
+editor.avisarModo('=Datos!$E$4:$E$82');
+bien(marcado.join(' > ') === 'Datos!$E$4:$E$119 > Datos!$E$4:$E$82',
+     'lo marcado con el modo llega al campo (tambien con «=» delante)');
+editor.avisar();
+bien(marcado.length === 2,
+     'y la seleccion normal, quieta, ya no pisa lo marcado');
+editor.avisarModo('');
+bien(marcado.length === 2, 'un aviso vacio no borra el campo');
+
 // ── Y se suelta todo ─────────────────────────────────────────────────────
 R.parar();
 bien(R.marcando() === false, 'al parar, deja de estar marcando');
-bien(pasado.quitados[0] === 'asc_onSelectionChanged', 'se deja de escuchar');
+bien(pasado.quitados[0] === 'asc_onSelectionChanged'
+     && pasado.quitados[1] === 'asc_onSelectionRangeChanged', 'se deja de escuchar (los dos avisos)');
 bien(pasado.modo[pasado.modo.length - 1].tipo === TIPOS.None,
      'y el modo se apaga: la hoja vuelve a dejar escribir');
 
@@ -110,7 +130,7 @@ editor = editorCon();
 v = ventanaCon(editor);
 R.empezar(v, {});
 R.empezar(v, {});
-bien(pasado.quitados.length === 1, 'al empezar de nuevo se suelta lo de antes');
+bien(pasado.quitados.length === 2, 'al empezar de nuevo se suelta lo de antes');
 
 // Un fallo del panel al recibir el rango no tumba el marcado.
 R.empezar(v, { alCambiar: function () { throw new Error('fallo del panel'); } });
