@@ -48,3 +48,16 @@ const C = window.MaquitaCalendarioFecha;
 bien(C._serie(new Date(2025, 6, 14)) === 45852, 'el 14/07/2025 se escribe como 45852 (serie de Excel)');
 bien(C._fechaDeTexto('14/07/2025').getMonth() === 6, 'se lee la fecha de la celda en día/mes/año');
 bien(C._fechaDeTexto('texto') === null, 'si la celda no tiene fecha, se abre en el mes actual');
+
+// 27/11/2026 (2): OnlyOffice 10 no expone `api.wb` ni `g_oRangeCache`.
+bien(H._piezas({}, ["'1. BD Aplicación Destrezas'!$B$5:$D$9"]).join() === 'A1:XFD4,A10:XFD1048576,A5:A9,E5:XFD9',
+     'excepciones sin g_oRangeCache (analizador propio, con hoja y $)');
+bien(H._piezas({}, ['C:C']).join() === 'A1:B1048576,D1:XFD1048576', 'excepción de una columna entera');
+const hecho = [];
+const vCal = { Asc: { c_oAscPopUpSelectorType: { None: 'ninguno' }, editor: {
+    asc_closeCellEditor: (c) => hecho.push('cerrar:' + c),
+    asc_insertInCell: (t, tipo, auto) => hecho.push('escribir:' + t + ':' + tipo + ':' + auto) } } };
+bien(C._escribir(vCal, new Date(2025, 6, 14)) === true
+     && hecho.join() === 'cerrar:true,escribir:45852:ninguno:false',
+     'el calendario cierra la celda y escribe con la API pública (asc_insertInCell), sin api.wb');
+bien(C._escribir({ Asc: { editor: {} } }, new Date()) === false, 'sin esa API, avisa en vez de romperse');
